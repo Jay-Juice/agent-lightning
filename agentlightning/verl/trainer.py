@@ -18,7 +18,11 @@ import torch
 from omegaconf import OmegaConf
 from tqdm import tqdm
 from verl import DataProto
-from verl.trainer.ppo.metric_utils import compute_data_metrics, compute_throughout_metrics, compute_timing_metrics
+from verl.trainer.ppo.metric_utils import (
+    compute_data_metrics,
+    compute_throughout_metrics,
+    compute_timing_metrics,
+)
 from verl.trainer.ppo.ray_trainer import (
     AdvantageEstimator,  # pyright: ignore[reportPrivateImportUsage]
     RayPPOTrainer,
@@ -35,6 +39,7 @@ from verl.utils.tracking import Tracking
 from agentlightning.client import AgentLightningSyncClient
 from agentlightning.hooks import RolloutHooks, load_hooks
 
+from . import multi_turn_ppo
 from .agl_rollout_manager import (
     AglAsyncRolloutManager,
     AglRolloutManager,
@@ -42,7 +47,10 @@ from .agl_rollout_manager import (
     CompletedRollout,
     EnqueuedRollout,
 )
-from .per_rollout_loss import PER_ROLLOUT_MEAN_LOSS_MODE, normalize_advantages_by_rollout
+from .per_rollout_loss import (
+    PER_ROLLOUT_MEAN_LOSS_MODE,
+    normalize_advantages_by_rollout,
+)
 from .rollout_adapter import RolloutAdapter
 from .rollout_level_advantage import compute_rollout_level_advantage
 
@@ -98,6 +106,9 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.multi_turn_ppo = self.config.agentlightning.get("multi_turn_ppo", {}).get("enabled", False)
+        if self.multi_turn_ppo:
+            multi_turn_ppo.validate_config(self.config)
         self.is_async = self.config.agentlightning.async_rollout.enabled
         self.epoch = 0
         async_train_batch_size = self.config.agentlightning.async_rollout.async_train_batch_size
@@ -145,6 +156,7 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
             local_agent_class=al.local.agent_class,
             local_env_map=al.local.env_map,
             k8s_job_template_path=al.k8s.job_template_path,
+            preserve_model_calls=self.multi_turn_ppo,
         )
 
     def _rollout_replicas(self) -> list[Any]:
@@ -422,10 +434,12 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
         )
 
         if is_train:
-            out, metrics = rollout_adapter.get_train_data_batch(
-                completed_rollouts,
-                global_steps=self.global_steps,
-            )
+            if self.multi_turn_ppo:
+                out, metrics = multi_turn_ppo.build_batch(
+                    rollout_adapter, completed_rollouts, global_steps=self.global_steps
+                )
+            else:
+                out, metrics = rollout_adapter.get_train_data_batch(completed_rollouts, global_steps=self.global_steps)
             metrics.update(async_rollout_metrics)
             metrics.update(self._rollout_lifecycle_metrics(completed_rollouts))
         else:
@@ -494,50 +508,54 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
         batch.meta_info["global_token_num"] = torch.sum(batch.batch["attention_mask"], dim=-1).tolist()
 
         metrics["training/n_sample_collected"] = len(batch)
-        if "is_drop_mask" in batch.batch:
-            keep = (~batch.batch["is_drop_mask"].bool()).nonzero(as_tuple=True)[0].tolist()
-            metrics["training/n_sample_dropped/marked"] = len(batch) - len(keep)
-            batch = batch[keep]  # pyright: ignore[reportAssignmentType]
+        if self.multi_turn_ppo:
+            multi_turn_ppo.validate_batch_size(batch, self.config)
+            metrics["training/n_sample_trained"] = len(batch)
+        else:
+            if "is_drop_mask" in batch.batch:
+                keep = (~batch.batch["is_drop_mask"].bool()).nonzero(as_tuple=True)[0].tolist()
+                metrics["training/n_sample_dropped/marked"] = len(batch) - len(keep)
+                batch = batch[keep]  # pyright: ignore[reportAssignmentType]
 
-        mini_bs = self.config.actor_rollout_ref.actor.ppo_mini_batch_size * self.config.actor_rollout_ref.rollout.n
-        n_transition = len(batch)
-        max_ppo_update_times = self.config.agentlightning.get("max_ppo_update_times", None)
-        n_remained_transition = n_transition // mini_bs * mini_bs
-        if max_ppo_update_times is not None:
-            n_remained_transition = min(n_remained_transition, mini_bs * max_ppo_update_times)
+            mini_bs = self.config.actor_rollout_ref.actor.ppo_mini_batch_size * self.config.actor_rollout_ref.rollout.n
+            n_transition = len(batch)
+            max_ppo_update_times = self.config.agentlightning.get("max_ppo_update_times", None)
+            n_remained_transition = n_transition // mini_bs * mini_bs
+            if max_ppo_update_times is not None:
+                n_remained_transition = min(n_remained_transition, mini_bs * max_ppo_update_times)
 
-        n_to_drop = n_transition - n_remained_transition
-        n_dropped_same_reward = 0
-        n_dropped_random = 0
-        if n_to_drop > 0:
-            same_reward_indices = _same_reward_uid_indices(batch)
-            random.shuffle(same_reward_indices)
-            same_reward_drop_indices = same_reward_indices[:n_to_drop]
-            same_reward_drop_set = set(same_reward_drop_indices)
-            n_dropped_same_reward = len(same_reward_drop_indices)
+            n_to_drop = n_transition - n_remained_transition
+            n_dropped_same_reward = 0
+            n_dropped_random = 0
+            if n_to_drop > 0:
+                same_reward_indices = _same_reward_uid_indices(batch)
+                random.shuffle(same_reward_indices)
+                same_reward_drop_indices = same_reward_indices[:n_to_drop]
+                same_reward_drop_set = set(same_reward_drop_indices)
+                n_dropped_same_reward = len(same_reward_drop_indices)
 
-            n_random_to_drop = n_to_drop - n_dropped_same_reward
-            random_drop_indices: list[int] = []
-            if n_random_to_drop > 0:
-                random_candidates = [
-                    sample_idx for sample_idx in range(n_transition) if sample_idx not in same_reward_drop_set
-                ]
-                random.shuffle(random_candidates)
-                random_drop_indices = random_candidates[:n_random_to_drop]
-                n_dropped_random = len(random_drop_indices)
+                n_random_to_drop = n_to_drop - n_dropped_same_reward
+                random_drop_indices: list[int] = []
+                if n_random_to_drop > 0:
+                    random_candidates = [
+                        sample_idx for sample_idx in range(n_transition) if sample_idx not in same_reward_drop_set
+                    ]
+                    random.shuffle(random_candidates)
+                    random_drop_indices = random_candidates[:n_random_to_drop]
+                    n_dropped_random = len(random_drop_indices)
 
-            drop_indices = same_reward_drop_set | set(random_drop_indices)
-            keep_indices = [sample_idx for sample_idx in range(n_transition) if sample_idx not in drop_indices]
-            batch = batch[keep_indices]  # pyright: ignore[reportAssignmentType]
-        metrics["training/n_sample_dropped/same_reward"] = n_dropped_same_reward
-        metrics["training/n_sample_dropped/random"] = n_dropped_random
-        metrics["training/n_sample_trained"] = len(batch)
-        if len(batch) == 0:
-            print("WARNING: no trainable batch after drop+floor; skipping this training step.")
-            return None
+                drop_indices = same_reward_drop_set | set(random_drop_indices)
+                keep_indices = [sample_idx for sample_idx in range(n_transition) if sample_idx not in drop_indices]
+                batch = batch[keep_indices]  # pyright: ignore[reportAssignmentType]
+            metrics["training/n_sample_dropped/same_reward"] = n_dropped_same_reward
+            metrics["training/n_sample_dropped/random"] = n_dropped_random
+            metrics["training/n_sample_trained"] = len(batch)
+            if len(batch) == 0:
+                print("WARNING: no trainable batch after drop+floor; skipping this training step.")
+                return None
 
         print("AgentLightningRayPPOTrainer: sleeping rollout replicas.")
-        self.checkpoint_manager.sleep_replicas()  # pyright: ignore[reportOptionalMemberAccess]
+        self.checkpoint_manager.sleep_replicas()  # pyright: ignore[reportOptionalMemberAccess, reportUnusedCoroutine]
         print("AgentLightningRayPPOTrainer: rollout replicas slept.")
 
         if self.config.trainer.balance_batch:
@@ -602,14 +620,27 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
                 "norm_adv_by_std_in_grpo": self.config.algorithm.get("norm_adv_by_std_in_grpo", True),
                 "config": self.config.algorithm,
             }
-            if self.config.algorithm.get("enable_rollout_level_advantage", False):
+            if self.multi_turn_ppo:
+                batch = multi_turn_ppo.compute_advantage(
+                    batch,
+                    gamma=self.config.algorithm.gamma,
+                    lam=self.config.algorithm.lam,
+                    whiten=self.config.agentlightning.multi_turn_ppo.whiten_advantages,
+                )
+                multi_turn_ppo.save_audit(
+                    batch,
+                    self.config.agentlightning.multi_turn_ppo.audit_dir,
+                    self.global_steps,
+                )
+            elif self.config.algorithm.get("enable_rollout_level_advantage", False):
                 batch, rollout_adv_metrics = compute_rollout_level_advantage(batch, **adv_kwargs)
                 metrics.update(rollout_adv_metrics)
             else:
                 batch = compute_advantage(batch, **adv_kwargs)
 
         # Count GRPO groups and zero-advantage groups in the trained batch.
-        metrics.update(_grpo_group_metrics(batch))
+        if not self.multi_turn_ppo:
+            metrics.update(_grpo_group_metrics(batch))
         metrics["critic/n_transition_after_dropping"] = len(batch)
         metrics.update(compute_data_metrics(batch=batch, use_critic=self.use_critic))
 
@@ -636,7 +667,7 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
             metrics.update(reduce_metrics(actor_output.meta_info["metrics"]))
 
         with marked_timer("update_weights", timing_raw, color="red"):
-            self.checkpoint_manager.update_weights(self.global_steps)  # pyright: ignore[reportOptionalMemberAccess]
+            self.checkpoint_manager.update_weights(self.global_steps)  # pyright: ignore[reportOptionalMemberAccess, reportUnusedCoroutine]
 
         batch.meta_info["global_token_num"] = torch.sum(batch.batch["attention_mask"], dim=-1).tolist()
         # Return the batch so fit() can compute throughput after the step timer closes.
@@ -658,7 +689,7 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
         self._carry_over_rollouts = []
         self._load_checkpoint()
         # Push loaded weights before the first rollout or validation.
-        self.checkpoint_manager.update_weights(self.global_steps)  # pyright: ignore[reportOptionalMemberAccess]
+        self.checkpoint_manager.update_weights(self.global_steps)  # pyright: ignore[reportOptionalMemberAccess, reportUnusedCoroutine]
 
         if self.config.trainer.get("val_before_train", True):
             val_metrics = self._validate()
@@ -668,7 +699,11 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
             if self.config.trainer.get("val_only", False):
                 return
 
-        progress_bar = tqdm(total=self.total_training_steps, initial=self.global_steps, desc="Training Progress")
+        progress_bar = tqdm(
+            total=self.total_training_steps,
+            initial=self.global_steps,
+            desc="Training Progress",
+        )
 
         self.global_steps += 1
         self.epoch += 1

@@ -260,8 +260,10 @@ class AglRolloutManagerBase:
         local_agent_class: str | None = None,
         local_env_map: dict[str, str] | None = None,
         k8s_job_template_path: str | None = None,
+        preserve_model_calls: bool = False,
     ) -> None:
         self._model = model
+        self._preserve_model_calls = preserve_model_calls
         self._step = step
         self._train_rollout_n = train_rollout_n
         self._poll_interval_seconds = poll_interval_seconds
@@ -408,7 +410,8 @@ class AglRolloutManagerBase:
 
     def _fetch_rollout_events(self, rollout_id: str) -> tuple[list[Event], list[Event]]:
         raw_events = self._get_events(rollout_id)
-        triplet_events = self._get_events(rollout_id, format="triplet")
+        event_format = "triplet-preserve" if self._preserve_model_calls else "triplet"
+        triplet_events = self._get_events(rollout_id, format=event_format)
         return raw_events, triplet_events
 
     @staticmethod

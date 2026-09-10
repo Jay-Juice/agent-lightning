@@ -1,0 +1,3 @@
+# Keep executable scripts and source fingerprints identical on Windows and A800.
+*.py text eol=lf
+*.sh text eol=lf

@@ -201,14 +201,15 @@ async def post_event(rollout_id: str, body: EventCreate, attempt_id: str) -> Eve
 async def query_events(
     rollout_id: str,
     event_type: str | None = None,
-    format: str | None = Query(None, description="Set to 'triplet' to trim events for RL training"),
+    format: str | None = Query(None, description="'triplet' deduplicates prompts; 'triplet-preserve' keeps every call"),
 ) -> list[Event]:
     """Query events for the default rollout attempt."""
     events = _query_events(
         rollout_id=rollout_id,
         event_type=event_type,
     )
-    if format == "triplet":
+    if format in {"triplet", "triplet-preserve"}:
         events = [_to_triplet_format(e) for e in events]
-        events = _dedupe_model_requests_by_prompt_token_ids(events)
+        if format == "triplet":
+            events = _dedupe_model_requests_by_prompt_token_ids(events)
     return events

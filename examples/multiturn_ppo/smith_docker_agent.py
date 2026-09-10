@@ -1,0 +1,253 @@
+# Copyright (c) Microsoft. All rights reserved.
+
+"""Local AGL rollout worker: host model client, unprivileged offline Docker actions.
+
+SWE-smith branches are prepared by trusted code. Grading takes place in a second,
+fresh container, after agent patch export. Neither container has host mounts.
+"""
+
+import io
+import json
+import os
+import re
+import tarfile
+from pathlib import Path, PurePosixPath
+
+import docker
+import httpx
+from openai import OpenAI
+from sandbox import Sandbox, load_smith, validate_task
+
+
+def agent_task(row):
+    result = {k: row[k] for k in ("instance_id", "problem_statement", "image")}
+    validate_task(result)
+    if "@sha256:" not in result["image"]:
+        raise ValueError("Training images must be pinned by digest")
+    return result
+
+
+class SmithSandbox(Sandbox):
+    def prepare(self):
+        iid = self.container.labels["agl.instance_id"]
+        if not re.fullmatch(r"[A-Za-z0-9_.-]+", iid):
+            raise ValueError("Invalid branch name")
+        self.root(["git", "checkout", iid])
+        return super().prepare()
+
+    def copy_bytes(self, content, name="candidate.patch"):
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w") as tar:
+            info = tarfile.TarInfo(name)
+            info.size = len(content)
+            info.mode = 0o600
+            tar.addfile(info, io.BytesIO(content))
+        if not self.container.put_archive("/root", buf.getvalue()):
+            raise RuntimeError("Could not stage patch")
+
+
+def test_nodes(row):
+    f2p, p2p = row["FAIL_TO_PASS"], row["PASS_TO_PASS"]
+    if not f2p or not isinstance(f2p, list) or not isinstance(p2p, list):
+        raise ValueError("Missing test metadata")
+    if len(f2p) + len(p2p) > 200:
+        raise ValueError("Single-machine pilot limits grading to 200 tests")
+    for node in f2p + p2p:
+        path = node.split("::", 1)[0]
+        if path.startswith(("/", "-")) or ".." in PurePosixPath(path).parts:
+            raise ValueError("Invalid test path")
+    return f2p, p2p
+
+
+def grade(row, patch, output_dir, *, reference=False):
+    f2p, p2p = test_nodes(row)
+    client = docker.from_env(timeout=120)
+    box = SmithSandbox(client, agent_task(row), output_dir.name + "-grade")
+    try:
+        preparation = box.prepare()
+        commits = box.git("log", "-3", "--format=%s").splitlines()
+        if commits[:2] != ["Remove F2P Tests", "Bug Patch"]:
+            raise RuntimeError(f"Unexpected SWE-smith branch layout: {commits}")
+        if reference:
+            # Positive control only: restore pre-bug sources before restoring tests.
+            # This code is never used in a model rollout or for its reward.
+            patch = box.git("diff", "HEAD~1", "HEAD~2", "--binary")
+        if patch:
+            box.copy_bytes(patch.encode())
+            box.git("apply", "--check", "/root/candidate.patch")
+            box.git("apply", "/root/candidate.patch")
+        paths = sorted({n.split("::", 1)[0] for n in f2p + p2p})
+        box.git("checkout", "HEAD~1", "--", *paths)
+        # Tests and runner live only in this separate grading container.
+        argv = [
+            "/usr/bin/timeout",
+            "--kill-after=5",
+            "300",
+            "/opt/miniconda3/envs/testbed/bin/python",
+            "-m",
+            "pytest",
+            "-o",
+            "addopts=",
+            "-rA",
+            "-p",
+            "no:cacheprovider",
+            *dict.fromkeys(f2p + p2p),
+        ]
+        result = box.container.exec_run(
+            argv,
+            user="65534:65534",
+            workdir="/testbed",
+            environment={
+                "HOME": "/tmp/agl-home",
+                "PYTHONPATH": "/testbed",
+                "PYTHONDONTWRITEBYTECODE": "1",
+                "PYTEST_DISABLE_PLUGIN_AUTOLOAD": "1",
+                "PATH": "/opt/miniconda3/envs/testbed/bin:/usr/bin:/bin",
+                "OMP_NUM_THREADS": "2",
+                "OPENBLAS_NUM_THREADS": "2",
+            },
+        )
+        output = result.output.decode(errors="replace")
+        (output_dir / "test-output.txt").write_text(output)
+        statuses = load_smith().parse_test_statuses(output)
+        pass_f = sum(statuses.get(n) in ("PASSED", "XFAIL") for n in f2p)
+        pass_p = sum(statuses.get(n) in ("PASSED", "XFAIL") for n in p2p)
+        resolved = result.exit_code == 0 and pass_f == len(f2p) and pass_p == len(p2p)
+        report = {
+            "reward": float(resolved),
+            "resolved": resolved,
+            "pytest_exit": result.exit_code,
+            "f2p_passed": pass_f,
+            "f2p_total": len(f2p),
+            "p2p_passed": pass_p,
+            "p2p_total": len(p2p),
+            "baseline": preparation,
+            "reference_control": reference,
+        }
+        (output_dir / "grade.json").write_text(json.dumps(report, indent=2))
+        return report
+    finally:
+        box.close()
+        client.close()
+
+
+class SmithDockerAgent:
+    def run(self):
+        row = json.loads(os.environ["AGL_TASK"])
+        task = agent_task(row)
+        test_nodes(row)
+        key = os.environ["AGL_KEY"]
+        event_url = os.environ["AGL_EVENT_URL"]
+        rid = event_url.split("/rollouts/")[1].split("/")[0]
+        directory = Path(os.environ["AGL_RUN_DIR"]) / "agent" / rid
+        directory.mkdir()
+        smith = load_smith()
+        from transformers import AutoTokenizer
+
+        tokenizer = AutoTokenizer.from_pretrained(os.environ["AGL_TRAIN_MODEL"], local_files_only=True)
+        context_limit = int(os.environ.get("SMITH_CONTEXT", "12288"))
+        messages = [
+            {"role": "system", "content": smith.SYSTEM_PROMPT},
+            {
+                "role": "user",
+                "content": smith.INSTANCE_PROMPT.format(problem_statement=task["problem_statement"]),
+            },
+        ]
+        (directory / "initial-messages.json").write_text(json.dumps(messages))
+        client = docker.from_env(timeout=120)
+        box = SmithSandbox(client, task, rid)
+        stop_reason = "turn_budget"
+        try:
+            preparation = box.prepare()
+            with (
+                OpenAI(
+                    base_url=os.environ["AGL_OPENAI_BASE_URL"],
+                    api_key=key,
+                    timeout=240,
+                    max_retries=2,
+                ) as llm,
+                (directory / "trajectory.jsonl").open("w") as trace,
+            ):
+                for turn in range(int(os.environ.get("SMITH_MAX_TURNS", "8"))):
+                    token_count = len(
+                        tokenizer.apply_chat_template(
+                            messages,
+                            tokenize=True,
+                            add_generation_prompt=True,
+                            enable_thinking=False,
+                        )
+                    )
+                    if token_count + int(os.environ.get("SMITH_MAX_TOKENS", "768")) > context_limit:
+                        stop_reason = "context_budget"
+                        trace.write(
+                            json.dumps(
+                                {
+                                    "stop_reason": "context_limit",
+                                    "prompt_tokens": token_count,
+                                }
+                            )
+                            + "\n"
+                        )
+                        break
+                    response = llm.chat.completions.create(
+                        model="auto",
+                        messages=messages,
+                        max_tokens=int(os.environ.get("SMITH_MAX_TOKENS", "768")),
+                        temperature=1.0,
+                        extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+                    )
+                    choice = response.choices[0]
+                    content = choice.message.content or ""
+                    messages.append({"role": "assistant", "content": content})
+                    record = {"turn": turn + 1, "response": content}
+                    submitted = False
+                    try:
+                        action = smith.parse_action(content)
+                    except smith.FormatError as exc:
+                        observation = smith.format_error_message(exc.n_actions, choice.finish_reason)
+                    else:
+                        blocked = smith._forbidden_action(action)
+                        rc, out = (1, blocked) if blocked else box.execute(action)
+                        observation = smith.render_observation(rc, out, 4000)
+                        submitted = not blocked and smith.is_submission(out)
+                        record.update(action=action, returncode=rc, output=out)
+                    record.update(observation=observation, submitted=submitted)
+                    trace.write(json.dumps(record) + "\n")
+                    trace.flush()
+                    messages.append({"role": "user", "content": observation})
+                    if submitted:
+                        stop_reason = "submitted"
+                        break
+            patch, paths, rejection = box.export_patch()
+            (directory / "model.patch").write_text(patch)
+            (directory / "sandbox.json").write_text(
+                json.dumps(
+                    {
+                        "baseline": preparation,
+                        "changed_paths": paths,
+                        "rejection": rejection,
+                    },
+                    indent=2,
+                )
+            )
+        finally:
+            box.close()
+            client.close()
+        if rejection:
+            report = {"reward": 0.0, "resolved": False, "patch_rejection": rejection}
+            (directory / "grade.json").write_text(json.dumps(report))
+        else:
+            report = grade(row, patch, directory)
+        httpx.post(
+            event_url,
+            headers={"Authorization": f"Bearer {key}"},
+            json={
+                "event_type": "reward",
+                "data": {
+                    "value": report["reward"],
+                    "reason": stop_reason,
+                    "source": "isolated_pytest",
+                },
+            },
+            timeout=30,
+        ).raise_for_status()

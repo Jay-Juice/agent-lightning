@@ -21,6 +21,10 @@ agentlightning:
     job_template_path: null
   reward_fillna_value: 0.0
   max_ppo_update_times: null
+  multi_turn_ppo:
+    enabled: false
+    whiten_advantages: true
+    audit_dir: null
   trace_aggregator:
     level: trajectory # transition | trajectory
     trajectory_max_prompt_length: 2048
