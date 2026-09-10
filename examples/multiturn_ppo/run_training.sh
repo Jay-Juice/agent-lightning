@@ -9,7 +9,7 @@ export AGL_RUN_DIR="$AGL_RUNTIME/logs/training-$TAG"
 test ! -e "$AGL_RUN_DIR" || { echo "Run exists: $AGL_RUN_DIR" >&2; exit 2; }
 mkdir -p "$AGL_RUN_DIR"/{agent,traces}
 exec >"$AGL_RUN_DIR/run.log" 2>&1
-export CUDA_VISIBLE_DEVICES="${AGL_GPUS:-${AGL_GPU:-4}}"
+export CUDA_VISIBLE_DEVICES="${AGL_GPUS:-${AGL_GPU:-0}}"
 [[ "$CUDA_VISIBLE_DEVICES" =~ ^[0-7](,[0-7])*$ ]] || { echo 'Expected comma-separated physical GPU indices'; exit 2; }
 while read -r used; do
   (( used < 1000 )) || { echo 'A selected GPU is occupied'; exit 2; }

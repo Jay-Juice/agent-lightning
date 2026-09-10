@@ -6,6 +6,7 @@ Actor 和 critic 都只读取当前轮可见历史；尚未加入 privileged inf
 
 按用户要求另提供 [CAPO PPO 直接移植版](CAPO_PPO.md)：复制其 GAE、PPO loss 和
 Actor/Critic 更新代码，使用独立 `backend=capo`，保留来源哈希与原始尾批语义。
+Qwen3-4B 的训练前能力评测与复现命令见 [初始评测记录](INITIAL_4B_EVAL_2026-09-10.md)。
 
 ## 算法约定
 
@@ -36,16 +37,19 @@ Actor/Critic 更新代码，使用独立 `backend=capo`，保留来源哈希与�
 
 ## 在 A800 运行
 
+当前资源分配（用户于 2026-09-10 指定）：后续实验只使用物理 GPU 0–3，GPU 4–7 留给同门。
+单卡入口默认 GPU 0，四卡入口默认 GPU 0–3；历史验收记录中的 GPU 4–7 不是后续运行建议。
+
 本地源代码先按项目外层 `A800/AGENTS.md` 用 rsync 预览、部署。
 在服务器项目根目录运行：
 
 ```bash
 # 两轮算术任务：每个训练 step 采集 2 个完整 episode，默认训练 2 steps。
-AGL_TRAIN_TAG=ppo-smoke-my-run AGL_GPU=4 \
+AGL_TRAIN_TAG=ppo-smoke-my-run AGL_GPU=0 \
   bash examples/multiturn_ppo/run_training.sh --steps 2
 
 # Qwen3-1.7B，缓存的 exceptiongroup SWE-smith 子集，1 training step。
-AGL_TRAIN_TAG=ppo-smith-my-run AGL_GPU=4 \
+AGL_TRAIN_TAG=ppo-smith-my-run AGL_GPU=0 \
   bash examples/multiturn_ppo/run_smith_training.sh
 
 # 四卡 baseline：缓存子集 32 train / 6 validation，32 steps = 4 epochs。
@@ -63,7 +67,7 @@ AGL_TRAIN_TAG=ppo-four-smoke-my-run AGL_GPUS=0,1,2,3 \
 运行器检查 GPU 空闲、D1 剩余空间和端口，将每次实验写入全新目录，
 并只清理自己启动的 gateway/controller。长任务请放入独立命名的 screen。
 模型可用 `AGL_TRAIN_MODEL` 改写，端口可用 `AGL_TRAIN_PORT` 改写。
-默认网关端口 18281，GPU 4；不接入或停止已有 Ray 服务。
+默认网关端口 18281，GPU 0；不接入或停止已有 Ray 服务。
 四卡入口默认使用 GPU 0、1、2、3；vLLM TP=1，共 4 个推理副本，actor/critic 采用 4-rank FSDP。
 
 SWE 入口默认 8 turns、每次最多 768 response tokens、总 context 12288，
@@ -82,7 +86,7 @@ actor 无宿主机挂载、无网络、无 Git history；patch 在另一容器�
 该组合用于检验稳定性，不能据此认定每个配置项的独立因果贡献或已获得任务能力提升。
 
 ```bash
-AGL_TRAIN_TAG=ppo-stability-my-run AGL_GPUS=4,5,6,7 AGL_TRAIN_PORT=18282 \
+AGL_TRAIN_TAG=ppo-stability-my-run AGL_GPUS=0,1,2,3 AGL_TRAIN_PORT=18282 \
   bash examples/multiturn_ppo/run_smith_stable.sh
 ```
 
