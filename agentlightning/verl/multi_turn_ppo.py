@@ -219,6 +219,7 @@ def save_audit(batch: DataProto, directory: str | None, step: int) -> None:
         "token_level_rewards",
         "old_log_probs",
         "rollout_log_probs",
+        "ref_log_prob",
         "values",
         "raw_advantages",
         "advantages",

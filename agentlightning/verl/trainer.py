@@ -638,6 +638,12 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
                     lam=self.config.algorithm.lam,
                     whiten=self.config.agentlightning.multi_turn_ppo.whiten_advantages,
                 )
+                action_mask = batch.batch["response_mask"].bool()
+                raw_std = batch.batch["raw_advantages"][action_mask].float().std(correction=0)
+                actor_std = batch.batch["advantages"][action_mask].float().std(correction=0)
+                metrics["ppo/raw_advantage_std"] = raw_std.item()
+                metrics["ppo/actor_advantage_std"] = actor_std.item()
+                metrics["ppo/advantage_scale"] = (actor_std / raw_std.clamp_min(1e-8)).item()
                 multi_turn_ppo.save_audit(
                     batch,
                     self.config.agentlightning.multi_turn_ppo.audit_dir,
@@ -678,6 +684,8 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
                 critic_output = self._update_critic(update_batch)
             metrics.update(reduce_metrics(critic_output.meta_info["metrics"]))
 
+        if self.multi_turn_ppo:
+            metrics["ppo/actor_updated"] = int(self.config.trainer.critic_warmup <= self.global_steps)
         if self.config.trainer.critic_warmup <= self.global_steps:
             with marked_timer("update_actor", timing_raw, color="red"):
                 actor_output = self._update_actor(update_batch)

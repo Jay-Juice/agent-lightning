@@ -18,13 +18,16 @@ def verify(run):
     if cfg["algorithm"]["adv_estimator"] != "gae" or not cfg["critic"]["enable"]:
         raise RuntimeError("Not a PPO run with an enabled critic")
     metrics = [json.loads(line) for line in (run / "metrics.jsonl").read_text().splitlines()]
-    steps = [row for row in metrics if "actor/grad_norm" in row["data"]]
-    if not steps:
+    steps = [row for row in metrics if "critic/grad_norm" in row["data"]]
+    if not any("actor/grad_norm" in row["data"] for row in steps):
         raise RuntimeError("No actor updates")
     summary = []
     for row in steps:
         step, data = row["step"], row["data"]
-        for key in ("actor/grad_norm", "critic/grad_norm"):
+        actor_updated = step >= cfg["trainer"].get("critic_warmup", 0)
+        if not actor_updated and "actor/grad_norm" in data:
+            raise RuntimeError("Actor updated during critic warmup")
+        for key in ("actor/grad_norm", "critic/grad_norm") if actor_updated else ("critic/grad_norm",):
             if not math.isfinite(data[key]) or data[key] <= 0:
                 raise RuntimeError(f"No finite nonzero {key} at step {step}")
         if data["training/n_sample_collected"] != data["training/n_sample_trained"]:
@@ -36,6 +39,10 @@ def verify(run):
         for key in ("values", "raw_advantages", "advantages", "returns", "old_log_probs"):
             if not torch.isfinite(tensors[key][mask]).all():
                 raise RuntimeError(f"Nonfinite {key}")
+        if not cfg["agentlightning"]["multi_turn_ppo"]["whiten_advantages"]:
+            assert torch.equal(tensors["advantages"][mask], tensors["raw_advantages"][mask])
+        if cfg["actor_rollout_ref"]["actor"]["use_kl_loss"]:
+            assert torch.isfinite(tensors["ref_log_prob"][mask]).all()
         groups = defaultdict(list)
         for i, rid in enumerate(meta["rollout_id_list"]):
             groups[rid].append(i)
@@ -58,7 +65,8 @@ def verify(run):
                 "calls": len(mask),
                 "action_tokens": int(mask.sum()),
                 "reward_sum": float(tensors["token_level_scores"].sum()),
-                "actor_grad_norm": data["actor/grad_norm"],
+                "actor_updated": actor_updated,
+                "actor_grad_norm": data.get("actor/grad_norm"),
                 "critic_grad_norm": data["critic/grad_norm"],
             }
         )
@@ -79,7 +87,16 @@ def verify(run):
         assert all(steps == rank_steps[0] for steps in rank_steps)
         optimizer_steps[role] = rank_steps[0] if world == 1 else rank_steps
     assert not list((run / "traces").glob("*.failed.json"))
-    result = {"run": str(run), "steps": summary, "optimizer_steps": optimizer_steps, "status": "verified"}
+    result = {
+        "run": str(run),
+        "steps": summary,
+        "optimizer_steps": optimizer_steps,
+        "status": "verified",
+        "verification_scope": "PPO execution, temporal tensors and checkpoints; not task quality",
+        "task_success_observed": any(
+            row["data"].get("training/reward", 0) > 0 or row["data"].get("val/reward", 0) > 0 for row in metrics
+        ),
+    }
     (run / "verification.json").write_text(json.dumps(result, indent=2))
     return result
 

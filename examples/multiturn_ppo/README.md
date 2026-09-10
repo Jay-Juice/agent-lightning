@@ -70,6 +70,23 @@ SWE 入口默认 8 turns、每次最多 768 response tokens、总 context 12288�
 actor 无宿主机挂载、无网络、无 Git history；patch 在另一容器中用测试集判定成功。
 现有适配器禁止测试/配置文件修改，结果不能直接当作 unrestricted SWE-bench 分数。
 
+## SWE 稳定性修复试验
+
+原四卡 SWE baseline 出现持续零奖励和输出退化，不能作为全量训练的已验收配置。
+`run_smith_stable.sh` 提供独立的保守试验配置：原始 Qwen3-1.7B、四卡、32/6 数据、12 步，
+前 4 步仅更新 critic，第 5 步起更新 actor；关闭优势标准化，actor LR=1e-6，
+参考模型 KL loss coefficient=0.02，critic LR=1e-5，终局奖励仍是二值，gamma=lambda=1。
+该组合用于检验稳定性，不能据此认定每个配置项的独立因果贡献或已获得任务能力提升。
+
+```bash
+AGL_TRAIN_TAG=ppo-stability-my-run AGL_GPUS=4,5,6,7 AGL_TRAIN_PORT=18282 \
+  bash examples/multiturn_ppo/run_smith_stable.sh
+```
+
+新增指标 `ppo/raw_advantage_std`、`ppo/actor_advantage_std`、`ppo/advantage_scale` 和
+`ppo/actor_updated`，用于区分 critic 误差、标准化放大与预热。审计同时保存 `ref_log_prob`。
+从退化 checkpoint 恢复不能检验原始模型的稳定性，本试验默认从预训练权重重新开始。
+
 ## 断点恢复
 
 ```bash
@@ -113,3 +130,4 @@ python examples/multiturn_ppo/verify_run.py --run /absolute/path/to/training-TAG
 
 实测配置、运行目录与结果见 [2026-09-10 验收记录](VALIDATION_2026-09-10.md)。
 四卡尾批处理、短测结果和 baseline 命令见 [四卡验收与运行记录](VALIDATION_FOUR_GPU_2026-09-10.md)。
+原 SWE 配置的输出退化诊断及保守配置试验见 [稳定性修复记录](STABILITY_FIX_2026-09-10.md)。

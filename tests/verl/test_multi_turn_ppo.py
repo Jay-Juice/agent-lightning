@@ -122,6 +122,18 @@ def test_whitening_does_not_change_critic_returns():
     assert norm.batch["returns"][1, 1].item() == pytest.approx(2)
 
 
+def test_zero_reward_preserves_small_value_errors_when_whitening_disabled():
+    batch = temporal_batch()
+    batch.batch["token_level_rewards"].zero_()
+    batch.batch["values"] *= 0.01
+    out = compute_advantage(batch, gamma=1, lam=1, whiten=False)
+    valid = out.batch["response_mask"].bool()
+    # Telescoping Monte Carlo GAE: A = R - V, even across tool turns.
+    assert torch.allclose(out.batch["advantages"][valid], -out.batch["values"][valid], atol=1e-7)
+    assert torch.allclose(out.batch["returns"][valid], torch.zeros(int(valid.sum())), atol=1e-7)
+    assert out.batch["advantages"][valid].std() < 0.01
+
+
 @pytest.mark.parametrize(
     "key,value",
     [
