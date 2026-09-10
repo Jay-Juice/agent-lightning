@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 TOOLS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Conservative SWE PPO profile. Keep terminal binary rewards and native GAE.
+# Conservative SWE PPO profile. Keep terminal binary rewards and cross-turn token GAE.
 # veRL starts actor updates at global_step >= critic_warmup: 5 means 4 warmup steps.
 DATA=/media/ubuntu/D1/zsj/agent-lightning-runtime/data/swe-smith-training/exceptiongroup
 bash "$TOOLS/run_four_gpu.sh" \

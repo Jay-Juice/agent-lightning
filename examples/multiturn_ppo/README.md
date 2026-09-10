@@ -148,3 +148,6 @@ python examples/multiturn_ppo/verify_run.py --run /absolute/path/to/training-TAG
 实测配置、运行目录与结果见 [2026-09-10 验收记录](VALIDATION_2026-09-10.md)。
 四卡尾批处理、短测结果和 baseline 命令见 [四卡验收与运行记录](VALIDATION_FOUR_GPU_2026-09-10.md)。
 原 SWE 配置的输出退化诊断及保守配置试验见 [稳定性修复记录](STABILITY_FIX_2026-09-10.md)。
+实现来源、与旧 Agent-R1/CAPO PPO 的实际差异、独立 GAE 数值对照及 SWE 失败轨迹见
+[PPO 参考实现审计](PPO_REFERENCE_AUDIT_2026-09-10.md)。当前 fast/stable 是实验配方，
+不代表上游 SWE 示例或旧 CAPO PPO baseline 的完整复现。
