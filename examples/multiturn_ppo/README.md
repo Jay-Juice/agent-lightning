@@ -7,6 +7,8 @@ Actor 和 critic 都只读取当前轮可见历史；尚未加入 privileged inf
 按用户要求另提供 [CAPO PPO 直接移植版](CAPO_PPO.md)：复制其 GAE、PPO loss 和
 Actor/Critic 更新代码，使用独立 `backend=capo`，保留来源哈希与原始尾批语义。
 Qwen3-4B 的训练前能力评测与复现命令见 [初始评测记录](INITIAL_4B_EVAL_2026-09-10.md)。
+对 0/32 的逐题正负对照、输入完整性、预算差异与拒绝补丁重放见
+[零奖励复核](SWE_ZERO_REWARD_RECHECK_2026-09-10.md)：不能将零分归因于模型单一因素。
 
 ## 算法约定
 
