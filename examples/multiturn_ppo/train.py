@@ -147,6 +147,7 @@ def build_config(args):
     sources = [
         repo / "agentlightning/verl/multi_turn_ppo.py",
         repo / "agentlightning/verl/distributed_ppo.py",
+        repo / "agentlightning/verl/capo_ppo.py",
         repo / "agentlightning/verl/entrypoint.py",
         repo / "agentlightning/verl/config.yaml",
         repo / "agentlightning/verl/trainer.py",
@@ -155,6 +156,11 @@ def build_config(args):
         *Path(__file__).parent.glob("*.py"),
         *Path(__file__).parent.glob("*.sh"),
     ]
+    if cfg.agentlightning.multi_turn_ppo.get("backend", "agl") == "capo":
+        from agentlightning.verl.capo_ppo import verify_vendor
+
+        verify_vendor()
+        sources.extend(p for p in (repo / "agentlightning/verl/vendor/capo").iterdir() if p.is_file())
     provenance = {
         "versions": {
             name: importlib.metadata.version(name)

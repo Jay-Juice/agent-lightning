@@ -108,6 +108,9 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.multi_turn_ppo = self.config.agentlightning.get("multi_turn_ppo", {}).get("enabled", False)
+        self.capo_ppo = (
+            self.multi_turn_ppo and self.config.agentlightning.multi_turn_ppo.get("backend", "agl") == "capo"
+        )
         self.distributed_ppo = self.config.agentlightning.get("multi_turn_ppo", {}).get("distributed_padding", False)
         if self.distributed_ppo and not self.multi_turn_ppo:
             raise ValueError("distributed_padding requires multi_turn_ppo.enabled=true")
@@ -562,6 +565,12 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
         self.checkpoint_manager.sleep_replicas()  # pyright: ignore[reportOptionalMemberAccess, reportUnusedCoroutine]
         print("AgentLightningRayPPOTrainer: rollout replicas slept.")
 
+        if self.capo_ppo:
+            from .capo_ppo import prepare_batch
+
+            batch = prepare_batch(self, batch)
+            metrics["capo/padding_rows"] = int(batch.non_tensor_batch["is_pad"].sum())
+
         if self.config.trainer.balance_batch:
             if self.distributed_ppo:
                 batch = pad_inference(batch, self.resource_pool_manager.get_n_gpus())
@@ -632,13 +641,20 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
                 "config": self.config.algorithm,
             }
             if self.multi_turn_ppo:
-                batch = multi_turn_ppo.compute_advantage(
-                    batch,
-                    gamma=self.config.algorithm.gamma,
-                    lam=self.config.algorithm.lam,
-                    whiten=self.config.agentlightning.multi_turn_ppo.whiten_advantages,
-                )
+                if self.capo_ppo:
+                    from .capo_ppo import compute_advantage as compute_capo_advantage
+
+                    batch = compute_capo_advantage(batch, self.config.algorithm.gamma, self.config.algorithm.lam)
+                else:
+                    batch = multi_turn_ppo.compute_advantage(
+                        batch,
+                        gamma=self.config.algorithm.gamma,
+                        lam=self.config.algorithm.lam,
+                        whiten=self.config.agentlightning.multi_turn_ppo.whiten_advantages,
+                    )
                 action_mask = batch.batch["response_mask"].bool()
+                if self.capo_ppo:
+                    action_mask[batch.non_tensor_batch["is_pad"]] = False
                 raw_std = batch.batch["raw_advantages"][action_mask].float().std(correction=0)
                 actor_std = batch.batch["advantages"][action_mask].float().std(correction=0)
                 metrics["ppo/raw_advantage_std"] = raw_std.item()

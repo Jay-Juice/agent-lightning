@@ -1,4 +1,4 @@
-exclude: ^(\.agents/|examples/llm-in-sandbox/vendor/)
+exclude: ^(\.agents/|examples/llm-in-sandbox/vendor/|agentlightning/verl/vendor/capo/)
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks

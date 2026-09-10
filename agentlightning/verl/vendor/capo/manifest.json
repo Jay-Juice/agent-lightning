@@ -1,0 +1,69 @@
+{
+  "source_repository": "https://github.com/Jay-Juice/Agent-R1",
+  "source_commit": "e8407baea32fb36191f029f0a4666bf681bdf1ca",
+  "scope": "CAPO repository token PPO baseline, not the CAPO action-ratio algorithm",
+  "files": {
+    "arft_core_algos.py": {
+      "source": "arft/core_algos.py",
+      "source_sha256_lf": "5873341434b06a13b9a9676ef673a3b3d5836dfa3e32b90f154e9b4cb2539d00",
+      "copied_sha256_lf": "5873341434b06a13b9a9676ef673a3b3d5836dfa3e32b90f154e9b4cb2539d00",
+      "replacements": {},
+      "added_notice": null
+    },
+    "verl_core_algos.py": {
+      "source": "verl/verl/trainer/ppo/core_algos.py",
+      "source_sha256_lf": "cefe3f3d77ce4bedca27e65601fa2592c5f1568fd82ee40ef52b2602c0c06123",
+      "copied_sha256_lf": "cefe3f3d77ce4bedca27e65601fa2592c5f1568fd82ee40ef52b2602c0c06123",
+      "replacements": {},
+      "added_notice": null
+    },
+    "dp_actor.py": {
+      "source": "verl/verl/workers/actor/dp_actor.py",
+      "source_sha256_lf": "f0f1f8e64aacc63658f526de8804baf2b891e02ce6c50dda645471dee5acb211",
+      "copied_sha256_lf": "02ec9d78340ba0b191b6006afe7d709285f27cfe5a6b5f30041a1a6c983f3771",
+      "replacements": {
+        "from verl.trainer.ppo.core_algos import": "from .verl_core_algos import"
+      },
+      "added_notice": "# Agent Lightning modification: redirect PPO imports to the vendored CAPO snapshot."
+    },
+    "dp_critic.py": {
+      "source": "verl/verl/workers/critic/dp_critic.py",
+      "source_sha256_lf": "ab19baa918f1a6dcdc33b8b54cdca867c1f4df6e356172149935fa2db2a085ad",
+      "copied_sha256_lf": "06827b651a0269c3dbaca33daa8bcd1377cb88c2d78433160d6e719bdb2b58e3",
+      "replacements": {
+        "from verl.trainer.ppo import core_algos": "from . import verl_core_algos as core_algos"
+      },
+      "added_notice": "# Agent Lightning modification: redirect PPO imports to the vendored CAPO snapshot."
+    },
+    "reference_run_ppo.sh": {
+      "source": "examples/alfworld/run_ppo.sh",
+      "source_sha256_lf": "e7e7338f9aaa54e82a55f224eb4bd7a8378409957055ad7da1a044fd24a69ad0",
+      "copied_sha256_lf": "e7e7338f9aaa54e82a55f224eb4bd7a8378409957055ad7da1a044fd24a69ad0",
+      "replacements": {},
+      "added_notice": null
+    },
+    "LICENSE": {
+      "source": "verl/LICENSE",
+      "source_sha256_lf": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "copied_sha256_lf": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "replacements": {},
+      "added_notice": null
+    },
+    "trajectory.py": {
+      "source": "arft/ray_agent_trainer.py",
+      "source_sha256_lf": "f66ef2736037276fbfad9e7b9a34fb6d12158d26ed61a1108e9ca3fb7b7ed816",
+      "copied_sha256_lf": "8fd68247759b07d64c82895a1306dee97d284a821b2b9c26b31f510455ede7de",
+      "selected_functions": [
+        "_agent_adv_estimator_key",
+        "_critic_vf_loss_response_mask",
+        "_pad_dataproto_to_world_size",
+        "_scatter_step_gae_diagnostics",
+        "compute_advantage",
+        "get_valid_data"
+      ],
+      "replacements": {
+        "from arft.core_algos import": "from .arft_core_algos import"
+      }
+    }
+  }
+}

@@ -1,3 +1,5 @@
 # Keep executable scripts and source fingerprints identical on Windows and A800.
 *.py text eol=lf
 *.sh text eol=lf
+# Preserve whitespace in copied CAPO sources so their provenance hashes remain valid.
+agentlightning/verl/vendor/capo/** whitespace=-blank-at-eol

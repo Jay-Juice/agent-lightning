@@ -71,7 +71,7 @@ url = "https://download.pytorch.org/whl/cpu"
 [tool.ruff]
 line-length = 120
 target-version = "py312"
-exclude = ["examples/llm-in-sandbox/vendor"]
+exclude = ["examples/llm-in-sandbox/vendor", "agentlightning/verl/vendor/capo"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
@@ -81,6 +81,7 @@ quote-style = "double"
 
 [tool.pyright]
 include = ["agentlightning", "tests", "docs/macros", "scripts"]
+exclude = ["agentlightning/verl/vendor/capo"]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
 venvPath = "."

@@ -4,6 +4,9 @@
 Actor 和 critic 都只读取当前轮可见历史；尚未加入 privileged information。
 默认使用 A800 的现有环境和本地模型，不下载模型或数据。
 
+按用户要求另提供 [CAPO PPO 直接移植版](CAPO_PPO.md)：复制其 GAE、PPO loss 和
+Actor/Critic 更新代码，使用独立 `backend=capo`，保留来源哈希与原始尾批语义。
+
 ## 算法约定
 
 - 每次模型调用一条 transition，保留真实 prompt 和 response token IDs。

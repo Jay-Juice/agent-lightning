@@ -28,11 +28,17 @@ from .rollout_adapter import RolloutAdapter
 def validate_config(config: Any) -> None:
     """Reject combinations that silently change temporal PPO semantics."""
     if not config.agentlightning.multi_turn_ppo.enabled:
+        if config.agentlightning.multi_turn_ppo.get("backend", "agl") == "capo":
+            raise ValueError("CAPO backend requires multi_turn_ppo.enabled=true")
         if config.agentlightning.multi_turn_ppo.get("distributed_padding", False):
             raise ValueError("distributed_padding requires multi_turn_ppo.enabled=true")
         return
-    if config.algorithm.adv_estimator != "gae" or not config.critic.enable:
-        raise ValueError("multi_turn_ppo requires adv_estimator=gae and critic.enable=true")
+    backend = config.agentlightning.multi_turn_ppo.get("backend", "agl")
+    if backend not in {"agl", "capo"}:
+        raise ValueError(f"Unknown multi-turn PPO backend: {backend}")
+    estimator = "token_gae" if backend == "capo" else "gae"
+    if config.algorithm.adv_estimator != estimator or not config.critic.enable:
+        raise ValueError(f"multi_turn_ppo backend={backend} requires adv_estimator={estimator} and critic.enable=true")
     if config.algorithm.enable_rollout_level_advantage:
         raise ValueError("multi_turn_ppo requires enable_rollout_level_advantage=false")
     if config.agentlightning.trace_aggregator.level != "transition":
@@ -43,6 +49,10 @@ def validate_config(config: Any) -> None:
         raise ValueError("multi_turn_ppo retains every turn; max_ppo_update_times must be null")
     if config.actor_rollout_ref.actor.policy_loss.loss_mode != "vanilla":
         raise ValueError("The initial multi_turn_ppo baseline uses vanilla clipped PPO loss")
+    if backend == "capo":
+        from .capo_ppo import validate_config as validate_capo_config
+
+        validate_capo_config(config)
     if config.agentlightning.multi_turn_ppo.get("distributed_padding", False):
         world = config.trainer.n_gpus_per_node * config.trainer.nnodes
         if config.actor_rollout_ref.rollout.n != 1:
@@ -137,7 +147,10 @@ def build_batch(adapter: RolloutAdapter, rollouts: list[CompletedRollout], *, gl
 
 def validate_batch_size(batch: DataProto, config: Any) -> None:
     """No row flooring, biased reward-based dropping, or dummy-token padding."""
-    if config.agentlightning.multi_turn_ppo.get("distributed_padding", False):
+    if (
+        config.agentlightning.multi_turn_ppo.get("distributed_padding", False)
+        or config.agentlightning.multi_turn_ppo.get("backend", "agl") == "capo"
+    ):
         return
     world = config.trainer.n_gpus_per_node * config.trainer.nnodes
     sizes = [
@@ -240,4 +253,6 @@ def save_audit(batch: DataProto, directory: str | None, step: int) -> None:
             "episode_terminal",
         )
     }
+    if "is_pad" in batch.non_tensor_batch:
+        metadata["is_pad"] = batch.non_tensor_batch["is_pad"].tolist()
     (path / f"step-{step:06d}.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")

@@ -15,7 +15,8 @@ def verify(run):
     if (run / "run.exit").read_text().strip() != "0":
         raise RuntimeError("Training did not exit successfully")
     cfg = json.loads((run / "resolved-config.json").read_text())
-    if cfg["algorithm"]["adv_estimator"] != "gae" or not cfg["critic"]["enable"]:
+    capo = cfg["agentlightning"]["multi_turn_ppo"].get("backend", "agl") == "capo"
+    if cfg["algorithm"]["adv_estimator"] != ("token_gae" if capo else "gae") or not cfg["critic"]["enable"]:
         raise RuntimeError("Not a PPO run with an enabled critic")
     metrics = [json.loads(line) for line in (run / "metrics.jsonl").read_text().splitlines()]
     steps = [row for row in metrics if "critic/grad_norm" in row["data"]]
@@ -36,6 +37,27 @@ def verify(run):
         tensors = torch.load(audit_dir / f"step-{step:06d}.pt", map_location="cpu", weights_only=True)
         meta = json.loads((audit_dir / f"step-{step:06d}.json").read_text())
         mask = tensors["response_mask"].bool()
+        padded = meta.get("is_pad", [False] * len(mask))
+        if capo:
+            import numpy as np
+            from verl import DataProto
+
+            from agentlightning.verl.vendor.capo.trajectory import compute_advantage
+
+            check = DataProto.from_dict(
+                tensors={k: tensors[k] for k in ("response_mask", "values", "token_level_rewards")},
+                non_tensors={
+                    "is_pad": np.array(padded),
+                    "trajectory_uids": np.array(meta["rollout_id_list"]),
+                    "step_indices": np.array(meta["turn_index_list"]),
+                },
+            )
+            check = compute_advantage(check, "token_gae", gamma=cfg["algorithm"]["gamma"], lam=cfg["algorithm"]["lam"])
+            torch.testing.assert_close(check.batch["advantages"], tensors["advantages"])
+            torch.testing.assert_close(check.batch["returns"], tensors["returns"])
+            assert tensors["advantages"][padded].count_nonzero() == 0
+            assert tensors["returns"][padded].count_nonzero() == 0
+            mask[padded] = False
         for key in ("values", "raw_advantages", "advantages", "returns", "old_log_probs"):
             if not torch.isfinite(tensors[key][mask]).all():
                 raise RuntimeError(f"Nonfinite {key}")
@@ -45,7 +67,8 @@ def verify(run):
             assert torch.isfinite(tensors["ref_log_prob"][mask]).all()
         groups = defaultdict(list)
         for i, rid in enumerate(meta["rollout_id_list"]):
-            groups[rid].append(i)
+            if not padded[i]:
+                groups[rid].append(i)
         for indices in groups.values():
             indices.sort(key=lambda i: meta["turn_index_list"][i])
             assert [meta["turn_index_list"][i] for i in indices] == list(range(len(indices)))
@@ -62,9 +85,10 @@ def verify(run):
             {
                 "step": step,
                 "episodes": len(groups),
-                "calls": len(mask),
+                "calls": len(mask) - sum(padded),
+                "padding_rows": sum(padded),
                 "action_tokens": int(mask.sum()),
-                "reward_sum": float(tensors["token_level_scores"].sum()),
+                "reward_sum": float((tensors["token_level_scores"] * mask).sum()),
                 "actor_updated": actor_updated,
                 "actor_grad_norm": data.get("actor/grad_norm"),
                 "critic_grad_norm": data["critic/grad_norm"],
@@ -89,6 +113,7 @@ def verify(run):
     assert not list((run / "traces").glob("*.failed.json"))
     result = {
         "run": str(run),
+        "backend": "capo" if capo else "agl",
         "steps": summary,
         "optimizer_steps": optimizer_steps,
         "status": "verified",
