@@ -87,6 +87,23 @@ AGL_TRAIN_TAG=ppo-stability-my-run AGL_GPUS=4,5,6,7 AGL_TRAIN_PORT=18282 \
 `ppo/actor_updated`，用于区分 critic 误差、标准化放大与预热。审计同时保存 `ref_log_prob`。
 从退化 checkpoint 恢复不能检验原始模型的稳定性，本试验默认从预训练权重重新开始。
 
+### A800 提速和无预热配置
+
+`run_smith_fast.sh` 默认四卡、8 步、无 critic 预热，其余学习配置沿用上述保守配置。
+它将参数和优化器留在 GPU，关闭激活重算，推理 micro-batch=2，启用 vLLM CUDA graph，
+本地 agent 并发上限=8，并写入 `gpu.csv`。训练 global mini-batch=4、micro-batch=1。
+数学目标和精度不变，随机轨迹不保证逐位一致；实测结果见
+[预热与速度对照](WARMUP_SPEED_2026-09-10.md)。历史预热配置仍保留用于复现。
+
+```bash
+AGL_TRAIN_TAG=ppo-fast-my-run AGL_GPUS=0,1,2,3 \
+  bash examples/multiturn_ppo/run_smith_fast.sh
+```
+
+SWE 的 `SMITH_MAX_TURNS`、`SMITH_MAX_TOKENS` 和 `SMITH_CONTEXT` 可通过环境变量调整；
+入口同步设置 agent、数据和 vLLM 的 token 上限，默认仍为 8 / 768 / 12288。
+`AGL_MAX_LOCAL_AGENTS` 控制本地并发；有效值写入 `provenance.json` 的 `runtime_options`。
+
 ## 断点恢复
 
 ```bash

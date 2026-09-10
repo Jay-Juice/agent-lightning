@@ -36,16 +36,24 @@ PORT="${AGL_TRAIN_PORT:-18281}"
 export AGL_BASE_URL="http://127.0.0.1:$PORT"
 MODEL="${AGL_TRAIN_MODEL:-/media/ubuntu/D1/zsj/GOPD/G-OPD-main/models/Qwen3-0.6B}"
 export AGL_TRAIN_MODEL="$MODEL"
-server_pid='' controller_pid=''
+LOCAL_AGENTS="${AGL_MAX_LOCAL_AGENTS:-4}"
+[[ "$LOCAL_AGENTS" =~ ^[1-9][0-9]*$ ]] || { echo 'AGL_MAX_LOCAL_AGENTS must be positive'; exit 2; }
+server_pid='' controller_pid='' monitor_pid=''
 cleanup() {
   code=$?
   trap - EXIT INT TERM
-  for pid in "$controller_pid" "$server_pid"; do
+  for pid in "$controller_pid" "$server_pid" "$monitor_pid"; do
     if [[ -n "$pid" ]]; then kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; fi
   done
   printf '%s\n' "$code" > "$AGL_RUN_DIR/run.exit"
 }
 trap cleanup EXIT
+if [[ "${AGL_GPU_MONITOR:-0}" == 1 ]]; then
+  nvidia-smi -i "$CUDA_VISIBLE_DEVICES" \
+    --query-gpu=timestamp,index,utilization.gpu,memory.used,power.draw \
+    --format=csv,noheader,nounits -l 2 >"$AGL_RUN_DIR/gpu.csv" 2>"$AGL_RUN_DIR/gpu-monitor.log" &
+  monitor_pid=$!
+fi
 python - "$PORT" <<'PY'
 import socket, sys
 with socket.socket() as s: s.bind(('127.0.0.1', int(sys.argv[1])))
@@ -60,7 +68,7 @@ for ((i=0;i<60;i++)); do
 done
 curl -fs "$AGL_BASE_URL/healthz" >/dev/null
 agl-controller runner_type=local agl_server.url="$AGL_BASE_URL" agl_server.key="$AGL_KEY" \
-  local_runner.maximum_size=4 local_runner.poll_interval=1 >"$AGL_RUN_DIR/controller.log" 2>&1 &
+  local_runner.maximum_size="$LOCAL_AGENTS" local_runner.poll_interval=1 >"$AGL_RUN_DIR/controller.log" 2>&1 &
 controller_pid=$!
 python -u "$TOOLS/train.py" --model "$MODEL" "$@" >"$AGL_RUN_DIR/trainer.log" 2>&1
 echo TRAINING_FINISHED

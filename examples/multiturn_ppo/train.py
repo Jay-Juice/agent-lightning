@@ -164,6 +164,13 @@ def build_config(args):
             str(path.relative_to(repo)): hashlib.sha256(path.read_bytes()).hexdigest() for path in sources
         },
         "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"),
+        "runtime_options": {
+            "local_runner_maximum_size": int(os.environ.get("AGL_MAX_LOCAL_AGENTS", "4")),
+            "gpu_monitor_enabled": os.environ.get("AGL_GPU_MONITOR", "0") == "1",
+            "smith_budgets": {
+                name: os.environ.get(name) for name in ("SMITH_MAX_TURNS", "SMITH_MAX_TOKENS", "SMITH_CONTEXT")
+            },
+        },
     }
     (run / "provenance.json").write_text(json.dumps(provenance, indent=2))
     return cfg
