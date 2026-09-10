@@ -43,6 +43,8 @@ def run_ppo(
 
     assert train_dataset is not None and len(train_dataset) > 0, "train_dataset must be non-empty"
     assert val_dataset is not None and len(val_dataset) > 0, "val_dataset must be non-empty"
+    if ray.is_initialized() and config.agentlightning.get("multi_turn_ppo", {}).get("distributed_padding", False):
+        raise ValueError("Padding-aware PPO must initialize its own Ray job to install the worker aggregation hook")
 
     if not ray.is_initialized():
         default_runtime_env = cast(dict[str, Any], get_ppo_ray_runtime_env())
@@ -54,9 +56,14 @@ def run_ppo(
         runtime_env_kwargs = dict(runtime_env_config) if isinstance(runtime_env_config, dict) else {}
         runtime_env = {**default_runtime_env, **runtime_env_kwargs}
         # Register the custom policy loss in each Ray actor process.
+        setup_hook = "agentlightning.verl.per_rollout_loss.register_in_worker"
+        if config.agentlightning.get("multi_turn_ppo", {}).get("distributed_padding", False):
+            setup_hook = "agentlightning.verl.distributed_ppo.register_in_worker"
+            if runtime_env.get("worker_process_setup_hook", setup_hook) != setup_hook:
+                raise ValueError("distributed PPO requires its padding-aware worker setup hook")
         runtime_env.setdefault(
             "worker_process_setup_hook",
-            "agentlightning.verl.per_rollout_loss.register_in_worker",
+            setup_hook,
         )
         _temp_dir = os.environ.get("RAY_TMPDIR")
         ray.init(

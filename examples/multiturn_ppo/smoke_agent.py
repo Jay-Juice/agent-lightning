@@ -24,7 +24,10 @@ class SmokeAgent:
         ]
         calls = []
         with OpenAI(base_url=os.environ["AGL_OPENAI_BASE_URL"], api_key=key, timeout=180) as client:
-            for turn in range(2):
+            turns = int(task.get("turns", 2))
+            if not 1 <= turns <= 8:
+                raise ValueError("Diagnostic tasks support 1 to 8 turns")
+            for turn in range(turns):
                 response = client.chat.completions.create(
                     model="auto",
                     messages=messages,
@@ -35,7 +38,7 @@ class SmokeAgent:
                 content = response.choices[0].message.content or ""
                 calls.append(content)
                 messages.append({"role": "assistant", "content": content})
-                if turn == 0:
+                if turn < turns - 1:
                     valid = bool(re.fullmatch(r"\s*[-+]?\d+\s*", content))
                     messages.append(
                         {
@@ -64,6 +67,6 @@ class SmokeAgent:
             "prediction": predicted,
             "reward": reward,
             "rollout_id": rid,
-            "turns": 2,
+            "turns": turns,
         }
         (Path(os.environ["AGL_RUN_DIR"]) / "agent" / f"{rid}.json").write_text(json.dumps(record, indent=2))

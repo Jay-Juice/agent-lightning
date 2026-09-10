@@ -64,16 +64,20 @@ def verify(run):
         )
     checkpoint = run / "checkpoints" / f"global_step_{steps[-1]['step']}"
     optimizer_steps = {}
+    world = cfg["trainer"]["n_gpus_per_node"] * cfg["trainer"]["nnodes"]
     for role in ("actor", "critic"):
-        assert (checkpoint / role / "model_world_size_1_rank_0.pt").is_file()
-        assert (checkpoint / role / "extra_state_world_size_1_rank_0.pt").is_file()
-        state = torch.load(
-            checkpoint / role / "optim_world_size_1_rank_0.pt", map_location="cpu", weights_only=False, mmap=True
-        )
-        updates = sorted({int(value["step"]) for value in state["state"].values() if "step" in value})
-        assert updates and min(updates) > 0
-        optimizer_steps[role] = updates
-        del state
+        rank_steps = []
+        for rank in range(world):
+            suffix = f"world_size_{world}_rank_{rank}.pt"
+            assert (checkpoint / role / f"model_{suffix}").is_file()
+            assert (checkpoint / role / f"extra_state_{suffix}").is_file()
+            state = torch.load(checkpoint / role / f"optim_{suffix}", map_location="cpu", weights_only=False, mmap=True)
+            updates = sorted({int(value["step"]) for value in state["state"].values() if "step" in value})
+            assert updates and min(updates) > 0
+            rank_steps.append(updates)
+            del state
+        assert all(steps == rank_steps[0] for steps in rank_steps)
+        optimizer_steps[role] = rank_steps[0] if world == 1 else rank_steps
     assert not list((run / "traces").glob("*.failed.json"))
     result = {"run": str(run), "steps": summary, "optimizer_steps": optimizer_steps, "status": "verified"}
     (run / "verification.json").write_text(json.dumps(result, indent=2))

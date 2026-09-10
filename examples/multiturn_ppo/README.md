@@ -25,8 +25,11 @@ Actor 和 critic 都只读取当前轮可见历史；尚未加入 privileged inf
 所有轮次均保留，不执行原 GRPO 路径的按奖励删行、mini-batch 向下取整或更新次数截断。
 当前单卡默认 `rollout.n=1`、actor/critic `ppo_mini_batch_size=1`、micro batch=1，
 每条调用构成一次 mini-batch，损失在该调用的有效 token 上取平均。
-若改用更大 mini-batch 或多卡，完整调用数必须整除相应大小，否则明确报错；
-尚未实现任意尾批的无偏分布式优化。运行结果比较时应保持这一损失权重和 batch 配置一致。
+四卡入口启用 `distributed_padding`：推理时补齐后按标记移除占位行，再计算真实轨迹的 GAE；
+更新时补齐的调用使用零 response mask，损失按每次优化中所有 rank 的真实调用数归一化。
+每个调用先按有效 token 取平均，因此占位行不产生 actor/critic 梯度，也不改变真实调用权重。
+当前四卡配置限定 FSDP legacy workers、每 rank 一个调用、无序列并行、`rollout.n=1`。
+比较实验时应保持全局优化 batch 一致；单卡 mini-batch=1 与四卡 mini-batch=4 的更新频率不同。
 
 ## 在 A800 运行
 
@@ -41,12 +44,24 @@ AGL_TRAIN_TAG=ppo-smoke-my-run AGL_GPU=4 \
 # Qwen3-1.7B，缓存的 exceptiongroup SWE-smith 子集，1 training step。
 AGL_TRAIN_TAG=ppo-smith-my-run AGL_GPU=4 \
   bash examples/multiturn_ppo/run_smith_training.sh
+
+# 四卡 baseline：缓存子集 32 train / 6 validation，32 steps = 4 epochs。
+AGL_TRAIN_TAG=ppo-four-baseline-my-run AGL_GPUS=0,1,2,3 \
+  bash examples/multiturn_ppo/run_four_gpu.sh --steps 32 \
+  --train-file /media/ubuntu/D1/zsj/agent-lightning-runtime/data/swe-smith-training/exceptiongroup/train.jsonl \
+  --val-file /media/ubuntu/D1/zsj/agent-lightning-runtime/data/swe-smith-training/exceptiongroup/val.jsonl \
+  data.val_batch_size=6 trainer.total_epochs=4 trainer.test_freq=8 trainer.save_freq=8
+
+# 四卡不整除尾批短测：4 个合成任务共 9 次调用，补齐为 12 行。
+AGL_TRAIN_TAG=ppo-four-smoke-my-run AGL_GPUS=0,1,2,3 \
+  bash examples/multiturn_ppo/run_four_gpu_smoke.sh
 ```
 
 运行器检查 GPU 空闲、D1 剩余空间和端口，将每次实验写入全新目录，
 并只清理自己启动的 gateway/controller。长任务请放入独立命名的 screen。
 模型可用 `AGL_TRAIN_MODEL` 改写，端口可用 `AGL_TRAIN_PORT` 改写。
 默认网关端口 18281，GPU 4；不接入或停止已有 Ray 服务。
+四卡入口默认使用 GPU 0、1、2、3；vLLM TP=1，共 4 个推理副本，actor/critic 采用 4-rank FSDP。
 
 SWE 入口默认 8 turns、每次最多 768 response tokens、总 context 12288，
 训练 prompt 上限 11520。数据是已缓存的 SWE-smith 4 train / 1 validation smoke 子集，
@@ -97,3 +112,4 @@ python examples/multiturn_ppo/verify_run.py --run /absolute/path/to/training-TAG
 部署新训练器时须同时部署服务器的 `triplet-preserve` 事件接口。
 
 实测配置、运行目录与结果见 [2026-09-10 验收记录](VALIDATION_2026-09-10.md)。
+四卡尾批处理、短测结果和 baseline 命令见 [四卡验收与运行记录](VALIDATION_FOUR_GPU_2026-09-10.md)。

@@ -136,6 +136,9 @@ def build_config(args):
     from agentlightning.verl.multi_turn_ppo import validate_config
 
     validate_config(cfg)
+    visible = os.environ.get("CUDA_VISIBLE_DEVICES", "").split(",")
+    if len(visible) != len(set(visible)) or len(visible) != cfg.trainer.n_gpus_per_node:
+        raise ValueError("CUDA_VISIBLE_DEVICES must contain one unique device per configured GPU")
     # The ephemeral local auth key should not be persisted in the config artifact.
     safe = OmegaConf.to_container(cfg, resolve=True)
     safe["agentlightning"]["agl_key"] = "<runtime key>"
@@ -143,10 +146,14 @@ def build_config(args):
     repo = Path(__file__).resolve().parents[2]
     sources = [
         repo / "agentlightning/verl/multi_turn_ppo.py",
+        repo / "agentlightning/verl/distributed_ppo.py",
+        repo / "agentlightning/verl/entrypoint.py",
+        repo / "agentlightning/verl/config.yaml",
         repo / "agentlightning/verl/trainer.py",
         repo / "agentlightning/verl/agl_rollout_manager.py",
         repo / "agentlightning/server/routes/events.py",
         *Path(__file__).parent.glob("*.py"),
+        *Path(__file__).parent.glob("*.sh"),
     ]
     provenance = {
         "versions": {

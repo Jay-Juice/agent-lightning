@@ -47,6 +47,7 @@ from .agl_rollout_manager import (
     CompletedRollout,
     EnqueuedRollout,
 )
+from .distributed_ppo import pad_inference, pad_update, unpad_inference
 from .per_rollout_loss import (
     PER_ROLLOUT_MEAN_LOSS_MODE,
     normalize_advantages_by_rollout,
@@ -107,6 +108,9 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.multi_turn_ppo = self.config.agentlightning.get("multi_turn_ppo", {}).get("enabled", False)
+        self.distributed_ppo = self.config.agentlightning.get("multi_turn_ppo", {}).get("distributed_padding", False)
+        if self.distributed_ppo and not self.multi_turn_ppo:
+            raise ValueError("distributed_padding requires multi_turn_ppo.enabled=true")
         if self.multi_turn_ppo:
             multi_turn_ppo.validate_config(self.config)
         self.is_async = self.config.agentlightning.async_rollout.enabled
@@ -559,7 +563,11 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
         print("AgentLightningRayPPOTrainer: rollout replicas slept.")
 
         if self.config.trainer.balance_batch:
+            if self.distributed_ppo:
+                batch = pad_inference(batch, self.resource_pool_manager.get_n_gpus())
             self._balance_batch(batch, metrics=metrics)
+        elif self.distributed_ppo:
+            batch = pad_inference(batch, self.resource_pool_manager.get_n_gpus())
 
         rollout_corr_config = self.config.algorithm.get("rollout_correction", None)
         bypass_mode = bool(rollout_corr_config and rollout_corr_config.get("bypass_mode", False))
@@ -592,6 +600,9 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
             with marked_timer("values", timing_raw, color="cyan"):
                 values = self._compute_values(batch)
                 batch = batch.union(values)
+
+        if self.distributed_ppo:
+            batch = unpad_inference(batch)
 
         with marked_timer("adv", timing_raw, color="brown"):
             if self.config.algorithm.use_kl_in_reward:
@@ -656,14 +667,20 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
                 num_trained_rows=len(batch),
             )
 
+        update_batch = batch
+        if self.distributed_ppo:
+            update_batch, padding_count = pad_update(batch, self.resource_pool_manager.get_n_gpus())
+            metrics["ppo/update_padding_rows"] = padding_count
+            metrics["ppo/update_physical_rows"] = len(update_batch)
+
         if self.use_critic:
             with marked_timer("update_critic", timing_raw, color="pink"):
-                critic_output = self._update_critic(batch)
+                critic_output = self._update_critic(update_batch)
             metrics.update(reduce_metrics(critic_output.meta_info["metrics"]))
 
         if self.config.trainer.critic_warmup <= self.global_steps:
             with marked_timer("update_actor", timing_raw, color="red"):
-                actor_output = self._update_actor(batch)
+                actor_output = self._update_actor(update_batch)
             metrics.update(reduce_metrics(actor_output.meta_info["metrics"]))
 
         with marked_timer("update_weights", timing_raw, color="red"):

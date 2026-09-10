@@ -23,6 +23,7 @@ agentlightning:
   max_ppo_update_times: null
   multi_turn_ppo:
     enabled: false
+    distributed_padding: false
     whiten_advantages: true
     audit_dir: null
   trace_aggregator:

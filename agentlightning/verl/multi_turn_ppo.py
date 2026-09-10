@@ -28,6 +28,8 @@ from .rollout_adapter import RolloutAdapter
 def validate_config(config: Any) -> None:
     """Reject combinations that silently change temporal PPO semantics."""
     if not config.agentlightning.multi_turn_ppo.enabled:
+        if config.agentlightning.multi_turn_ppo.get("distributed_padding", False):
+            raise ValueError("distributed_padding requires multi_turn_ppo.enabled=true")
         return
     if config.algorithm.adv_estimator != "gae" or not config.critic.enable:
         raise ValueError("multi_turn_ppo requires adv_estimator=gae and critic.enable=true")
@@ -41,6 +43,25 @@ def validate_config(config: Any) -> None:
         raise ValueError("multi_turn_ppo retains every turn; max_ppo_update_times must be null")
     if config.actor_rollout_ref.actor.policy_loss.loss_mode != "vanilla":
         raise ValueError("The initial multi_turn_ppo baseline uses vanilla clipped PPO loss")
+    if config.agentlightning.multi_turn_ppo.get("distributed_padding", False):
+        world = config.trainer.n_gpus_per_node * config.trainer.nnodes
+        if config.actor_rollout_ref.rollout.n != 1:
+            raise ValueError("Padding-aware PPO currently requires rollout.n=1")
+        if config.trainer.use_legacy_worker_impl not in {"auto", "enable"}:
+            raise ValueError("Padding-aware PPO requires the legacy FSDP actor/critic workers")
+        for worker in (config.actor_rollout_ref.actor, config.critic):
+            if (
+                worker.strategy != "fsdp"
+                or worker.use_dynamic_bsz
+                or worker.ppo_mini_batch_size != world
+                or worker.ppo_micro_batch_size_per_gpu != 1
+                or worker.get("ulysses_sequence_parallel_size", 1) != 1
+                or worker.loss_agg_mode != "seq-mean-token-mean"
+            ):
+                raise ValueError(
+                    "Padding-aware PPO requires FSDP, mini_batch_size=world_size, micro_batch=1, "
+                    "sequence_parallel=1, dynamic_bsz=false, loss_agg_mode=seq-mean-token-mean"
+                )
 
 
 def build_batch(adapter: RolloutAdapter, rollouts: list[CompletedRollout], *, global_steps: int = 0):
@@ -116,6 +137,8 @@ def build_batch(adapter: RolloutAdapter, rollouts: list[CompletedRollout], *, gl
 
 def validate_batch_size(batch: DataProto, config: Any) -> None:
     """No row flooring, biased reward-based dropping, or dummy-token padding."""
+    if config.agentlightning.multi_turn_ppo.get("distributed_padding", False):
+        return
     world = config.trainer.n_gpus_per_node * config.trainer.nnodes
     sizes = [
         world,

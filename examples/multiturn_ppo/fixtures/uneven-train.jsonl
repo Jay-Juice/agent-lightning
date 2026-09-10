@@ -1,0 +1,4 @@
+{"turns":1,"data_source":"synthetic_arithmetic_diagnostic","data_id":"uneven-train-0","question":"Compute 127 * 39.","answer":4953}
+{"turns":2,"data_source":"synthetic_arithmetic_diagnostic","data_id":"uneven-train-1","question":"Compute 236 * 47.","answer":11092}
+{"turns":3,"data_source":"synthetic_arithmetic_diagnostic","data_id":"uneven-train-2","question":"Compute 731 * 83.","answer":60673}
+{"turns":3,"data_source":"synthetic_arithmetic_diagnostic","data_id":"uneven-train-3","question":"Compute 418 * 67.","answer":28006}

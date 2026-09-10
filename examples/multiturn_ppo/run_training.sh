@@ -9,10 +9,11 @@ export AGL_RUN_DIR="$AGL_RUNTIME/logs/training-$TAG"
 test ! -e "$AGL_RUN_DIR" || { echo "Run exists: $AGL_RUN_DIR" >&2; exit 2; }
 mkdir -p "$AGL_RUN_DIR"/{agent,traces}
 exec >"$AGL_RUN_DIR/run.log" 2>&1
-export CUDA_VISIBLE_DEVICES="${AGL_GPU:-4}"
-[[ "$CUDA_VISIBLE_DEVICES" =~ ^[0-7]$ ]] || { echo 'Single physical GPU required'; exit 2; }
-used=$(nvidia-smi -i "$CUDA_VISIBLE_DEVICES" --query-gpu=memory.used --format=csv,noheader,nounits)
-(( used < 1000 )) || { echo 'Selected GPU is occupied'; exit 2; }
+export CUDA_VISIBLE_DEVICES="${AGL_GPUS:-${AGL_GPU:-4}}"
+[[ "$CUDA_VISIBLE_DEVICES" =~ ^[0-7](,[0-7])*$ ]] || { echo 'Expected comma-separated physical GPU indices'; exit 2; }
+while read -r used; do
+  (( used < 1000 )) || { echo 'A selected GPU is occupied'; exit 2; }
+done < <(nvidia-smi -i "$CUDA_VISIBLE_DEVICES" --query-gpu=memory.used --format=csv,noheader,nounits)
 export PYTHONPATH="$TOOLS:$REPO:${PYTHONPATH:-}"
 # Ray uses Unix-domain sockets; its parent path must stay short (<108 bytes
 # including Ray's session/socket suffix). This directory is still on D1.
