@@ -9,6 +9,8 @@ Actor/Critic 更新代码，使用独立 `backend=capo`，保留来源哈希与�
 Qwen3-4B 的训练前能力评测与复现命令见 [初始评测记录](INITIAL_4B_EVAL_2026-09-10.md)。
 对 0/32 的逐题正负对照、输入完整性、预算差异与拒绝补丁重放见
 [零奖励复核](SWE_ZERO_REWARD_RECHECK_2026-09-10.md)：不能将零分归因于模型单一因素。
+后续 [Qwen3-8B 与框架分层排查](SWE_8B_FRAMEWORK_AUDIT_2026-09-11.md) 包含同预算 4B/8B 评测、
+权重传输缓冲区修正，以及用原始 Transformers 复现实际失败历史的结果。
 
 ## 算法约定
 

@@ -36,9 +36,9 @@ def replay(run, output, record):
         excluded = [path for path in paths if forbidden_patch_path(path)]
         assert excluded and set(paths) == set(record["changed_paths"]), "Replay changed an unexpected set of files"
         for path in excluded:
-            # This counterfactual excludes ONLY new top-level reproduction tests.
+            # This counterfactual excludes ONLY new reproduction tests.
             # Tracked tests/config changes remain invalid and cannot be bypassed.
-            assert Path(path).name == path and path.startswith("test_") and path.endswith(".py")
+            assert Path(path).name.startswith("test_") and path.endswith(".py")
             assert not box.git("ls-tree", "--name-only", "HEAD", "--", path).strip()
         box.git("reset", "HEAD", "--", *excluded)
         assert all(path.startswith("src/") and path.endswith(".py") for path in paths if path not in excluded)
