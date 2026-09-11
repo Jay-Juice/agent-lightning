@@ -38,7 +38,7 @@ def replay(run, output, record):
         for path in excluded:
             # This counterfactual excludes ONLY new reproduction tests.
             # Tracked tests/config changes remain invalid and cannot be bypassed.
-            assert Path(path).name.startswith("test_") and path.endswith(".py")
+            assert path.endswith(".py") and any(part.startswith("test_") for part in Path(path).parts)
             assert not box.git("ls-tree", "--name-only", "HEAD", "--", path).strip()
         box.git("reset", "HEAD", "--", *excluded)
         assert all(path.startswith("src/") and path.endswith(".py") for path in paths if path not in excluded)
