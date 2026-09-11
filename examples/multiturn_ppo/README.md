@@ -14,6 +14,32 @@ Qwen3-4B 的训练前能力评测与复现命令见 [初始评测记录](INITIAL
 用户指定的同一六题独立验证集对比见 [8B 验证集初始评测](INITIAL_8B_VAL_EVAL_2026-09-11.md)：
 相同 8 轮预算下，原 4B 为 1/6，本次 8B 为 0/6；与训练池 0/32 分开记录。
 
+## 大预算训练前评测
+
+[4B 大预算结果与诊断](SWE_4B_LARGE_BUDGET_EVAL_2026-09-11.md)：验证集 0/6、训练池 0/32；
+记录提前提交、无效长输出及一题描述覆盖不全的问题，未执行 PPO 更新。
+
+`run_swe_large_budget_eval.sh` 默认使用现有 Qwen3-4B-Instruct-2507、GPU 0–3，
+每题上限 100 轮、单次输出 12288 tokens、上下文 81920 tokens、工具反馈 6000 字符。
+这些是交互上限，不是 PPO 更新步数；模型主动提交仍会结束，每题采样一次。
+入口只做评测，不更新参数，模型请求等待上限 600 秒、单题 rollout 等待上限 7200 秒。
+vLLM 显存预算设为每卡总显存的 0.5，以容纳更长历史；原小预算入口默认值保留。
+
+在已同步的服务器仓库根目录，依次运行，前一任务释放显卡后再启动后一任务：
+
+```bash
+# 原六题独立验证集。
+AGL_TRAIN_TAG=large-4b-val-unique AGL_GPUS=0,1,2,3 AGL_TRAIN_PORT=18381 \
+  bash examples/multiturn_ppo/run_swe_large_budget_eval.sh validation
+
+# 原 32 条训练池只评测；不将六题验证集用于参数更新。
+AGL_TRAIN_TAG=large-4b-pool-unique AGL_GPUS=0,1,2,3 AGL_TRAIN_PORT=18381 \
+  bash examples/multiturn_ppo/run_swe_large_budget_eval.sh train-pool
+```
+
+`SMITH_MAX_TURNS`、`SMITH_MAX_TOKENS`、`SMITH_CONTEXT`、`SMITH_OBS_CHAR_CAP` 和
+`SMITH_MODEL_TIMEOUT` 可覆盖上述默认值，实际值保存在每次运行的 provenance.json。
+
 ## 算法约定
 
 - 每次模型调用一条 transition，保留真实 prompt 和 response token IDs。

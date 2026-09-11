@@ -146,6 +146,10 @@ class SmithDockerAgent:
 
         tokenizer = AutoTokenizer.from_pretrained(os.environ["AGL_TRAIN_MODEL"], local_files_only=True)
         context_limit = int(os.environ.get("SMITH_CONTEXT", "12288"))
+        obs_cap = int(os.environ.get("SMITH_OBS_CHAR_CAP", "4000"))
+        model_timeout = int(os.environ.get("SMITH_MODEL_TIMEOUT", "240"))
+        if obs_cap <= 0 or model_timeout <= 0:
+            raise ValueError("Observation budget and model timeout must be positive")
         messages = [
             {"role": "system", "content": smith.SYSTEM_PROMPT},
             {
@@ -163,7 +167,7 @@ class SmithDockerAgent:
                 OpenAI(
                     base_url=os.environ["AGL_OPENAI_BASE_URL"],
                     api_key=key,
-                    timeout=240,
+                    timeout=model_timeout,
                     max_retries=2,
                 ) as llm,
                 (directory / "trajectory.jsonl").open("w") as trace,
@@ -208,7 +212,7 @@ class SmithDockerAgent:
                     else:
                         blocked = smith._forbidden_action(action)
                         rc, out = (1, blocked) if blocked else box.execute(action)
-                        observation = smith.render_observation(rc, out, 4000)
+                        observation = smith.render_observation(rc, out, obs_cap)
                         submitted = not blocked and smith.is_submission(out)
                         record.update(action=action, returncode=rc, output=out)
                     record.update(observation=observation, submitted=submitted)

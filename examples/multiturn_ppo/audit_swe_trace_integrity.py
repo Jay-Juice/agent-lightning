@@ -22,6 +22,8 @@ def audit(run, tokenizer):
     expected = {row["instance_id"]: row for row in read_json(run / "datasets.json")["validation"]}
     eval_records = {row["rollout_id"]: row for row in read_json(run / "evaluation-summary.json")["records"]}
     smith = load_smith()
+    budgets = read_json(run / "provenance.json").get("runtime_options", {}).get("smith_budgets", {})
+    obs_cap = int(budgets.get("SMITH_OBS_CHAR_CAP") or 4000)
     for file in sorted((run / "traces").glob("*.json")):
         trace = read_json(file)
         rid = trace["rollout"]["rollout_id"]
@@ -55,7 +57,7 @@ def audit(run, tokenizer):
                 local["parse_failed"] += 1
                 local["parse_failed_" + finish] += 1
                 local["parse_block_count_" + str(len(smith._ACTION_RE.findall(turn["response"])))] += 1
-            local["truncated_observations"] += len(turn.get("output", "")) >= 4000
+            local["truncated_observations"] += len(turn.get("output", "")) > obs_cap
             messages += [
                 {"role": "assistant", "content": turn["response"]},
                 {"role": "user", "content": turn["observation"]},
