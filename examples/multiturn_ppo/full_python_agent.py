@@ -439,6 +439,11 @@ def grade(row, patch, output_dir, *, reference=False):
         # Keep every F2P/P2P test and disable only coverage instrumentation.
         coverage = ["--no-cov"] if plugins["pytest_cov"] else []
         nodes = list(dict.fromkeys(f2p + p2p))
+        if row["instance_id"].startswith("jd__tenacity."):
+            # Keep each test module together in file order. Appending P2P after
+            # F2P revisits asyncio tests after Tornado's AsyncTestCase has cleared
+            # the event loop. Preserve the exact test set and every assertion.
+            nodes.sort(key=lambda node: node.split("::", 1)[0])
         http_fixture = install_http_fixture(box, nodes)
         native_tornado = row["instance_id"].startswith("tornadoweb__tornado.")
         if native_tornado:

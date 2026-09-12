@@ -1,10 +1,22 @@
 # 全量 Python baseline：准备与排查进度
 
-更新时间：2026-09-13 00:58（Asia/Shanghai）。
+更新时间：2026-09-13 01:21（Asia/Shanghai）。
 
-**正式全量训练尚未启动。四卡加速短测已完成；最新环境验收已结束，123/124 通过，Tenacity 仍失败。后台没有自动修复或训练进程。**
+**正式全量训练尚未启动。四卡加速短测已完成；上一轮环境验收为 123/124。剩余 Tenacity 的测试顺序问题现已修复，20/20 条任务全部通过正反对照。新源码尚未重跑完整环境验收。**
 
-用户当前要求先提交和推送已有代码、文档。Tenacity 的具体原因尚未完成诊断，不能把它归因于模型，也不能声称已经解决。先前询问的 15 条损坏测试任务仍保留，待确认处理口径。
+已有代码、文档已推送 GitHub `main`，提交 `b6152bf`。此后的 Tenacity 修复仅改变该项目测试的文件分组顺序，详情见下方。先前询问的 15 条损坏测试任务仍保留，待确认处理口径。
+
+## Tenacity 问题的确认与修复
+
+官方 SWE 示例已经有 `evaluate()`；其 `F2P + P2P` 顺序也被本地评分器沿用。该顺序会先执行部分 asyncio 测试，再执行 Tornado 测试，最后回到其余 asyncio 测试。镜像中 Tornado `AsyncTestCase.tearDown()` 明确执行 `asyncio.set_event_loop(None)`；后续 asyncio 测试使用 `get_event_loop()`，因而报主线程没有事件循环。
+
+修复只对 `jd__tenacity.*` 按测试文件路径稳定排序，保证同一文件的测试连续执行；保留原测试集合、文件内相对顺序、断言、预算、网络隔离和奖励判定，不修改测试文件或模型/PPO 代码。
+
+- 原失败的 `combine_file__69rgwhxp`：参考补丁从 120/122 变为 **122/122**，即 F2P 99/99、P2P 23/23；空补丁仍为 F2P 0/99，奖励 0。
+- Tenacity 全部 **5 train + 15 val** 均逐条运行空补丁及参考补丁，共 40 次评分，**20/20 对照通过**。
+- 证据：服务器 `logs/swe-tenacity-order-controls-20260913-01`，记录源码/数据哈希、每条任务结果和完整测试输出。
+- 评分相关回归测试 **32 passed**，Ruff 通过。本次诊断不使用 GPU，没有启动模型评测或训练。
+- 旧 V6 审计及其失败结果不改写；完整启动预检会拒绝把旧源码签名用于当前版本。
 
 ## 训练范围与待确认项
 
@@ -60,7 +72,7 @@ CAPO vendor commit：`e8407baea32fb36191f029f0a4666bf681bdf1ca`，复制的更�
 
 ## 当前运行与磁盘
 
-当前版本完整验收原 screen：`swe-full-python-envs-v6-0913`；日志目录 `agent-lightning-runtime/logs/swe-full-python-envs-20260913-06`。它使用部署后的资源修复和 6260/470 数据，4 路 CPU/Docker 并发，不使用 GPU。最终 **123/124 通过，pipeline.exit=1**，进程已结束。剩余失败任务为 `jd__tenacity.0d40e76f.combine_file__69rgwhxp`，参考修复评分仍为 0，原因待查。
+Tenacity 修复前的完整验收原 screen：`swe-full-python-envs-v6-0913`；日志目录 `agent-lightning-runtime/logs/swe-full-python-envs-20260913-06`。它使用资源修复和 6260/470 数据，4 路 CPU/Docker 并发，不使用 GPU。最终 **123/124 通过，pipeline.exit=1**，进程已结束。当时剩余失败任务为 `jd__tenacity.0d40e76f.combine_file__69rgwhxp`，现已完成上方记录的针对性修复和验证。
 
 上一版 V5 最终完成 124/124，114 通过；保留旧失败，不冒充当前源码的验收。全部验证任务另有独立检查 `logs/swe-full-validation-readiness-20260913-01`，最终 **21/22 通过**，失败同样是 Tenacity。这些是环境对照结果，不是模型验证成绩。
 
