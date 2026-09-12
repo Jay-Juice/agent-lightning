@@ -2,9 +2,9 @@
 set -Eeuo pipefail
 TOOLS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNTIME=/media/ubuntu/D1/zsj/agent-lightning-runtime
-DATA="${AGL_FULL_DATA:-$RUNTIME/data/swe-smith-training/python-full-v5}"
+DATA="${AGL_FULL_DATA:-$RUNTIME/data/swe-smith-training/python-full-v6}"
 source "$RUNTIME/admin/activate-agent-lightning-d1.sh"
-AUDIT="${AGL_FULL_ENV_AUDIT:-$RUNTIME/logs/swe-full-python-envs-20260913-06}"
+AUDIT="${AGL_FULL_ENV_AUDIT:-$RUNTIME/logs/swe-full-python-envs-20260913-07}"
 CUDA_VISIBLE_DEVICES= python "$TOOLS/check_full_python_ready.py" --data "$DATA" --audit "$AUDIT"
 SCHEDULE=$(CUDA_VISIBLE_DEVICES= python - "$DATA" <<'PY'
 import json, sys
