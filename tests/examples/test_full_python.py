@@ -105,6 +105,26 @@ def test_forced_color_keeps_exact_status_and_node_id(grader):
     }
 
 
+def test_restore_mutated_tests_preserves_buggy_production_and_decorators(grader):
+    buggy = "# keep this\ndef value():\n    return 0\n\n@pytest.mark.slow\ndef test_value():\n    assert value() != 1\n"
+    trusted = "def value():\n    return 1\n\n@pytest.mark.fast\ndef test_value():\n    assert value() == 1\n"
+    restored, names, has_bug = grader.recover_embedded_tests(buggy, trusted)
+    assert restored.startswith("# keep this\ndef value():\n    return 0\n")
+    assert "@pytest.mark.fast" in restored and "!= 1" not in restored
+    assert names == ["test_value"] and has_bug
+    assert grader.embedded_tests(restored) == grader.embedded_tests(trusted)
+
+
+def test_restore_detects_test_only_tasks_and_refuses_unsupported_changes(grader):
+    buggy = "def value():\n    return 1\ndef test_value():\n    assert value() != 1\n"
+    trusted = buggy.replace("!=", "==")
+    assert grader.recover_embedded_tests(buggy, trusted) == (trusted, ["test_value"], False)
+    with pytest.raises(ValueError, match="inventory"):
+        grader.recover_embedded_tests(buggy, trusted + "def test_other():\n    pass\n")
+    with pytest.raises(ValueError, match="nested test or doctest"):
+        grader.recover_embedded_tests('def value():\n    """>>> broken"""\n', 'def value():\n    """>>> correct"""\n')
+
+
 def test_only_package_install_metadata_can_be_ignored(grader):
     assert grader.package_metadata_dirs(
         [

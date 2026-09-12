@@ -8,7 +8,7 @@ from pathlib import Path
 
 import docker
 from audit_full_python_envs import fingerprint
-from full_python_agent import embedded_tests, fixture_patch_allowed
+from full_python_agent import embedded_tests, fixture_patch_allowed, recover_embedded_tests
 from prepare_full_python import load_prepared_data
 from sandbox import forbidden_patch_path
 
@@ -24,11 +24,15 @@ def verify_branches(client, image, ids):
         + "\n"
         + inspect.getsource(embedded_tests)
         + "\n"
+        + inspect.getsource(recover_embedded_tests)
+        + "\n"
         + """import json, subprocess, sys
 results = []
 protected = []
 inline_conflicts = []
 source_recoveries = []
+test_repairs = []
+test_only_tasks = []
 for iid in json.loads(sys.argv[1]):
     for ref in [iid, 'origin/' + iid]:
         proc = subprocess.run(['git', '-c', 'safe.directory=/testbed', 'log', '-2', '--format=%s', ref, '--'],
@@ -46,15 +50,27 @@ for iid in json.loads(sys.argv[1]):
                 and not forbidden_patch_path(p)]
     if restored:
         source_recoveries.append({'instance_id': iid, 'paths': restored})
+    production_paths = set(filter(None, paths))
+    repaired_paths = []
     for path in set(paths) & set(restored):
         before = subprocess.check_output(['git', 'show', ref+'~1:'+path]).decode()
         after = subprocess.check_output(['git', 'show', ref+'~2:'+path]).decode()
         try:
             supported = embedded_tests(before) == embedded_tests(after)
+            if not supported:
+                repaired, names, has_bug = recover_embedded_tests(before, after)
+                supported = True
+                repaired_paths.append(path)
+                test_repairs.append({'instance_id': iid, 'path': path, 'tests': names,
+                                     'production_bug_retained': has_bug})
+                if not has_bug:
+                    production_paths.discard(path)
         except (SyntaxError, ValueError):
             supported = False
         if not supported:
             inline_conflicts.append({'instance_id': iid, 'path': path})
+    if repaired_paths and not production_paths:
+        test_only_tasks.append({'instance_id': iid, 'paths': repaired_paths})
     for path in filter(None, paths):
         if not forbidden_patch_path(path):
             continue
@@ -66,7 +82,8 @@ for iid in json.loads(sys.argv[1]):
             allowed = fixture_patch_allowed(before, after)
         protected.append({'instance_id': iid, 'path': path, 'supported': allowed})
 print(json.dumps({'failures': results, 'protected_reference_paths': protected,
-                  'inline_test_conflicts': inline_conflicts, 'source_recoveries': source_recoveries}))
+                  'inline_test_conflicts': inline_conflicts, 'source_recoveries': source_recoveries,
+                  'embedded_test_repairs': test_repairs, 'test_only_tasks': test_only_tasks}))
 """
     )
     box = client.containers.run(
@@ -135,6 +152,8 @@ def main():
                 raise RuntimeError(f"Reference repairs conflict with the export policy: {unsupported[:3]}")
             if branch["inline_test_conflicts"]:
                 raise RuntimeError(f"Reference repairs change embedded tests: {branch['inline_test_conflicts'][:3]}")
+            if branch["test_only_tasks"]:
+                raise RuntimeError(f"Tasks have no production bug after restoring tests: {branch['test_only_tasks']}")
     finally:
         client.close()
     assert sum(branch["tasks"] for branch in branches) == sum(manifest["counts"].values())

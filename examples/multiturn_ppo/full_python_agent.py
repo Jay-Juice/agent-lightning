@@ -208,6 +208,50 @@ def embedded_tests(source):
     return tests
 
 
+def recover_embedded_tests(buggy, trusted):
+    """Restore existing top-level tests without copying any reference production code.
+
+    Reject changed test inventories, unsupported nested tests and doctests. Source
+    slices preserve production bytes; AST checks independently verify the result.
+    """
+
+    def is_test(node):
+        return (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test_")) or (
+            isinstance(node, ast.ClassDef) and node.name.startswith("Test")
+        )
+
+    old_tree, good_tree = ast.parse(buggy), ast.parse(trusted)
+    old = {node.name: node for node in old_tree.body if is_test(node)}
+    good = {node.name: node for node in good_tree.body if is_test(node)}
+    if old.keys() != good.keys() or len(old) != sum(is_test(node) for node in old_tree.body):
+        raise ValueError("Changed or ambiguous embedded test inventory")
+    if len(good) != sum(is_test(node) for node in good_tree.body):
+        raise ValueError("Ambiguous trusted embedded tests")
+    lines, trusted_lines = buggy.splitlines(keepends=True), trusted.splitlines(keepends=True)
+    changes = []
+    for name, node in old.items():
+        replacement = good[name]
+        if ast.dump(node) == ast.dump(replacement):
+            continue
+        start = min([node.lineno] + [d.lineno for d in node.decorator_list]) - 1
+        good_start = min([replacement.lineno] + [d.lineno for d in replacement.decorator_list]) - 1
+        changes.append((start, node.end_lineno, trusted_lines[good_start : replacement.end_lineno], name))
+    for start, end, replacement, _ in sorted(changes, reverse=True):
+        lines[start:end] = replacement
+    repaired = "".join(lines)
+    if embedded_tests(repaired) != embedded_tests(trusted):
+        raise ValueError("Unsupported nested test or doctest mutation")
+
+    def production(source):
+        tree = ast.parse(source)
+        tree.body = [node for node in tree.body if not is_test(node)]
+        return ast.dump(tree)
+
+    if production(repaired) != production(buggy):
+        raise ValueError("Test restoration changed production code")
+    return repaired, sorted(item[3] for item in changes), production(repaired) != production(trusted)
+
+
 class FullPythonSandbox(pilot.SmithSandbox):
     def container_options(self, task):
         if task["instance_id"].startswith("modin-project__modin."):
@@ -318,10 +362,30 @@ class FullPythonSandbox(pilot.SmithSandbox):
             for path in removed
             if path.endswith(".py") and PurePosixPath(path).name != "test.py" and not sandbox.forbidden_patch_path(path)
         ]
+        report["embedded_test_repairs"] = []
         if self.restored_source_paths:
             original_head = report["baseline_head"]
             parent = self.git("rev-parse", "HEAD~1").strip()
             self.git("checkout", "HEAD~1", "--", *self.restored_source_paths)
+            for path in self.restored_source_paths:
+                buggy = self.git("show", "HEAD~1:" + path)
+                trusted = self.git("show", "HEAD~2:" + path)
+                if embedded_tests(buggy) == embedded_tests(trusted):
+                    continue
+                repaired, names, production_changed = recover_embedded_tests(buggy, trusted)
+                self.copy_bytes(repaired.encode(), "recovered-inline-source.py")
+                self.root(["cp", "/root/recovered-inline-source.py", path])
+                self.git("add", "--", path)
+                report["embedded_test_repairs"].append(
+                    {
+                        "path": path,
+                        "tests": names,
+                        "production_bug_retained": production_changed,
+                        "buggy_sha256": hashlib.sha256(buggy.encode()).hexdigest(),
+                        "trusted_sha256": hashlib.sha256(trusted.encode()).hexdigest(),
+                        "prepared_sha256": hashlib.sha256(repaired.encode()).hexdigest(),
+                    }
+                )
             tree = self.git("write-tree").strip()
             # This private, disposable commit defines patch export's clean
             # baseline, preserving the original Bug Patch parent and history.
@@ -404,7 +468,15 @@ def grade(row, patch, output_dir, *, reference=False):
         if commits[:2] != ["Remove F2P Tests", "Bug Patch"]:
             raise RuntimeError(f"Unexpected SWE-smith branch layout: {commits}")
         if reference:
-            patch = box.git("diff", "HEAD~1", "HEAD~2", "--binary")
+            if preparation["embedded_test_repairs"]:
+                # The baseline already has trusted tests, so the original raw
+                # Bug Patch inverse may no longer apply. Diff only its original
+                # changed paths against the prepared baseline, retaining all
+                # production repairs without reintroducing test mutations.
+                paths = box.git("diff", "--name-only", "-z", "HEAD~1", "HEAD~2").strip("\0").split("\0")
+                patch = box.git("diff", "HEAD", "HEAD~2", "--binary", "--", *paths)
+            else:
+                patch = box.git("diff", "HEAD~1", "HEAD~2", "--binary")
         if patch:
             box.copy_bytes(patch.encode())
             box.git("apply", "--check", "/root/candidate.patch")
