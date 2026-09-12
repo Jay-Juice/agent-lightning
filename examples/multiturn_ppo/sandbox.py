@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import os
 import re
 from pathlib import Path, PurePosixPath
 
@@ -156,9 +157,12 @@ class Sandbox:
         }
 
     def execute(self, action):
+        timeout = int(os.environ.get("SMITH_CMD_TIMEOUT", "45"))
+        if timeout <= 0:
+            raise ValueError("Command timeout must be positive")
         execution = self.client.api.exec_create(
             self.container.id,
-            ["/usr/bin/timeout", "--kill-after=3", "45", "/bin/bash", "-c", action],
+            ["/usr/bin/timeout", "--kill-after=3", str(timeout), "/bin/bash", "-c", action],
             user=AGENT_UID,
             workdir="/testbed",
             environment={

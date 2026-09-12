@@ -460,7 +460,10 @@ def grade(row, patch, output_dir, *, reference=False):
     f2p_paths = {node.split("::", 1)[0] for node in f2p}
     if any(node.split("::", 1)[0] not in f2p_paths for node in p2p):
         raise ValueError("P2P includes files outside the declared grading protocol")
-    client = docker.from_env(timeout=370)
+    eval_timeout = int(os.environ.get("SMITH_EVAL_TIMEOUT", "600"))
+    if eval_timeout <= 0:
+        raise ValueError("Grading timeout must be positive")
+    client = docker.from_env(timeout=eval_timeout + 70)
     box = FullPythonSandbox(client, pilot.agent_task(row), output_dir.name + "-grade")
     try:
         preparation = box.prepare()
@@ -548,7 +551,7 @@ def grade(row, patch, output_dir, *, reference=False):
             [
                 "/usr/bin/timeout",
                 "--kill-after=5",
-                "300",
+                str(eval_timeout),
                 "/opt/miniconda3/envs/testbed/bin/python",
                 *invocation,
             ],
@@ -580,6 +583,7 @@ def grade(row, patch, output_dir, *, reference=False):
             "p2p_total": len(p2p),
             "baseline": preparation,
             "reference_control": reference,
+            "eval_timeout_seconds": eval_timeout,
             "grading_protocol": "f2p_file",
             "test_runner": "native_tornado" if native_tornado else "pytest",
             "coverage_instrumentation_disabled": plugins["pytest_cov"],

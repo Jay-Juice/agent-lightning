@@ -11,6 +11,7 @@ import json
 import os
 import re
 import tarfile
+import time
 from pathlib import Path, PurePosixPath
 
 import docker
@@ -141,6 +142,29 @@ def grade(row, patch, output_dir, *, reference=False):
         client.close()
 
 
+def query_completion(llm, smith, *, gateway_wait_s=600.0, gateway_poll_s=5.0, **kwargs):
+    """Reuse upstream error classifiers; paused requests do not consume a turn.
+
+    Keep ordinary transport failures visible to the rollout manager rather than
+    inventing empty assistant responses that lack sampled tokens for PPO.
+    """
+    if gateway_wait_s < 0 or gateway_poll_s <= 0:
+        raise ValueError("Invalid gateway wait or poll interval")
+    deadline = time.monotonic() + gateway_wait_s
+    while True:
+        try:
+            return llm.chat.completions.create(**kwargs)
+        except Exception as exc:
+            if smith._is_context_overflow(exc):
+                raise smith._ContextOverflow(str(exc)) from exc
+            if not smith._is_gateway_paused(exc):
+                raise
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("SWE gateway remained paused beyond its wait budget") from exc
+            time.sleep(min(gateway_poll_s, remaining))
+
+
 class SmithDockerAgent:
     max_grading_tests = 200
     extra_workflow_hint = ""
@@ -164,6 +188,8 @@ class SmithDockerAgent:
         context_limit = int(os.environ.get("SMITH_CONTEXT", "12288"))
         obs_cap = int(os.environ.get("SMITH_OBS_CHAR_CAP", "4000"))
         model_timeout = int(os.environ.get("SMITH_MODEL_TIMEOUT", "240"))
+        max_format_errors = int(os.environ.get("SMITH_MAX_FORMAT_ERRORS", "3"))
+        gateway_wait_s = float(os.environ.get("SMITH_GATEWAY_WAIT_S", "600"))
         if obs_cap <= 0 or model_timeout <= 0:
             raise ValueError("Observation budget and model timeout must be positive")
         messages = [
@@ -190,6 +216,7 @@ class SmithDockerAgent:
         client = docker.from_env(timeout=120)
         box = SmithSandbox(client, task, rid)
         stop_reason = "turn_budget"
+        n_format_errors = 0
         try:
             preparation = box.prepare()
             if use_editor:
@@ -224,14 +251,25 @@ class SmithDockerAgent:
                             + "\n"
                         )
                         break
-                    response = llm.chat.completions.create(
-                        model="auto",
-                        messages=messages,
-                        max_tokens=int(os.environ.get("SMITH_MAX_TOKENS", "768")),
-                        temperature=1.0,
-                        extra_body={"chat_template_kwargs": {"enable_thinking": False}},
-                        **({"seed": int(row["_agl_sampling_seed"]) + turn} if "_agl_sampling_seed" in row else {}),
-                    )
+                    try:
+                        response = query_completion(
+                            llm,
+                            smith,
+                            gateway_wait_s=gateway_wait_s,
+                            model="auto",
+                            messages=messages,
+                            max_tokens=int(os.environ.get("SMITH_MAX_TOKENS", "768")),
+                            temperature=1.0,
+                            extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+                            **({"seed": int(row["_agl_sampling_seed"]) + turn} if "_agl_sampling_seed" in row else {}),
+                        )
+                    except smith._ContextOverflow:
+                        stop_reason = "context_budget"
+                        trace.write(
+                            json.dumps({"stop_reason": "server_context_limit", "prompt_tokens": token_count}) + "\n"
+                        )
+                        trace.flush()
+                        break
                     choice = response.choices[0]
                     content = choice.message.content or ""
                     messages.append({"role": "assistant", "content": content})
@@ -240,8 +278,21 @@ class SmithDockerAgent:
                     try:
                         action = smith.parse_action(content)
                     except smith.FormatError as exc:
+                        # Match upstream run_agent_loop: count consecutive parse
+                        # failures, reset on any parseable action, and allow <=0
+                        # to disable the limit. Keep the last completion in the
+                        # trace before ending so PPO includes its response tokens.
+                        n_format_errors += 1
+                        record["consecutive_format_errors"] = n_format_errors
+                        if 0 < max_format_errors <= n_format_errors:
+                            stop_reason = "format_errors"
+                            record.update(stop_reason=stop_reason, submitted=False)
+                            trace.write(json.dumps(record) + "\n")
+                            trace.flush()
+                            break
                         observation = smith.format_error_message(exc.n_actions, choice.finish_reason)
                     else:
+                        n_format_errors = 0
                         blocked = self.action_rejection(smith, action)
                         rc, out = (1, blocked) if blocked else box.execute(action)
                         observation = smith.render_observation(rc, out, obs_cap)
