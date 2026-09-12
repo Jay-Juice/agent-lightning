@@ -53,17 +53,47 @@ def load_smith():
     return module
 
 
+def split_export_paths(paths, tracked, *, allow_new_repro=False, allowed_protected=()):
+    """Omit newly created reproduction scripts without accepting test tampering.
+
+    New scripts are never copied into the fresh grading container. Existing tests
+    and every harness/configuration change remain prohibited.
+    """
+    excluded, blocked = [], []
+    harness = {"conftest.py", "sitecustomize.py", "usercustomize.py"}
+    for path in paths:
+        if path in allowed_protected:
+            continue
+        if not forbidden_patch_path(path):
+            continue
+        parts = PurePosixPath(path).parts
+        repro = (
+            allow_new_repro
+            and path not in tracked
+            and path.endswith(".py")
+            and not path.startswith("/")
+            and ".." not in parts
+            and any(p in {"tests", "test"} or p.startswith("test_") or p.endswith("_test.py") for p in parts)
+            and not any(p in harness or p.startswith(".git") for p in parts)
+        )
+        (excluded if repro else blocked).append(path)
+    return excluded, blocked
+
+
 class Sandbox:
+    def container_options(self, task):
+        return {}
+
     def __init__(self, client, task, run_id):
         self.client = client
+        limits = {"mem_limit": "4g", "nano_cpus": 2_000_000_000, "pids_limit": 256}
+        limits.update(self.container_options(task))
         self.container = client.containers.run(
             task["image"],
             command=["/bin/bash", "-c", "exec sleep infinity"],
             detach=True,
             network_mode="none",
-            mem_limit="4g",
-            nano_cpus=2_000_000_000,
-            pids_limit=256,
+            **limits,
             security_opt=["no-new-privileges:true"],
             labels={
                 "agl.purpose": "swe-agent-pilot",
@@ -159,18 +189,35 @@ class Sandbox:
             raise RuntimeError("Command did not terminate after timeout")
         return rc, output.decode("utf-8", errors="replace")
 
-    def export_patch(self):
+    def allowed_protected_paths(self, paths):
+        return set()
+
+    def export_patch(self, *, allow_new_repro=False):
         self.git("add", "-A")
         paths = self.git("diff", "--cached", "--name-only", "-z").split("\0")
         paths = [p for p in paths if p]
-        blocked = [p for p in paths if forbidden_patch_path(p)]
+        tracked = set(self.git("ls-tree", "-r", "--name-only", "-z", "HEAD").split("\0"))
+        self.excluded_patch_paths, blocked = split_export_paths(
+            paths, tracked, allow_new_repro=allow_new_repro, allowed_protected=self.allowed_protected_paths(paths)
+        )
         if blocked:
             return "", paths, "forbidden_test_or_config_change"
         raw = self.git("diff", "--cached", "--raw")
         if any("120000" in line.split("\t", 1)[0] for line in raw.splitlines()):
             return "", paths, "symlink_change_not_supported_in_pilot"
+        included = [p for p in paths if p not in self.excluded_patch_paths]
         return (
-            self.git("diff", "--cached", "--binary", "--no-ext-diff", "--full-index"),
+            self.git(
+                "diff",
+                "--cached",
+                "--binary",
+                "--no-ext-diff",
+                "--full-index",
+                "--",
+                *(":(literal)" + p for p in included),
+            )
+            if included
+            else "",
             paths,
             None,
         )

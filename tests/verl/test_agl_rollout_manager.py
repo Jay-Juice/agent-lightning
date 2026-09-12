@@ -4,6 +4,8 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from agentlightning.schemas import Event, Rollout, RolloutConfig, RolloutLifecycleStatus, RolloutState
@@ -32,6 +34,24 @@ class _ManagerWithViews(AglRolloutManagerBase):
 
     def _fetch_rollout_events(self, rollout_id: str) -> tuple[list[Event], list[Event]]:
         return self._raw_events, self._triplet_view_events
+
+
+@pytest.mark.parametrize("version", [0, 1, 7])
+def test_registration_preserves_synchronized_weight_version(monkeypatch, version):
+    manager = _Manager([])
+    manager._model = "test-model"
+    requests = []
+
+    def post(path, *, json):
+        assert path == "/api/models"
+        requests.extend(json)
+        return SimpleNamespace(json=lambda: json)
+
+    monkeypatch.setattr(manager, "client", SimpleNamespace(post_with_retry=post), raising=False)
+    models = manager.register_model(["127.0.0.1:9000", "http://127.0.0.1:9001/v1"], version=version)
+    assert [row["version"] for row in requests] == [version, version]
+    assert [model.version for model in models] == [version, version]
+    assert [model.endpoint for model in models] == ["http://127.0.0.1:9000/v1", "http://127.0.0.1:9001/v1"]
 
 
 def _event(event_type: str, data: dict) -> Event:

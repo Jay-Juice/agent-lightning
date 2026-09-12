@@ -75,3 +75,18 @@ def test_worker_binding_preserves_copied_updates_and_adapts_only_return_type(mon
     actor = object.__new__(actor_api.DataParallelPPOActor)
     assert actor.compute_log_prob(None, calculate_entropy=True).keys() == {"log_probs", "entropys"}
     assert actor.compute_log_prob(None, calculate_entropy=False).keys() == {"log_probs"}
+
+
+def test_terminal_reward_propagates_across_long_tool_episodes():
+    from agentlightning.verl.vendor.capo.arft_core_algos import compute_token_gae_advantage_return
+
+    rewards = torch.zeros(2, 2048)
+    rewards[1, -1] = 1
+    values = torch.zeros_like(rewards)
+    mask = torch.ones_like(rewards)
+    args = (rewards, values, mask, np.array(["a", "a"]), np.array([0, 1]))
+    _, undiscounted = compute_token_gae_advantage_return(*args, gamma=1, lam=1)
+    _, discounted = compute_token_gae_advantage_return(*args, gamma=0.99, lam=1)
+    torch.testing.assert_close(undiscounted, torch.ones_like(rewards))
+    assert discounted[0, 0].item() < 2e-18
+    assert discounted[1, -1].item() == 1

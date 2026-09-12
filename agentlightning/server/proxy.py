@@ -44,6 +44,10 @@ class ProxyRouter:
         self._train_temperature = float(default_proxy["train"]["temperature"])
         self._val_temperature = float(default_proxy["val"]["temperature"])
         self._include_log_probs = bool(default_proxy.get("include_log_probs", True))
+        self._sampling_overrides = {
+            mode: {name: default_proxy[mode][name] for name in ("top_p", "top_k") if name in default_proxy[mode]}
+            for mode in ("train", "val")
+        }
 
     @property
     def model_name(self) -> str:
@@ -63,6 +67,7 @@ class ProxyRouter:
         if mode == "train":
             prepared = {
                 **body,
+                **self._sampling_overrides["train"],
                 "model": self._model_name,
                 "temperature": self._train_temperature,
                 "return_token_ids": True,
@@ -73,6 +78,7 @@ class ProxyRouter:
         if mode == "val":
             prepared = {
                 **body,
+                **self._sampling_overrides["val"],
                 "model": self._model_name,
                 "temperature": self._val_temperature,
                 "return_token_ids": True,

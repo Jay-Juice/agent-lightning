@@ -4,6 +4,16 @@
 Actor 和 critic 都只读取当前轮可见历史；尚未加入 privileged information。
 默认使用 A800 的现有环境和本地模型，不下载模型或数据。
 
+当前状态（2026-09-13）：正式全 Python baseline **尚未启动**。
+最新环境验收 123/124 通过，Tenacity 仍失败；后台验收进程已经退出。
+工作文档入口：
+
+- [最新全量准备、修复和待办记录](全量Python_baseline准备与切换_2026-09-12.md)
+- [完整诊断与实验依据](SWE_DIAGNOSIS_2026-09-12.md)
+- [此前 32 任务子集的启动快照](工作汇报_全程baseline启动_2026-09-12.md)（历史记录，该运行已停止）
+
+模型权重、数据集、日志和 checkpoint 不纳入本仓库。
+
 按用户要求另提供 [CAPO PPO 直接移植版](CAPO_PPO.md)：复制其 GAE、PPO loss 和
 Actor/Critic 更新代码，使用独立 `backend=capo`，保留来源哈希与原始尾批语义。
 Qwen3-4B 的训练前能力评测与复现命令见 [初始评测记录](INITIAL_4B_EVAL_2026-09-10.md)。

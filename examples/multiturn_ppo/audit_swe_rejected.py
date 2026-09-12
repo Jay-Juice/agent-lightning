@@ -13,8 +13,11 @@ from smith_docker_agent import SmithSandbox, agent_task, grade
 
 def replay(run, output, record):
     rid = record["rollout_id"]
-    trace = json.loads((run / "traces" / f"{rid}.json").read_text())
-    row = trace["rollout"]["input"]
+    trace_file = run / "traces" / f"{rid}.json"
+    if trace_file.exists():
+        row = json.loads(trace_file.read_text())["rollout"]["input"]
+    else:
+        row = json.loads((run / "jobs" / f"{rid}.json").read_text())["row"]
     turns = [json.loads(line) for line in (run / "agent" / rid / "trajectory.jsonl").read_text().splitlines()]
     directory = output / rid
     directory.mkdir()
@@ -70,7 +73,16 @@ def main():
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=False)
-    summary = json.loads((args.run / "evaluation-summary.json").read_text())
+    summary_file = args.run / "evaluation-summary.json"
+    if summary_file.exists():
+        summary = json.loads(summary_file.read_text())
+    else:
+        completed = json.loads((args.run / "results.json").read_text())
+        summary = {"records": []}
+        for result in completed:
+            if result["grade"] and result["grade"].get("patch_rejection"):
+                sandbox = json.loads((args.run / "agent" / result["rid"] / "sandbox.json").read_text())
+                summary["records"].append(dict(result["grade"], rollout_id=result["rid"], changed_paths=sandbox["changed_paths"]))
     results = []
     for record in summary["records"]:
         if record["patch_rejection"] == "forbidden_test_or_config_change":

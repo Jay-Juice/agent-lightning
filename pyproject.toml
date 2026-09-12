@@ -71,7 +71,7 @@ url = "https://download.pytorch.org/whl/cpu"
 [tool.ruff]
 line-length = 120
 target-version = "py312"
-exclude = ["examples/llm-in-sandbox/vendor", "agentlightning/verl/vendor/capo"]
+exclude = ["examples/llm-in-sandbox/vendor", "agentlightning/verl/vendor/capo", "examples/multiturn_ppo/vendor"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
@@ -81,7 +81,7 @@ quote-style = "double"
 
 [tool.pyright]
 include = ["agentlightning", "tests", "docs/macros", "scripts"]
-exclude = ["agentlightning/verl/vendor/capo"]
+exclude = ["agentlightning/verl/vendor/capo", "examples/multiturn_ppo/vendor"]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
 venvPath = "."

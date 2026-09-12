@@ -62,6 +62,11 @@ def run_ppo(
         setup_hook = "agentlightning.verl.per_rollout_loss.register_in_worker"
         if capo_backend:
             setup_hook = "agentlightning.verl.capo_ppo.register_in_worker"
+            env_vars = dict(runtime_env.get("env_vars", {}))
+            env_vars["AGL_CAPO_STRICT_PADDING"] = str(
+                int(config.agentlightning.multi_turn_ppo.get("capo_strict_padding", False))
+            )
+            runtime_env["env_vars"] = env_vars
             if runtime_env.get("worker_process_setup_hook", setup_hook) != setup_hook:
                 raise ValueError("CAPO PPO requires its copied worker setup hook")
         elif config.agentlightning.get("multi_turn_ppo", {}).get("distributed_padding", False):
@@ -110,6 +115,12 @@ class _AglTaskRunner:
         from verl.utils.tokenizer import hf_processor, hf_tokenizer
 
         from agentlightning.verl.trainer import AgentLightningRayPPOTrainer
+
+        trainer_class = AgentLightningRayPPOTrainer
+        if config.agentlightning.get("full_dataset", False):
+            from agentlightning.verl.full_dataset import FullDatasetRayPPOTrainer
+
+            trainer_class = FullDatasetRayPPOTrainer
 
         print(f"AglTaskRunner hostname: {socket.gethostname()}, PID: {os.getpid()}")
         pprint(OmegaConf.to_container(config, resolve=True))
@@ -168,7 +179,7 @@ class _AglTaskRunner:
 
         train_sampler = create_rl_sampler(config.data, train_dataset)
 
-        trainer = AgentLightningRayPPOTrainer(
+        trainer = trainer_class(
             config=config,
             tokenizer=tokenizer,
             processor=processor,

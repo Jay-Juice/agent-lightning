@@ -118,6 +118,7 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
             multi_turn_ppo.validate_config(self.config)
         self.is_async = self.config.agentlightning.async_rollout.enabled
         self.epoch = 0
+        self._rollout_weight_version = 0
         async_train_batch_size = self.config.agentlightning.async_rollout.async_train_batch_size
         train_batch_size = self.config.data.train_batch_size
         if self.is_async and async_train_batch_size <= train_batch_size:
@@ -394,7 +395,7 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
         if self.is_async and is_train:
             rollout_manager = self._make_rollout_manager(AglAsyncRolloutManager)
             rollout_manager.delete_model()
-            rollout_manager.register_model(server_addresses)
+            rollout_manager.register_model(server_addresses, version=self._rollout_weight_version)
             previous_carry_over_rollouts = list(self._carry_over_rollouts)
             completed_rollouts, new_carry_over_rollouts = rollout_manager.enqueue_and_wait_until_group_completed(
                 data_dict,
@@ -411,7 +412,7 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
         else:
             rollout_manager = self._make_rollout_manager(AglRolloutManager)
             rollout_manager.delete_model()
-            rollout_manager.register_model(server_addresses)
+            rollout_manager.register_model(server_addresses, version=self._rollout_weight_version)
             completed_rollouts = rollout_manager.enqueue_and_wait_until_completed(data_dict, is_train=is_train)
 
         trace_aggregator = self.config.agentlightning.trace_aggregator
@@ -709,6 +710,7 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
 
         with marked_timer("update_weights", timing_raw, color="red"):
             self.checkpoint_manager.update_weights(self.global_steps)  # pyright: ignore[reportOptionalMemberAccess, reportUnusedCoroutine]
+            self._rollout_weight_version = self.global_steps
 
         batch.meta_info["global_token_num"] = torch.sum(batch.batch["attention_mask"], dim=-1).tolist()
         # Return the batch so fit() can compute throughput after the step timer closes.
@@ -731,6 +733,7 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
         self._load_checkpoint()
         # Push loaded weights before the first rollout or validation.
         self.checkpoint_manager.update_weights(self.global_steps)  # pyright: ignore[reportOptionalMemberAccess, reportUnusedCoroutine]
+        self._rollout_weight_version = self.global_steps
 
         if self.config.trainer.get("val_before_train", True):
             val_metrics = self._validate()

@@ -28,6 +28,16 @@ def agent_task(row):
 
 
 class SmithSandbox(Sandbox):
+    def install_editor(self):
+        buf = io.BytesIO()
+        with tarfile.open(fileobj=buf, mode="w") as tar:
+            content = Path(__file__).with_name("smith_edit.py").read_bytes()
+            info = tarfile.TarInfo("agl-edit")
+            info.size, info.mode = len(content), 0o755
+            tar.addfile(info, io.BytesIO(content))
+        if not self.container.put_archive("/usr/local/bin", buf.getvalue()):
+            raise RuntimeError("Could not install the checked source editor")
+
     def prepare(self):
         iid = self.container.labels["agl.instance_id"]
         if not re.fullmatch(r"[A-Za-z0-9_.-]+", iid):
@@ -46,11 +56,11 @@ class SmithSandbox(Sandbox):
             raise RuntimeError("Could not stage patch")
 
 
-def test_nodes(row):
+def test_nodes(row, max_tests=200):
     f2p, p2p = row["FAIL_TO_PASS"], row["PASS_TO_PASS"]
     if not f2p or not isinstance(f2p, list) or not isinstance(p2p, list):
         raise ValueError("Missing test metadata")
-    if len(f2p) + len(p2p) > 200:
+    if max_tests is not None and len(f2p) + len(p2p) > max_tests:
         raise ValueError("Single-machine pilot limits grading to 200 tests")
     for node in f2p + p2p:
         path = node.split("::", 1)[0]
@@ -132,10 +142,16 @@ def grade(row, patch, output_dir, *, reference=False):
 
 
 class SmithDockerAgent:
+    max_grading_tests = 200
+    extra_workflow_hint = ""
+
+    def action_rejection(self, smith, action):
+        return smith._forbidden_action(action)
+
     def run(self):
         row = json.loads(os.environ["AGL_TASK"])
         task = agent_task(row)
-        test_nodes(row)
+        test_nodes(row, max_tests=self.max_grading_tests)
         key = os.environ["AGL_KEY"]
         event_url = os.environ["AGL_EVENT_URL"]
         rid = event_url.split("/rollouts/")[1].split("/")[0]
@@ -157,12 +173,27 @@ class SmithDockerAgent:
                 "content": smith.INSTANCE_PROMPT.format(problem_statement=task["problem_statement"]),
             },
         ]
+        verified_submission = os.environ.get("SMITH_VERIFY_SUBMISSION", "0") == "1"
+        allow_new_repro = os.environ.get("SMITH_ALLOW_REPRO_FILES", "0") == "1"
+        check_syntax = os.environ.get("SMITH_CHECK_SYNTAX", "0") == "1"
+        use_editor = os.environ.get("SMITH_CHECKED_EDITOR", "0") == "1"
+        if verified_submission:
+            from smith_submission import WORKFLOW_HINT
+
+            messages[-1]["content"] += WORKFLOW_HINT
+        if use_editor:
+            from smith_submission import EDITOR_HINT
+
+            messages[-1]["content"] += EDITOR_HINT
+        messages[-1]["content"] += self.extra_workflow_hint
         (directory / "initial-messages.json").write_text(json.dumps(messages))
         client = docker.from_env(timeout=120)
         box = SmithSandbox(client, task, rid)
         stop_reason = "turn_budget"
         try:
             preparation = box.prepare()
+            if use_editor:
+                box.install_editor()
             with (
                 OpenAI(
                     base_url=os.environ["AGL_OPENAI_BASE_URL"],
@@ -199,6 +230,7 @@ class SmithDockerAgent:
                         max_tokens=int(os.environ.get("SMITH_MAX_TOKENS", "768")),
                         temperature=1.0,
                         extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+                        **({"seed": int(row["_agl_sampling_seed"]) + turn} if "_agl_sampling_seed" in row else {}),
                     )
                     choice = response.choices[0]
                     content = choice.message.content or ""
@@ -210,11 +242,31 @@ class SmithDockerAgent:
                     except smith.FormatError as exc:
                         observation = smith.format_error_message(exc.n_actions, choice.finish_reason)
                     else:
-                        blocked = smith._forbidden_action(action)
+                        blocked = self.action_rejection(smith, action)
                         rc, out = (1, blocked) if blocked else box.execute(action)
                         observation = smith.render_observation(rc, out, obs_cap)
                         submitted = not blocked and smith.is_submission(out)
                         record.update(action=action, returncode=rc, output=out)
+                        if submitted and verified_submission:
+                            from smith_submission import submission_feedback, syntax_check_command
+
+                            candidate = box.export_patch(allow_new_repro=allow_new_repro)
+                            feedback = submission_feedback(*candidate)
+                            if feedback is None and check_syntax:
+                                included = [p for p in candidate[1] if p not in box.excluded_patch_paths]
+                                syntax_rc, syntax_output = box.execute(syntax_check_command(included))
+                                record["syntax_check"] = {"returncode": syntax_rc, "output": syntax_output}
+                                if syntax_rc:
+                                    feedback = (
+                                        "Submission not accepted: changed Python source has a syntax error. "
+                                        "Read the affected source, fix its syntax, verify your reproduction, "
+                                        "then submit again. No grading tests were run.\n"
+                                        + smith.render_observation(syntax_rc, syntax_output, obs_cap)
+                                    )
+                            if feedback:
+                                submitted = False
+                                observation = feedback
+                                record["submission_feedback"] = feedback
                     record.update(observation=observation, submitted=submitted)
                     trace.write(json.dumps(record) + "\n")
                     trace.flush()
@@ -222,7 +274,7 @@ class SmithDockerAgent:
                     if submitted:
                         stop_reason = "submitted"
                         break
-            patch, paths, rejection = box.export_patch()
+            patch, paths, rejection = box.export_patch(allow_new_repro=allow_new_repro)
             (directory / "model.patch").write_text(patch)
             (directory / "sandbox.json").write_text(
                 json.dumps(
@@ -230,6 +282,7 @@ class SmithDockerAgent:
                         "baseline": preparation,
                         "changed_paths": paths,
                         "rejection": rejection,
+                        "excluded_reproduction_paths": box.excluded_patch_paths,
                     },
                     indent=2,
                 )

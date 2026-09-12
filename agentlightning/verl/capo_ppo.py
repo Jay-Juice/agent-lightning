@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 from .vendor.capo import trajectory
@@ -37,12 +38,13 @@ def validate_config(config):
             or worker.use_dynamic_bsz
             or worker.ppo_mini_batch_size % world
             or worker.ppo_mini_batch_size < world
-            or worker.ppo_micro_batch_size_per_gpu != 1
+            or worker.ppo_micro_batch_size_per_gpu not in {1, 2}
+            or (worker.ppo_mini_batch_size // world) % worker.ppo_micro_batch_size_per_gpu
             or worker.get("ulysses_sequence_parallel_size", 1) != 1
             or worker.loss_agg_mode != "seq-mean-token-mean"
         ):
             raise ValueError(
-                "CAPO port requires FSDP, microbatch=1, fixed batches divisible by world, and call-mean loss"
+                "CAPO port requires FSDP, microbatch 1 or 2, divisible local minibatches, and call-mean loss"
             )
 
 
@@ -64,7 +66,7 @@ def compute_advantage(batch, gamma, lam):
 
 
 def register_in_worker():
-    """Bind copied update classes; adapt only the newer FSDP log-prob return API."""
+    """Bind copied loops, adapting the return API and optional padding weights."""
     import verl.workers.actor as actor_api
     import verl.workers.critic as critic_api
 
@@ -84,13 +86,38 @@ def register_in_worker():
 
     actor_api.DataParallelPPOActor = CompatibleActor
     critic_api.DataParallelPPOCritic = DataParallelPPOCritic
+    strict_padding = os.environ.get("AGL_CAPO_STRICT_PADDING", "0") == "1"
+    if strict_padding:
+        from .capo_padding import before_forward, register_aggregation, update_with_real_call_mean
+
+        register_aggregation()
+
+        class PaddingActor(CompatibleActor):
+            def _forward_micro_batch(self, micro_batch, *args, **kwargs):
+                before_forward(self, micro_batch)
+                return super()._forward_micro_batch(micro_batch, *args, **kwargs)
+
+            def update_policy(self, data):
+                return update_with_real_call_mean(self, data, super().update_policy)
+
+        class PaddingCritic(DataParallelPPOCritic):
+            def _forward_micro_batch(self, micro_batch, *args, **kwargs):
+                before_forward(self, micro_batch)
+                return super()._forward_micro_batch(micro_batch, *args, **kwargs)
+
+            def update_critic(self, data):
+                return update_with_real_call_mean(self, data, super().update_critic)
+
+        actor_api.DataParallelPPOActor = PaddingActor
+        critic_api.DataParallelPPOCritic = PaddingCritic
     print(
         "CAPO_PPO_WORKERS "
         + json.dumps(
             {
                 "actor_class": DataParallelPPOActor.__module__,
                 "critic_class": DataParallelPPOCritic.__module__,
-                "actor_update_inherited": CompatibleActor.update_policy is DataParallelPPOActor.update_policy,
+                "copied_actor_loop_unmodified": CompatibleActor.update_policy is DataParallelPPOActor.update_policy,
+                "padding_loss_adapter": strict_padding,
             }
         ),
         flush=True,

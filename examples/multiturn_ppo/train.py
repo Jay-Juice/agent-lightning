@@ -143,14 +143,19 @@ def build_config(args):
     safe = OmegaConf.to_container(cfg, resolve=True)
     safe["agentlightning"]["agl_key"] = "<runtime key>"
     (run / "resolved-config.json").write_text(json.dumps(safe, indent=2))
+    from sampling_config import proxy_overrides
+
+    (run / "proxy-overrides.txt").write_text("\n".join(proxy_overrides(safe["actor_rollout_ref"]["rollout"])) + "\n")
     repo = Path(__file__).resolve().parents[2]
     sources = [
         repo / "agentlightning/verl/multi_turn_ppo.py",
         repo / "agentlightning/verl/distributed_ppo.py",
         repo / "agentlightning/verl/capo_ppo.py",
+        repo / "agentlightning/verl/capo_padding.py",
         repo / "agentlightning/verl/entrypoint.py",
         repo / "agentlightning/verl/config.yaml",
         repo / "agentlightning/verl/trainer.py",
+        repo / "agentlightning/verl/full_dataset.py",
         repo / "agentlightning/verl/agl_rollout_manager.py",
         repo / "agentlightning/server/routes/events.py",
         *Path(__file__).parent.glob("*.py"),
@@ -181,6 +186,10 @@ def build_config(args):
                     "SMITH_CONTEXT",
                     "SMITH_OBS_CHAR_CAP",
                     "SMITH_MODEL_TIMEOUT",
+                    "SMITH_VERIFY_SUBMISSION",
+                    "SMITH_ALLOW_REPRO_FILES",
+                    "SMITH_CHECK_SYNTAX",
+                    "SMITH_CHECKED_EDITOR",
                 )
             },
         },

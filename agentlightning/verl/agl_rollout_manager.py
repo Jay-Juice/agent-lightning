@@ -284,12 +284,12 @@ class AglRolloutManagerBase:
             transport=RetryTransport(retry=Retry(total=10, allowed_methods=["GET"])),
         )
 
-    def register_model(self, server_addresses: list[str]) -> list[Model]:
-        """Register model server endpoints."""
+    def register_model(self, server_addresses: list[str], *, version: int = 0) -> list[Model]:
+        """Register endpoints with the version of weights actually synchronized."""
         models: list[Model] = []
         for address in server_addresses:
             endpoint = address if address.startswith("http") else f"http://{address}/v1"
-            models.append(Model(model=self._model, endpoint=endpoint))
+            models.append(Model(model=self._model, endpoint=endpoint, version=version))
 
         # Model registration is idempotent, so transient failures are safe to retry.
         payload = [model.model_dump(mode="json") for model in models]

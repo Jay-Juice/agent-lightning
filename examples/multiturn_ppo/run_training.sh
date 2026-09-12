@@ -9,6 +9,16 @@ export AGL_RUN_DIR="$AGL_RUNTIME/logs/training-$TAG"
 test ! -e "$AGL_RUN_DIR" || { echo "Run exists: $AGL_RUN_DIR" >&2; exit 2; }
 mkdir -p "$AGL_RUN_DIR"/{agent,traces}
 exec >"$AGL_RUN_DIR/run.log" 2>&1
+server_pid='' controller_pid='' monitor_pid=''
+cleanup() {
+  code=$?
+  trap - EXIT INT TERM
+  for pid in "$controller_pid" "$server_pid" "$monitor_pid"; do
+    if [[ -n "$pid" ]]; then kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; fi
+  done
+  printf '%s\n' "$code" > "$AGL_RUN_DIR/run.exit"
+}
+trap cleanup EXIT
 export CUDA_VISIBLE_DEVICES="${AGL_GPUS:-${AGL_GPU:-0}}"
 [[ "$CUDA_VISIBLE_DEVICES" =~ ^[0-7](,[0-7])*$ ]] || { echo 'Expected comma-separated physical GPU indices'; exit 2; }
 while read -r used; do
@@ -25,7 +35,9 @@ export HF_HUB_OFFLINE=1 HF_DATASETS_OFFLINE=1 VLLM_NO_USAGE_STATS=1 RAY_USAGE_ST
 # Keep Ray's spill limit local to this launch, with an absolute free-space guard.
 export RAY_local_fs_capacity_threshold=0.99
 free_kb=$(df --output=avail /media/ubuntu/D1 | tail -1)
-(( free_kb > 150 * 1024 * 1024 )) || { echo 'D1 needs at least 150 GiB free for this run'; exit 2; }
+minimum_gib="${AGL_MIN_FREE_GIB:-150}"
+[[ "$minimum_gib" =~ ^[1-9][0-9]*$ ]] && (( minimum_gib >= 20 )) || { echo 'AGL_MIN_FREE_GIB must be at least 20'; exit 2; }
+(( free_kb > minimum_gib * 1024 * 1024 )) || { echo "D1 needs at least $minimum_gib GiB free for this run"; exit 2; }
 export OMP_NUM_THREADS=4 OPENBLAS_NUM_THREADS=4 TOKENIZERS_PARALLELISM=false
 export WANDB_MODE=offline PYTHONDONTWRITEBYTECODE=1
 # Do not send private LAN Ray/vLLM traffic through the workstation's Internet proxy.
@@ -38,16 +50,6 @@ MODEL="${AGL_TRAIN_MODEL:-/media/ubuntu/D1/zsj/GOPD/G-OPD-main/models/Qwen3-0.6B
 export AGL_TRAIN_MODEL="$MODEL"
 LOCAL_AGENTS="${AGL_MAX_LOCAL_AGENTS:-4}"
 [[ "$LOCAL_AGENTS" =~ ^[1-9][0-9]*$ ]] || { echo 'AGL_MAX_LOCAL_AGENTS must be positive'; exit 2; }
-server_pid='' controller_pid='' monitor_pid=''
-cleanup() {
-  code=$?
-  trap - EXIT INT TERM
-  for pid in "$controller_pid" "$server_pid" "$monitor_pid"; do
-    if [[ -n "$pid" ]]; then kill "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true; fi
-  done
-  printf '%s\n' "$code" > "$AGL_RUN_DIR/run.exit"
-}
-trap cleanup EXIT
 if [[ "${AGL_GPU_MONITOR:-0}" == 1 ]]; then
   nvidia-smi -i "$CUDA_VISIBLE_DEVICES" \
     --query-gpu=timestamp,index,utilization.gpu,memory.used,power.draw \
@@ -58,7 +60,9 @@ python - "$PORT" <<'PY'
 import socket, sys
 with socket.socket() as s: s.bind(('127.0.0.1', int(sys.argv[1])))
 PY
-agl-server host=127.0.0.1 port="$PORT" key="$AGL_KEY" default_proxy.model_name="$MODEL" \
+python -u "$TOOLS/train.py" --model "$MODEL" "$@" --config-only >"$AGL_RUN_DIR/config.log" 2>&1
+mapfile -t PROXY_OVERRIDES < "$AGL_RUN_DIR/proxy-overrides.txt"
+agl-server host=127.0.0.1 port="$PORT" key="$AGL_KEY" default_proxy.model_name="$MODEL" "${PROXY_OVERRIDES[@]}" \
   >"$AGL_RUN_DIR/server.log" 2>&1 &
 server_pid=$!
 for ((i=0;i<60;i++)); do

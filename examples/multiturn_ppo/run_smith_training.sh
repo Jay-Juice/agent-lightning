@@ -4,6 +4,8 @@ TOOLS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 export AGL_TRAIN_MODEL="${AGL_TRAIN_MODEL:-/media/ubuntu/D1/zsj/GOPD/G-OPD-main/models/Qwen3-1.7B}"
 export SMITH_MAX_TURNS="${SMITH_MAX_TURNS:-8}" SMITH_MAX_TOKENS="${SMITH_MAX_TOKENS:-768}"
 export SMITH_CONTEXT="${SMITH_CONTEXT:-12288}"
+# Keep new reproduction scripts out of the patch while preserving source edits.
+export SMITH_ALLOW_REPRO_FILES="${SMITH_ALLOW_REPRO_FILES:-1}"
 for budget in "$SMITH_MAX_TURNS" "$SMITH_MAX_TOKENS" "$SMITH_CONTEXT"; do
   [[ "$budget" =~ ^[1-9][0-9]*$ ]] || { echo 'SWE budgets must be positive integers'; exit 2; }
 done
