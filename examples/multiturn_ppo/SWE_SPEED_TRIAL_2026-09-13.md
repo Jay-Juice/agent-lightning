@@ -31,9 +31,9 @@
 
 ## 完整验证加速实测
 
-22:46:21 启动 `capo-swe-valfast-4b-20260913-01`，screen `agl-speed-valfast-4b-01`；物理GPU4–7，端口18501，验证batch470、32agents、每vLLM实例8序列/16384调度tokens。microbatch保持2，使用原始4B，完整470条文件未改。日志为 `runtime/logs/training-capo-swe-valfast-4b-20260913-01`；尚未完成，不能宣称具体加速比例或效果等价。
+22:46:21 启动 `capo-swe-valfast-4b-20260913-01`，screen `agl-speed-valfast-4b-01`；物理GPU4–7，端口18501，验证batch470、32agents、每vLLM实例8序列/16384调度tokens。microbatch保持2，使用原始4B，完整470条文件未改。日志为 `runtime/logs/training-capo-swe-valfast-4b-20260913-01`。已正常退出（run/launch exit均0），470个唯一任务全部覆盖，470条轨迹均为验证，没有 optimizer 更新或 checkpoint。验证实际耗时2093.65秒（34分54秒），相对原5854.39秒快2.80倍，耗时减少64.24%。四卡显存峰值分别25.41、27.81、27.43、25.76 GiB；验证时段平均GPU利用率48.6%、62.5%、61.4%、44.5%。
 
-原验证有13条Paramiko未收集到测试的评分疑点，本试验没有修改评分代码，因此新的速度结果不等于评分质量已经核验完成。验证采样本身有随机性，新的通过率也不能解释为模型经过训练后提升；本试验没有更新模型。
+原始 metrics 记录本次65/470成功、原配置64/470成功。随后查明 Paramiko 测试 ID 被空格截断，修复后重评分两次保存的补丁，分别为68/470与67/470。原始日志未覆盖。详见 [Paramiko 修复与训练加速报告](PARAMIKO_AND_TRAINING_SPEED_2026-09-13.md)。验证采样本身有随机性，相差1个成功不能解释为模型性能提升；本试验没有更新模型。
 
 ## 保存频率
 

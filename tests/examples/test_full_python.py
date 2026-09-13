@@ -109,6 +109,32 @@ def test_forced_color_keeps_exact_status_and_node_id(grader):
     }
 
 
+def test_paramiko_aliases_preserve_tests_and_input(grader):
+    aliases = grader.PARAMIKO_TEST_ALIASES
+    row = {
+        "instance_id": "paramiko__paramiko.23f92003.example",
+        "FAIL_TO_PASS": [next(iter(aliases))],
+        "PASS_TO_PASS": [list(aliases)[1], "tests/x.py::test_ok"],
+    }
+    f2p, p2p = grader.grading_test_nodes(row)
+    assert f2p == [aliases[row["FAIL_TO_PASS"][0]]]
+    assert p2p == [aliases[row["PASS_TO_PASS"][0]], "tests/x.py::test_ok"]
+    assert row["FAIL_TO_PASS"][0] in aliases
+    unrelated = {**row, "instance_id": "other.repo"}
+    assert grader.grading_test_nodes(unrelated) == (row["FAIL_TO_PASS"], row["PASS_TO_PASS"])
+
+
+def test_summary_preserves_spaces_and_does_not_accept_partial_ids(grader):
+    good = "tests/test_config.py::Case::test_value[not an int]"
+    bad = "tests/test_config.py::Case::test_value[quoted spaced-neil]"
+    absent = "tests/test_config.py::Case::test_value[not another int]"
+    output = f"PASSED {good}\nFAILED {bad} - AssertionError: bad value\nPASSED {absent.split(' ')[0]}\n"
+    statuses = grader.parse_statuses(output, [good, bad, absent])
+    assert statuses[good] == "PASSED"
+    assert statuses[bad] == "FAILED"
+    assert absent not in statuses
+
+
 @pytest.mark.parametrize("stale", [False, True])
 @pytest.mark.parametrize(
     "candidate,rejection",

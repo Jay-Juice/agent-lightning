@@ -5,12 +5,14 @@ RUNTIME=/media/ubuntu/D1/zsj/agent-lightning-runtime
 DATA="$RUNTIME/data/swe-smith-training/speedtrial-20260913"
 export AGL_GPUS=4,5,6,7 AGL_TRAIN_PORT=18501
 export AGL_TRAIN_TAG="${AGL_TRAIN_TAG:?Set a unique isolated trial tag}"
-export AGL_MAX_LOCAL_AGENTS="${AGL_MAX_LOCAL_AGENTS:-16}"
+export AGL_MAX_LOCAL_AGENTS="${AGL_MAX_LOCAL_AGENTS:-32}"
 export AGL_MIN_FREE_GIB=150
 MICRO="${AGL_SPEED_TRAIN_MICRO:-2}"
 FORWARD="${AGL_SPEED_FORWARD_MICRO:-2}"
-SEQS="${AGL_SPEED_MAX_SEQS:-4}"
-TOKENS="${AGL_SPEED_BATCHED_TOKENS:-8192}"
+SEQS="${AGL_SPEED_MAX_SEQS:-8}"
+TOKENS="${AGL_SPEED_BATCHED_TOKENS:-16384}"
+# These concurrency settings also apply to training rollouts. They were tested
+# on full validation; end-to-end PPO step speed still needs separate measurement.
 # Equal task batch and optimization minibatches. Only execution batching changes.
 # This disposable one-step speed check does not run validation or save weights.
 # The separate full entrypoint carries the requested 20/40/3 cadence.

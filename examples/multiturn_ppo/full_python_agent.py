@@ -97,11 +97,40 @@ def install_http_fixture(box, nodes):
     return json.loads((directory / "manifest.json").read_text())
 
 
-def parse_statuses(output):
+# Verified against --collect-only in the pinned 23f92003 Paramiko image.
+# Published identifiers were truncated at whitespace inside parameter IDs.
+_PARAMIKO_MATCH_EXEC = "tests/test_config.py::TestMatchExec::test_accepts_single_possibly_quoted_argument"
+_PARAMIKO_AS_INT = "tests/test_config.py::TestSSHConfigDict::test_SSHConfigDict_as_int_failures"
+PARAMIKO_TEST_ALIASES = {
+    _PARAMIKO_MATCH_EXEC + "[quoted": _PARAMIKO_MATCH_EXEC + "[quoted spaced-neil]",
+    _PARAMIKO_AS_INT + "[not": _PARAMIKO_AS_INT + "[not an int]",
+}
+
+
+def grading_test_nodes(row):
+    f2p, p2p = pilot.test_nodes(row, max_tests=None)
+    aliases = PARAMIKO_TEST_ALIASES if row["instance_id"].startswith("paramiko__paramiko.23f92003.") else {}
+    return ([aliases.get(node, node) for node in f2p], [aliases.get(node, node) for node in p2p])
+
+
+def parse_statuses(output, expected_nodes=()):
     # Some image configs force ANSI colors even without a terminal. Strip only
     # terminal styling before passing the output to the upstream status parser.
     plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", output)
-    return pilot.load_smith().parse_test_statuses(plain)
+    statuses = pilot.load_smith().parse_test_statuses(plain)
+    # Upstream's whitespace parser truncates parameter IDs too. Match complete
+    # expected IDs in pytest's -rA summary; never count a prefix as a test pass.
+    expected = sorted(set(expected_nodes), key=len, reverse=True)
+    for line in plain.splitlines():
+        match = re.match(r"^(PASSED|FAILED|ERROR|XFAIL|XPASS|SKIPPED) (.+)$", line)
+        if not match:
+            continue
+        status, rest = match.groups()
+        for node in expected:
+            if rest == node or rest.startswith(node + " - "):
+                statuses[node] = status
+                break
+    return statuses
 
 
 def package_metadata_dirs(paths):
@@ -459,7 +488,7 @@ class FullPythonSandbox(pilot.SmithSandbox):
 def grade(row, patch, output_dir, *, reference=False):
     if row.get("grading_protocol") != "f2p_file":
         raise ValueError("Full Python agent requires the prepared f2p_file dataset")
-    f2p, p2p = pilot.test_nodes(row, max_tests=None)
+    f2p, p2p = grading_test_nodes(row)
     f2p_paths = {node.split("::", 1)[0] for node in f2p}
     if any(node.split("::", 1)[0] not in f2p_paths for node in p2p):
         raise ValueError("P2P includes files outside the declared grading protocol")
@@ -572,7 +601,7 @@ def grade(row, patch, output_dir, *, reference=False):
         )
         output = result.output.decode(errors="replace")
         (output_dir / "test-output.txt").write_text(output)
-        statuses = parse_statuses(output)
+        statuses = parse_statuses(output, nodes)
         pass_f = sum(statuses.get(node) in ("PASSED", "XFAIL") for node in f2p)
         pass_p = sum(statuses.get(node) in ("PASSED", "XFAIL") for node in p2p)
         resolved = result.exit_code == 0 and pass_f == len(f2p) and pass_p == len(p2p)
@@ -591,6 +620,11 @@ def grade(row, patch, output_dir, *, reference=False):
             "test_runner": "native_tornado" if native_tornado else "pytest",
             "coverage_instrumentation_disabled": plugins["pytest_cov"],
             "recorded_http_fixture": http_fixture,
+            "test_node_aliases": {
+                old: new
+                for old, new in zip(row["FAIL_TO_PASS"] + row["PASS_TO_PASS"], f2p + p2p, strict=True)
+                if old != new
+            },
         }
         (output_dir / "grade.json").write_text(json.dumps(report))
         return report

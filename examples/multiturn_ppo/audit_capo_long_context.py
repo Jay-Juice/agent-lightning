@@ -32,8 +32,12 @@ def main():
     parser.add_argument("--cohort", action="store_true", help="Include critic and reference in the memory check")
     parser.add_argument("--fsdp-size", type=int, choices=[-1, 2], default=-1)
     parser.add_argument("--actor-zero2", action="store_true", help="Keep actor parameters gathered through backward")
+    parser.add_argument("--critic-zero2", action="store_true", help="Keep critic parameters gathered through backward")
     parser.add_argument("--inference-batch", type=int, choices=[1, 2, 4], default=1)
     parser.add_argument("--train-batch", type=int, choices=[1, 2, 4], default=1)
+    parser.add_argument(
+        "--actor-train-batch", type=int, choices=[1, 2, 4], help="Override actor only; critic stays unchanged"
+    )
     parser.add_argument("--rows", type=int, help="Fixed real rows per rank for equal-work microbatch comparisons")
     parser.add_argument(
         "--fresh-model", action="store_true", help="Initialize from the original model without resuming"
@@ -49,15 +53,19 @@ def main():
     assert int(os.environ["WORLD_SIZE"]) == 4
     rank = int(os.environ["RANK"])
     torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
+    torch.manual_seed(20260913)
+    np.random.seed(20260913)
     torch.cuda.set_per_process_memory_fraction(args.memory_fraction)
     os.environ["AGL_CAPO_STRICT_PADDING"] = "1"
     register_in_worker()
     from verl.workers.fsdp_workers import ActorRolloutRefWorker
 
     config = json.loads((args.run / "resolved-config.json").read_text())
+    if args.critic_zero2 and config["critic"]["strategy"] == "fsdp":
+        raise ValueError("Installed veRL FSDP1 critic ignores reshard_after_forward; this candidate is unsupported")
     cfg = OmegaConf.create(config["actor_rollout_ref"])
     cfg.actor.calculate_entropy = args.entropy
-    cfg.actor.ppo_micro_batch_size_per_gpu = args.train_batch
+    cfg.actor.ppo_micro_batch_size_per_gpu = args.actor_train_batch or args.train_batch
     cfg.actor.fsdp_config.fsdp_size = args.fsdp_size
     cfg.ref.fsdp_config.fsdp_size = args.fsdp_size
     cfg.rollout.log_prob_micro_batch_size_per_gpu = args.inference_batch
@@ -90,6 +98,8 @@ def main():
         critic_cfg.ppo_micro_batch_size_per_gpu = args.train_batch
         critic_cfg.model.fsdp_config.fsdp_size = args.fsdp_size
         critic_cfg.forward_micro_batch_size_per_gpu = args.inference_batch
+        if args.critic_zero2:
+            critic_cfg.model.fsdp_config.reshard_after_forward = False
         if args.resident_cohort:
             critic_cfg.model.fsdp_config.param_offload = False
             critic_cfg.model.fsdp_config.optimizer_offload = False
@@ -116,7 +126,8 @@ def main():
     index = int(lengths.argmax())
     length = int(lengths[index])
     row_count = args.rows or args.train_batch
-    assert row_count >= args.train_batch and row_count <= int((lengths > 0).sum())
+    assert row_count >= max(args.train_batch, cfg.actor.ppo_micro_batch_size_per_gpu)
+    assert row_count <= int((lengths > 0).sum())
     train_indices = lengths.topk(row_count).indices
     # Every rank receives the same longest real call: a deliberate worst-case
     # memory test. No new reward, advantage or token content is manufactured.
@@ -222,6 +233,7 @@ def main():
     value_probe = critic.compute_values(data).batch["values"].float()[mask][:256].tolist() if critic else None
     record = {
         "rank": rank,
+        "seed": 20260913,
         "tokens": length,
         "row": index,
         "rollout_id": meta["rollout_id_list"][index],
@@ -232,8 +244,10 @@ def main():
         "fsdp_size": args.fsdp_size,
         "fresh_model": args.fresh_model,
         "actor_zero2": args.actor_zero2,
+        "critic_zero2": args.critic_zero2,
         "inference_batch": args.inference_batch,
         "train_batch": args.train_batch,
+        "actor_train_batch": cfg.actor.ppo_micro_batch_size_per_gpu,
         "row_count": row_count,
         "post_update_policy_probe": policy_probe,
         "post_update_value_probe": value_probe,
