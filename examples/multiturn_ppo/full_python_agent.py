@@ -272,6 +272,9 @@ class FullPythonSandbox(pilot.SmithSandbox):
         return {}
 
     def export_patch(self, *, allow_new_repro=False):
+        # Each export owns its metadata, including early embedded-test rejections.
+        # Do not expose missing or stale exclusions from an earlier submission.
+        self.excluded_patch_paths = []
         for path in self.restored_source_paths:
             try:
                 original = embedded_tests(self.git("show", "HEAD:" + path))

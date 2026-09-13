@@ -68,7 +68,11 @@ def test_native_unittest_ids_use_files_before_p2p_filtering():
         "instance_id": "tornado.task",
         "image_name": "repo/image",
         "FAIL_TO_PASS": ["test_fix (tornado.test.web_test.Case)"],
-        "PASS_TO_PASS": ["test_keep (tornado.test.web_test.Case)", "A descriptive test.", "unrelated.py::test_other"],
+        "PASS_TO_PASS": [
+            "test_keep (tornado.test.web_test.Case)",
+            "A descriptive test.",
+            "unrelated.py::test_other",
+        ],
     }
     result = prepare_row(
         row,
@@ -105,6 +109,29 @@ def test_forced_color_keeps_exact_status_and_node_id(grader):
     }
 
 
+@pytest.mark.parametrize("stale", [False, True])
+@pytest.mark.parametrize(
+    "candidate,rejection",
+    [
+        ("def test_value():\n    assert False\n", "embedded_test_change"),
+        ("def test_value(:", "invalid_embedded_test_source"),
+    ],
+)
+def test_rejected_embedded_source_exports_fresh_metadata(grader, stale, candidate, rejection):
+    box = object.__new__(grader.FullPythonSandbox)
+    box.restored_source_paths = ["inflect/__init__.py"]
+    if stale:
+        box.excluded_patch_paths = ["old_reproduction.py"]
+    box.git = lambda *args: "def test_value():\n    assert True\n"
+    box.root = lambda *args: candidate
+    assert box.export_patch(allow_new_repro=True) == (
+        "",
+        ["inflect/__init__.py"],
+        rejection,
+    )
+    assert box.excluded_patch_paths == []
+
+
 def test_restore_mutated_tests_preserves_buggy_production_and_decorators(grader):
     buggy = "# keep this\ndef value():\n    return 0\n\n@pytest.mark.slow\ndef test_value():\n    assert value() != 1\n"
     trusted = "def value():\n    return 1\n\n@pytest.mark.fast\ndef test_value():\n    assert value() == 1\n"
@@ -118,11 +145,18 @@ def test_restore_mutated_tests_preserves_buggy_production_and_decorators(grader)
 def test_restore_detects_test_only_tasks_and_refuses_unsupported_changes(grader):
     buggy = "def value():\n    return 1\ndef test_value():\n    assert value() != 1\n"
     trusted = buggy.replace("!=", "==")
-    assert grader.recover_embedded_tests(buggy, trusted) == (trusted, ["test_value"], False)
+    assert grader.recover_embedded_tests(buggy, trusted) == (
+        trusted,
+        ["test_value"],
+        False,
+    )
     with pytest.raises(ValueError, match="inventory"):
         grader.recover_embedded_tests(buggy, trusted + "def test_other():\n    pass\n")
     with pytest.raises(ValueError, match="nested test or doctest"):
-        grader.recover_embedded_tests('def value():\n    """>>> broken"""\n', 'def value():\n    """>>> correct"""\n')
+        grader.recover_embedded_tests(
+            'def value():\n    """>>> broken"""\n',
+            'def value():\n    """>>> correct"""\n',
+        )
 
 
 def test_only_package_install_metadata_can_be_ignored(grader):

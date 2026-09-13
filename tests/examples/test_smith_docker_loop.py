@@ -9,23 +9,45 @@ import pytest
 
 
 @pytest.mark.parametrize(
-    "responses,limit,expected_calls,reason",
+    "responses,limit,expected_calls,reason,rejected_source",
     [
-        (["invalid"] * 6, 3, 3, "format_errors"),
-        (["invalid", "invalid", "```bash\nfalse\n```", "invalid", "invalid", "invalid"], 3, 6, "format_errors"),
-        (["invalid"] * 4, 0, 4, "turn_budget"),
-        (["invalid"] * 4, 1, 1, "format_errors"),
-        (["server-overflow"], 3, 1, "context_budget"),
+        (["invalid"] * 6, 3, 3, "format_errors", None),
+        (
+            [
+                "invalid",
+                "invalid",
+                "```bash\nfalse\n```",
+                "invalid",
+                "invalid",
+                "invalid",
+            ],
+            3,
+            6,
+            "format_errors",
+            None,
+        ),
+        (["invalid"] * 4, 0, 4, "turn_budget", None),
+        (["invalid"] * 4, 1, 1, "format_errors", None),
+        (["server-overflow"], 3, 1, "context_budget", None),
+        (
+            ["invalid"] * 3,
+            3,
+            3,
+            "format_errors",
+            "def test_value():\n    assert False\n",
+        ),
+        (["invalid"] * 3, 3, 3, "format_errors", "def test_value(:"),
     ],
 )
 def test_consecutive_format_error_termination_matches_upstream(
-    monkeypatch, tmp_path, responses, limit, expected_calls, reason
+    monkeypatch, tmp_path, responses, limit, expected_calls, reason, rejected_source
 ):
     pytest.importorskip("docker")
     pytest.importorskip("openai")
     transformers = pytest.importorskip("transformers")
     monkeypatch.syspath_prepend(str(Path(__file__).parents[2] / "examples" / "multiturn_ppo"))
     import smith_docker_agent as pilot
+    from full_python_agent import FullPythonSandbox
 
     smith = pilot.load_smith()
     original_responses = iter(responses)
@@ -58,10 +80,14 @@ def test_consecutive_format_error_termination_matches_upstream(
     )
 
     class Box:
-        excluded_patch_paths = ()
-
         def __init__(self, *args):
-            pass
+            self.restored_source_paths = ["inflect/__init__.py"]
+
+        def git(self, *args):
+            return "def test_value():\n    assert True\n"
+
+        def root(self, *args):
+            return rejected_source
 
         def prepare(self):
             return {}
@@ -70,6 +96,9 @@ def test_consecutive_format_error_termination_matches_upstream(
             return 1, "command failed"
 
         def export_patch(self, **kwargs):
+            if rejected_source is not None:
+                return FullPythonSandbox.export_patch(self, **kwargs)
+            self.excluded_patch_paths = []
             return "", [], None
 
         def close(self):
@@ -134,7 +163,16 @@ def test_consecutive_format_error_termination_matches_upstream(
         assert records == [{"stop_reason": "server_context_limit", "prompt_tokens": 1}]
     else:
         assert len(records) == expected_calls and records[-1]["response"] == responses[expected_calls - 1]
-    assert len(graded) == 1 and events[0]["data"]["reason"] == reason
+    assert len(graded) == int(rejected_source is None) and events[0]["data"]["reason"] == reason
+    if rejected_source is not None:
+        report = json.loads((tmp_path / "agent/test-id/grade.json").read_text())
+        assert report["reward"] == 0.0 and not report["resolved"]
+        assert report["patch_rejection"] in {
+            "embedded_test_change",
+            "invalid_embedded_test_source",
+        }
+        assert events[0]["data"]["value"] == 0.0
+        assert json.loads((tmp_path / "agent/test-id/sandbox.json").read_text())["excluded_reproduction_paths"] == []
     if reason == "format_errors":
         assert records[-1]["stop_reason"] == reason
         assert "observation" not in records[-1]

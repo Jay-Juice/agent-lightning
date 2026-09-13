@@ -87,6 +87,7 @@ class Sandbox:
 
     def __init__(self, client, task, run_id):
         self.client = client
+        self.excluded_patch_paths = []
         limits = {"mem_limit": "4g", "nano_cpus": 2_000_000_000, "pids_limit": 256}
         limits.update(self.container_options(task))
         self.container = client.containers.run(
