@@ -18,6 +18,10 @@ if [[ -n "$(nvidia-smi -i 4,5,6,7 --query-compute-apps=pid --format=csv,noheader
   exit 2
 fi
 modes=(baseline actor-micro4)
+if [[ "${AGL_UPDATE_AUDIT_BASELINE_ONLY:-0}" == 1 ]]; then
+  [[ "${AGL_UPDATE_AUDIT_SKIP_BASELINE:-0}" != 1 ]] || { echo 'Conflicting audit modes'; exit 2; }
+  modes=(baseline)
+fi
 if [[ "${AGL_UPDATE_AUDIT_SKIP_BASELINE:-0}" == 1 ]]; then
   modes=(actor-micro4)
 fi
@@ -27,5 +31,6 @@ for mode in "${modes[@]}"; do
   torchrun --standalone --nnodes=1 --nproc-per-node=4 "$TOOLS/audit_capo_long_context.py" \
     --run "$RUNTIME/logs/training-capo-swe-editor-4b-20260912-01" \
     --output "$OUT/$mode.json" --fused --fresh-model --cohort --actor-zero2 \
-    --inference-batch 2 --train-batch 2 --rows 4 "${flags[@]}" >"$OUT/$mode.log" 2>&1
+    --inference-batch 2 --train-batch 2 --rows 4 \
+    --memory-fraction "${AGL_UPDATE_AUDIT_MEMORY_FRACTION:-0.9}" "${flags[@]}" >"$OUT/$mode.log" 2>&1
 done

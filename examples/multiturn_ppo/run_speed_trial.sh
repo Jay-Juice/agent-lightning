@@ -8,6 +8,7 @@ export AGL_TRAIN_TAG="${AGL_TRAIN_TAG:?Set a unique isolated trial tag}"
 export AGL_MAX_LOCAL_AGENTS="${AGL_MAX_LOCAL_AGENTS:-32}"
 export AGL_MIN_FREE_GIB=150
 MICRO="${AGL_SPEED_TRAIN_MICRO:-2}"
+ACTOR_MICRO="${AGL_SPEED_ACTOR_MICRO:-$MICRO}"
 FORWARD="${AGL_SPEED_FORWARD_MICRO:-2}"
 SEQS="${AGL_SPEED_MAX_SEQS:-8}"
 TOKENS="${AGL_SPEED_BATCHED_TOKENS:-16384}"
@@ -22,7 +23,7 @@ bash "$TOOLS/run_checked_swe_ppo.sh" \
   data.train_batch_size=32 data.val_batch_size=32 agentlightning.full_dataset=true \
   agentlightning.local.agent_class=full_python_agent.FullPythonAgent \
   actor_rollout_ref.actor.fsdp_config.reshard_after_forward=false \
-  actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu="$MICRO" \
+  actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu="$ACTOR_MICRO" \
   critic.ppo_micro_batch_size_per_gpu="$MICRO" \
   critic.forward_micro_batch_size_per_gpu="$FORWARD" \
   actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu="$FORWARD" \
