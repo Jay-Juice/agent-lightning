@@ -2,9 +2,9 @@
 set -Eeuo pipefail
 TOOLS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNTIME=/media/ubuntu/D1/zsj/agent-lightning-runtime
-DATA="${AGL_FULL_DATA:-$RUNTIME/data/swe-smith-training/python-full-v6}"
+DATA="${AGL_FULL_DATA:-$RUNTIME/data/swe-smith-training/python-full-v7}"
 source "$RUNTIME/admin/activate-agent-lightning-d1.sh"
-AUDIT="${AGL_FULL_ENV_AUDIT:-$RUNTIME/logs/swe-full-python-envs-20260913-09}"
+AUDIT="${AGL_FULL_ENV_AUDIT:-$RUNTIME/logs/swe-full-python-envs-speed-20260914-01}"
 CUDA_VISIBLE_DEVICES= python "$TOOLS/check_full_python_ready.py" --data "$DATA" --audit "$AUDIT"
 SCHEDULE=$(CUDA_VISIBLE_DEVICES= python - "$DATA" <<'PY'
 import json, sys
@@ -17,8 +17,9 @@ PY
 )
 read -r EPOCH_STEPS TOTAL_STEPS <<< "$SCHEDULE"
 export AGL_GPUS=4,5,6,7
+export AGL_TRAIN_PORT="${AGL_TRAIN_PORT:-18501}"
 export AGL_CAPO_PROGRESS=1
-export AGL_MAX_LOCAL_AGENTS="${AGL_MAX_LOCAL_AGENTS:-16}"
+export AGL_MAX_LOCAL_AGENTS="${AGL_MAX_LOCAL_AGENTS:-32}"
 export AGL_MIN_FREE_GIB="${AGL_MIN_FREE_GIB:-360}"
 export AGL_TRAIN_TAG="${AGL_TRAIN_TAG:-capo-swe-pythonfull-4b-$(date +%Y%m%d-%H%M%S)}"
 # Keep the checked PPO objective, model, precision and per-task budgets.
@@ -29,7 +30,7 @@ export AGL_TRAIN_TAG="${AGL_TRAIN_TAG:-capo-swe-pythonfull-4b-$(date +%Y%m%d-%H%
 bash "$TOOLS/run_checked_swe_ppo.sh" \
   --train-file "$DATA/train.jsonl" --val-file "$DATA/val.jsonl" \
   trainer.total_epochs=4 trainer.total_training_steps=null \
-  data.train_batch_size=32 data.val_batch_size="${AGL_VAL_BATCH_SIZE:-32}" \
+  data.train_batch_size=32 data.val_batch_size="${AGL_VAL_BATCH_SIZE:-470}" \
   agentlightning.full_dataset=true agentlightning.audit_every_n_steps=32 \
   agentlightning.local.agent_class=full_python_agent.FullPythonAgent \
   actor_rollout_ref.actor.fsdp_config.reshard_after_forward=false \
@@ -37,8 +38,8 @@ bash "$TOOLS/run_checked_swe_ppo.sh" \
   critic.ppo_micro_batch_size_per_gpu=2 critic.forward_micro_batch_size_per_gpu=2 \
   actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=2 \
   actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=2 \
-  actor_rollout_ref.rollout.max_num_seqs=4 \
-  actor_rollout_ref.rollout.max_num_batched_tokens=8192 \
+  actor_rollout_ref.rollout.max_num_seqs=8 \
+  actor_rollout_ref.rollout.max_num_batched_tokens=16384 \
   'actor_rollout_ref.actor.checkpoint.save_contents=[model,optimizer,extra]' \
   trainer.save_freq=40 trainer.test_freq=20 \
   trainer.max_actor_ckpt_to_keep=3 trainer.max_critic_ckpt_to_keep=3 \
