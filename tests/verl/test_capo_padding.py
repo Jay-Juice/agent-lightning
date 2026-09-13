@@ -40,7 +40,7 @@ def test_entirely_dummy_minibatch_is_rejected():
 
 
 @pytest.mark.parametrize("kind", ["actor", "critic"])
-@pytest.mark.parametrize("microbatch", [1, 2])
+@pytest.mark.parametrize("microbatch", [1, 2, 4])
 def test_copied_optimizer_loops_ignore_dummy_and_normalize_short_tail(monkeypatch, kind, microbatch):
     import verl.workers.actor as actor_api
     import verl.workers.critic as critic_api
@@ -62,9 +62,11 @@ def test_copied_optimizer_loops_ignore_dummy_and_normalize_short_tail(monkeypatc
     capo_ppo.register_in_worker()
     cls = actor_api.DataParallelPPOActor if kind == "actor" else critic_api.DataParallelPPOCritic
     worker = cast(Any, object.__new__(cls))
+    mini = max(2, microbatch)
+    rows = mini + 1
     worker.config = OmegaConf.create(
         dict(
-            ppo_mini_batch_size=2,
+            ppo_mini_batch_size=mini,
             ppo_micro_batch_size_per_gpu=microbatch,
             ppo_epochs=1,
             use_dynamic_bsz=False,
@@ -105,23 +107,23 @@ def test_copied_optimizer_loops_ignore_dummy_and_normalize_short_tail(monkeypatc
     worker._optimizer_step = step
     batch = DataProto.from_dict(
         tensors={
-            "input_ids": torch.ones(3, 2, dtype=torch.long),
-            "responses": torch.ones(3, 2, dtype=torch.long),
-            "response_mask": torch.ones(3, 2),
-            "attention_mask": torch.ones(3, 2),
-            "position_ids": torch.zeros(3, 2, dtype=torch.long),
-            "values": torch.full((3, 2), 0.3),
-            "returns": torch.tensor([[1.0, 1.0], [1000.0, 1000.0], [3.0, 3.0]]),
-            "old_log_probs": torch.full((3, 2), 0.3),
-            "ref_log_prob": torch.full((3, 2), 0.1),
-            "advantages": torch.tensor([[1.0, 1.0], [1000.0, 1000.0], [2.0, 2.0]]),
+            "input_ids": torch.ones(rows, 2, dtype=torch.long),
+            "responses": torch.ones(rows, 2, dtype=torch.long),
+            "response_mask": torch.ones(rows, 2),
+            "attention_mask": torch.ones(rows, 2),
+            "position_ids": torch.zeros(rows, 2, dtype=torch.long),
+            "values": torch.full((rows, 2), 0.3),
+            "returns": torch.tensor([[1.0, 1.0]] + [[1000.0, 1000.0]] * (mini - 1) + [[3.0, 3.0]]),
+            "old_log_probs": torch.full((rows, 2), 0.3),
+            "ref_log_prob": torch.full((rows, 2), 0.1),
+            "advantages": torch.tensor([[1.0, 1.0]] + [[1000.0, 1000.0]] * (mini - 1) + [[2.0, 2.0]]),
         },
-        non_tensors={"is_pad": np.array([False, True, False])},
+        non_tensors={"is_pad": np.array([False] + [True] * (mini - 1) + [False])},
         meta_info={"temperature": 1.0},
     )
 
     expected = torch.tensor(0.3, requires_grad=True)
-    for index in (0, 2):
+    for index in (0, mini):
         if kind == "critic":
             loss = 0.5 * (expected - batch.batch["returns"][index, 0]) ** 2
         else:
@@ -134,5 +136,5 @@ def test_copied_optimizer_loops_ignore_dummy_and_normalize_short_tail(monkeypatc
         expected = (expected - 0.05 * grad).detach().requires_grad_(True)
     result = worker.update_policy(batch) if kind == "actor" else worker.update_critic(batch)
     torch.testing.assert_close(model.weight.squeeze(), expected)
-    assert result["padding/ignored_calls"] == 1
+    assert result["padding/ignored_calls"] == mini - 1
     assert capo_padding._loss_weight.get() == 1

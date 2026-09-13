@@ -38,13 +38,13 @@ def validate_config(config):
             or worker.use_dynamic_bsz
             or worker.ppo_mini_batch_size % world
             or worker.ppo_mini_batch_size < world
-            or worker.ppo_micro_batch_size_per_gpu not in {1, 2}
+            or worker.ppo_micro_batch_size_per_gpu not in {1, 2, 4}
             or (worker.ppo_mini_batch_size // world) % worker.ppo_micro_batch_size_per_gpu
             or worker.get("ulysses_sequence_parallel_size", 1) != 1
             or worker.loss_agg_mode != "seq-mean-token-mean"
         ):
             raise ValueError(
-                "CAPO port requires FSDP, microbatch 1 or 2, divisible local minibatches, and call-mean loss"
+                "CAPO port requires FSDP, microbatch 1, 2 or 4, divisible local minibatches, and call-mean loss"
             )
 
 

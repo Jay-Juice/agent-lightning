@@ -27,7 +27,7 @@ done < <(nvidia-smi -i "$CUDA_VISIBLE_DEVICES" --query-gpu=memory.used --format=
 export PYTHONPATH="$TOOLS:$REPO:${PYTHONPATH:-}"
 # Ray uses Unix-domain sockets; its parent path must stay short (<108 bytes
 # including Ray's session/socket suffix). This directory is still on D1.
-export RAY_TMPDIR=/media/ubuntu/D1/zsj/ray
+export RAY_TMPDIR=/media/ubuntu/D1/zsj/ray-speed-0913
 mkdir -p "$RAY_TMPDIR"
 unset RAY_ADDRESS
 export HF_HUB_OFFLINE=1 HF_DATASETS_OFFLINE=1 VLLM_NO_USAGE_STATS=1 RAY_USAGE_STATS_ENABLED=0

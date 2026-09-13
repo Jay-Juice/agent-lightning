@@ -32,8 +32,9 @@ def main():
     parser.add_argument("--cohort", action="store_true", help="Include critic and reference in the memory check")
     parser.add_argument("--fsdp-size", type=int, choices=[-1, 2], default=-1)
     parser.add_argument("--actor-zero2", action="store_true", help="Keep actor parameters gathered through backward")
-    parser.add_argument("--inference-batch", type=int, choices=[1, 2], default=1)
-    parser.add_argument("--train-batch", type=int, choices=[1, 2], default=1)
+    parser.add_argument("--inference-batch", type=int, choices=[1, 2, 4], default=1)
+    parser.add_argument("--train-batch", type=int, choices=[1, 2, 4], default=1)
+    parser.add_argument("--rows", type=int, help="Fixed real rows per rank for equal-work microbatch comparisons")
     parser.add_argument(
         "--fresh-model", action="store_true", help="Initialize from the original model without resuming"
     )
@@ -44,7 +45,7 @@ def main():
     )
     parser.add_argument("--memory-fraction", type=float, default=0.9)
     args = parser.parse_args()
-    assert os.environ.get("CUDA_VISIBLE_DEVICES") == "0,1,2,3"
+    assert os.environ.get("CUDA_VISIBLE_DEVICES") == "4,5,6,7"
     assert int(os.environ["WORLD_SIZE"]) == 4
     rank = int(os.environ["RANK"])
     torch.cuda.set_device(int(os.environ["LOCAL_RANK"]))
@@ -114,12 +115,14 @@ def main():
     lengths[torch.tensor(meta["is_pad"], dtype=torch.bool)] = -1
     index = int(lengths.argmax())
     length = int(lengths[index])
-    train_indices = lengths.topk(args.train_batch).indices
+    row_count = args.rows or args.train_batch
+    assert row_count >= args.train_batch and row_count <= int((lengths > 0).sum())
+    train_indices = lengths.topk(row_count).indices
     # Every rank receives the same longest real call: a deliberate worst-case
     # memory test. No new reward, advantage or token content is manufactured.
     data = DataProto.from_dict(
         tensors={key: value[train_indices].clone() for key, value in tensors.items()},
-        non_tensors={"is_pad": np.zeros(args.train_batch, dtype=bool)},
+        non_tensors={"is_pad": np.zeros(row_count, dtype=bool)},
         meta_info={
             "temperature": cfg.rollout.temperature,
             "global_token_num": lengths[train_indices].tolist() * 4,
@@ -214,6 +217,9 @@ def main():
     assert np.isfinite(norms).all() and (norms > 0).all()
     torch.cuda.synchronize()
     after_steps = sorted({int(s["step"]) for s in worker.actor_optimizer.state.values() if "step" in s})
+    mask = data.batch["response_mask"].bool()
+    policy_probe = worker.compute_log_prob(data).batch["old_log_probs"].float()[mask][:256].tolist()
+    value_probe = critic.compute_values(data).batch["values"].float()[mask][:256].tolist() if critic else None
     record = {
         "rank": rank,
         "tokens": length,
@@ -228,6 +234,9 @@ def main():
         "actor_zero2": args.actor_zero2,
         "inference_batch": args.inference_batch,
         "train_batch": args.train_batch,
+        "row_count": row_count,
+        "post_update_policy_probe": policy_probe,
+        "post_update_value_probe": value_probe,
         "train_lengths": lengths[train_indices].tolist(),
         "timings": timings,
         "saved_logprob_parity": probability_check,
