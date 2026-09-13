@@ -35,3 +35,11 @@ tail -f /media/ubuntu/D1/zsj/agent-lightning-runtime/logs/training-capo-swe-pyth
 ```
 
 启动前检查日志：`/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/launch-capo-swe-pythonfull-v6-4b-20260913-03.log`。
+
+## 启动确认（20:16）
+
+- 全部 6721 条任务的分支检查通过，正式入口输出 `FULL_PYTHON_READY`；训练器明确输出 `196 batches/epoch, retain tail, total steps=784`，actor/critic 优化器也记录784步、warmup0。
+- 模型已加载，真实初始验证正在进行。20:16:26 第一批已有14/32执行完成，执行失败0；14份评分中2份reward=1。控制器未出现 Traceback/AttributeError，未生成退出码文件。这里只是启动快照，尚未完成470条验证，也未进行PPO更新。
+- 20:15:22 前四卡各约25089 MiB显存；这是初始验证占用，不代表后续训练峰值。D1空闲约482.78 GiB。
+- `provenance.json` 确认 GPU mask为`0,1,2,3`、16 agents、全部轮次/上下文/超时/提交检查配置与此前配方一致。未启动其他显卡任务。
+- 修复提交 `8d70077` 已推送并通过远端 main SHA 校验；本节启动快照另随文档提交维护。
