@@ -105,28 +105,10 @@ def build_batch(adapter: RolloutAdapter, rollouts: list[CompletedRollout], *, gl
             raise ValueError(f"Missing/nonfinite terminal reward: {rollout.rollout_id}")
         if not rollout.triplets:
             raise ValueError(f"Episode has no model actions: {rollout.rollout_id}")
-        requests = [
-            e
-            for e in rollout.triplet_events
-            if e["event_type"] == "model_request"
-            and e.get("data", {}).get("status") != "error"
-            and not (
-                isinstance(e.get("data", {}).get("http_status"), int)
-                and e["data"]["http_status"] >= 400
-            )
-        ]
+        requests = [e for e in rollout.triplet_events if e["event_type"] == "model_request"]
         if requests and len(requests) != len(rollout.triplets):
             raise ValueError(f"Episode has missing/failed model calls: {rollout.rollout_id}")
-        raw_requests = [
-            e
-            for e in rollout.events
-            if e["event_type"] == "model_request"
-            and e.get("data", {}).get("status") != "error"
-            and not (
-                isinstance(e.get("data", {}).get("http_status"), int)
-                and e["data"]["http_status"] >= 400
-            )
-        ]
+        raw_requests = [e for e in rollout.events if e["event_type"] == "model_request"]
         if raw_requests and len(raw_requests) != len(rollout.triplets):
             raise ValueError("Model calls were deduplicated; deploy a server supporting triplet-preserve")
         for triplet in rollout.triplets:
