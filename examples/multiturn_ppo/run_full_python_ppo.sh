@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 TOOLS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO="$(cd "$TOOLS/../.." && pwd)"
 RUNTIME=/media/ubuntu/D1/zsj/agent-lightning-runtime
 DATA="${AGL_FULL_DATA:-$RUNTIME/data/swe-smith-training/python-full-v7}"
 source "$RUNTIME/admin/activate-agent-lightning-d1.sh"
+export PYTHONPATH="$TOOLS:$REPO:${PYTHONPATH:-}"
 AUDIT="${AGL_FULL_ENV_AUDIT:-$RUNTIME/logs/swe-full-python-envs-speed-20260914-01}"
 CUDA_VISIBLE_DEVICES= python "$TOOLS/check_full_python_ready.py" --data "$DATA" --audit "$AUDIT"
 SCHEDULE=$(CUDA_VISIBLE_DEVICES= python - "$DATA" <<'PY'
