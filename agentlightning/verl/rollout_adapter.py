@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import base64  # [multimodal-patch]
+import hashlib
 import io
 import json
 import zipfile
@@ -15,6 +16,7 @@ import torch
 from tensordict import TensorDict
 from verl import DataProto
 
+from agentlightning.privileged_state.serialize import MARKER
 from agentlightning.verl.agl_rollout_manager import CompletedRollout
 
 _TRACE_MERGE_MISMATCH_WANDB_LIMIT = 100
@@ -355,6 +357,7 @@ class RolloutAdapter:
         trace_aggregator_level: str = "transition",
         tokenizer: Any | None = None,
         processor: Any | None = None,  # [multimodal-patch] HF processor; None keeps text-only behavior
+        privileged_critic_enabled: bool = False,
     ) -> None:
         self.max_prompt_length = max_prompt_length
         self.max_response_length = max_response_length
@@ -364,6 +367,7 @@ class RolloutAdapter:
         self.trace_aggregator_level = trace_aggregator_level
         self.tokenizer = tokenizer
         self.processor = processor  # [multimodal-patch]
+        self.privileged_critic_enabled = privileged_critic_enabled
 
     def get_train_data_batch(
         self,
@@ -410,6 +414,12 @@ class RolloutAdapter:
         is_drop_list: list[bool] = []
         response_log_probs_list: list[list[float] | None] = []
         image_urls_list: list[list[str] | None] = []  # [multimodal-patch] per kept training row
+        critic_prompt_ids_list: list[list[int]] = []
+        logical_call_id_list: list[str] = []
+        privileged_state_hash_list: list[str] = []
+        privileged_snapshot_time_list: list[float] = []
+        privileged_serialized_tokens_list: list[int] = []
+        privileged_truncated_list: list[bool] = []
         n_trunc_sample_because_of_response = 0
         n_skipped_empty_training_rows = 0
         unmerged_count = 0
@@ -427,6 +437,7 @@ class RolloutAdapter:
             response_mask: list[int] | None = None,
             response_log_probs: list[float] | None = None,
             image_urls: list[str] | None = None,  # [multimodal-patch]
+            triplet_metadata: dict[str, Any] | None = None,
         ) -> None:
             nonlocal n_skipped_empty_training_rows, n_trunc_sample_because_of_response
             if len(prompt_ids) > self.max_prompt_length:
@@ -463,6 +474,63 @@ class RolloutAdapter:
             response_attention_mask_list.append(one_response_attention_mask)
             is_drop_list.append(is_drop)
             image_urls_list.append(image_urls)  # [multimodal-patch] stays aligned with kept rows
+            if self.privileged_critic_enabled:
+                if self.tokenizer is None or triplet_metadata is None:
+                    raise ValueError("Privileged Critic requires tokenizer and per-call metadata")
+                state = triplet_metadata.get("privileged_state")
+                messages = triplet_metadata.get("actor_messages")
+                call_id = triplet_metadata.get("logical_call_id")
+                if not isinstance(state, dict) or state.get("mode") != "critic":
+                    raise ValueError(f"Missing Critic PI for {rollout_id} turn {turn_index}")
+                if not isinstance(messages, list) or not messages or not isinstance(call_id, str):
+                    raise ValueError(f"Incomplete PI alignment for {rollout_id} turn {turn_index}")
+                if any(MARKER in str(message.get("content", "")) for message in messages if isinstance(message, dict)):
+                    raise ValueError("Privileged state marker leaked into Actor messages")
+                template_kwargs = triplet_metadata.get("chat_template_kwargs", {})
+                if not isinstance(template_kwargs, dict):
+                    raise ValueError("Invalid chat template kwargs in model request")
+                actor_rebuilt = self.tokenizer.apply_chat_template(
+                    messages, tokenize=True, add_generation_prompt=True, **template_kwargs
+                )
+                if list(actor_rebuilt) != list(prompt_ids):
+                    raise ValueError(f"Local tokenizer cannot reproduce Actor prompt for logical call {call_id}")
+                actor_digest = hashlib.sha256(
+                    json.dumps(list(actor_rebuilt), separators=(",", ":")).encode()
+                ).hexdigest()
+                if len(actor_rebuilt) != state.get("actor_prompt_tokens") or actor_digest != state.get(
+                    "actor_prompt_hash"
+                ):
+                    raise ValueError(f"Actor prompt changed after capture for logical call {call_id}")
+                privileged_text = state.get("text", "")
+                if not isinstance(privileged_text, str):
+                    raise ValueError(f"Invalid privileged text for logical call {call_id}")
+                critic_messages = [dict(message) for message in messages]
+                if privileged_text:
+                    if critic_messages[-1].get("role") != "user":
+                        raise ValueError(f"Critic PI has no final user message for logical call {call_id}")
+                    critic_messages[-1]["content"] += (
+                        "\n\n### Privileged State (critic only; hidden from actor)\n" + privileged_text
+                    )
+                critic_prompt_ids = list(
+                    self.tokenizer.apply_chat_template(
+                        critic_messages, tokenize=True, add_generation_prompt=True, **template_kwargs
+                    )
+                )
+                digest = hashlib.sha256(
+                    json.dumps(critic_prompt_ids, separators=(",", ":")).encode()
+                ).hexdigest()
+                if len(critic_prompt_ids) != state.get("critic_prompt_tokens") or digest != state.get(
+                    "critic_prompt_hash"
+                ):
+                    raise ValueError(f"Critic prompt changed after capture for logical call {call_id}")
+                if len(critic_prompt_ids) > self.max_prompt_length:
+                    raise ValueError(f"Critic prompt exceeds training limit for logical call {call_id}")
+                critic_prompt_ids_list.append(critic_prompt_ids)
+                logical_call_id_list.append(call_id)
+                privileged_state_hash_list.append(str(state.get("state_hash", "")))
+                privileged_snapshot_time_list.append(float(state.get("snapshot_duration_s", 0.0)))
+                privileged_serialized_tokens_list.append(int(state.get("serialized_tokens", 0)))
+                privileged_truncated_list.append(bool(state.get("truncated", False)))
             if response_mask is not None:
                 one_response_mask, _ = get_right_padded_ids_and_attention_mask(
                     response_mask, self.max_response_length, 0
@@ -502,6 +570,7 @@ class RolloutAdapter:
                         reward=final_reward,
                         response_log_probs=log_probs,
                         image_urls=triplet.image_urls,  # [multimodal-patch]
+                        triplet_metadata=triplet.metadata,
                     )
                 continue
             else:
@@ -737,6 +806,22 @@ class RolloutAdapter:
             "is_drop_mask": is_drop_mask,
             "token_level_scores": token_level_scores.contiguous(),
         }
+        if self.privileged_critic_enabled:
+            if len(critic_prompt_ids_list) != n_sample:
+                raise RuntimeError("Privileged Critic rows do not match Actor rows")
+            critic_prompt_rows = [
+                get_left_padded_ids_and_attention_mask(ids, self.max_prompt_length, self.pad_token_id)
+                for ids in critic_prompt_ids_list
+            ]
+            critic_prompts = torch.LongTensor([row[0] for row in critic_prompt_rows]).to(self.device)
+            critic_prompt_mask = torch.LongTensor([row[1] for row in critic_prompt_rows]).to(self.device)
+            critic_attention_mask = torch.cat([critic_prompt_mask, response_attention_mask], dim=-1)
+            batch_dict.update(
+                critic_prompts=critic_prompts,
+                critic_input_ids=torch.cat([critic_prompts, batch_response_ids], dim=-1),
+                critic_attention_mask=critic_attention_mask,
+                critic_position_ids=torch.clamp(torch.cumsum(critic_attention_mask, dim=-1) - 1, min=0),
+            )
         if level == "trajectory":
             assert batch_response_mask is not None
             batch_dict["response_mask"] = batch_response_mask
@@ -754,6 +839,11 @@ class RolloutAdapter:
         data_proto.non_tensor_batch["rollout_id_list"] = np.array(rollout_id_list)
         if level == "transition":
             data_proto.non_tensor_batch["turn_index_list"] = np.array(turn_index_list)
+        if self.privileged_critic_enabled:
+            data_proto.non_tensor_batch["logical_call_id_list"] = np.array(logical_call_id_list, dtype=object)
+            data_proto.non_tensor_batch["privileged_state_hash_list"] = np.array(
+                privileged_state_hash_list, dtype=object
+            )
         if multi_modal_inputs_list is not None:
             # [multimodal-patch] Per-row dict (or None for text rows), matching
             # verl 0.8.0 extract_multi_modal_inputs expectations.
@@ -776,6 +866,20 @@ class RolloutAdapter:
         if level == "trajectory":
             data_metrics["training/n_unmerged_rollouts"] = unmerged_count
             data_metrics["training/n_trace_merge_mismatch_rows"] = len(merge_mismatch_rows)
+        if self.privileged_critic_enabled:
+            data_metrics.update(
+                {
+                    "privilege/snapshot_time_s_mean": float(np.mean(privileged_snapshot_time_list)),
+                    "privilege/snapshot_time_s_max": float(np.max(privileged_snapshot_time_list)),
+                    "privilege/serialized_tokens_mean": float(np.mean(privileged_serialized_tokens_list)),
+                    "privilege/serialized_tokens_max": int(np.max(privileged_serialized_tokens_list)),
+                    "privilege/critic_total_num_tokens": int(
+                        sum(len(prompt) for prompt in critic_prompt_ids_list)
+                        + int(response_attention_mask.sum().item())
+                    ),
+                    "privilege/truncated_ratio": float(np.mean(privileged_truncated_list)),
+                }
+            )
 
         return data_proto, data_metrics
 

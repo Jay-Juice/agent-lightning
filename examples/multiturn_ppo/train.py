@@ -136,6 +136,16 @@ def build_config(args):
     from agentlightning.verl.multi_turn_ppo import validate_config
 
     validate_config(cfg)
+    pi = cfg.agentlightning.get("privileged_critic", {})
+    if pi.get("enabled", False):
+        expected = {
+            "SMITH_PRIVILEGED_STATE": "critic",
+            "SMITH_PRIVILEGED_MAX_TOKENS": str(pi.max_tokens),
+            "SMITH_PRIVILEGED_SAFETY_MARGIN": str(pi.safety_margin),
+        }
+        mismatches = {name: os.environ.get(name) for name, value in expected.items() if os.environ.get(name) != value}
+        if mismatches or pi.state_schema_version != 1:
+            raise ValueError(f"Privileged Critic environment/config mismatch: {mismatches}")
     visible = os.environ.get("CUDA_VISIBLE_DEVICES", "").split(",")
     if len(visible) != len(set(visible)) or len(visible) != cfg.trainer.n_gpus_per_node:
         raise ValueError("CUDA_VISIBLE_DEVICES must contain one unique device per configured GPU")
@@ -152,12 +162,16 @@ def build_config(args):
         repo / "agentlightning/verl/distributed_ppo.py",
         repo / "agentlightning/verl/capo_ppo.py",
         repo / "agentlightning/verl/capo_padding.py",
+        repo / "agentlightning/verl/privileged_critic.py",
         repo / "agentlightning/verl/entrypoint.py",
         repo / "agentlightning/verl/config.yaml",
         repo / "agentlightning/verl/trainer.py",
         repo / "agentlightning/verl/full_dataset.py",
         repo / "agentlightning/verl/agl_rollout_manager.py",
         repo / "agentlightning/server/routes/events.py",
+        repo / "agentlightning/server/routes/proxy.py",
+        repo / "agentlightning/server/proxy.py",
+        *Path(repo / "agentlightning/privileged_state").glob("*.py"),
         *Path(__file__).parent.glob("*.py"),
         *Path(__file__).parent.glob("*.sh"),
     ]
@@ -194,6 +208,9 @@ def build_config(args):
                     "SMITH_ALLOW_REPRO_FILES",
                     "SMITH_CHECK_SYNTAX",
                     "SMITH_CHECKED_EDITOR",
+                    "SMITH_PRIVILEGED_STATE",
+                    "SMITH_PRIVILEGED_MAX_TOKENS",
+                    "SMITH_PRIVILEGED_SAFETY_MARGIN",
                 )
             },
         },

@@ -139,6 +139,8 @@ def _trim_model_request(data: dict[str, Any]) -> dict[str, Any]:
     for key in ("http_status", "status"):
         if key in data:
             trimmed[key] = data[key]
+    if data.get("logical_call_id"):
+        trimmed["logical_call_id"] = data["logical_call_id"]
     if isinstance(resp, dict) and "error" in resp:
         trimmed["error"] = resp["error"]
     return trimmed

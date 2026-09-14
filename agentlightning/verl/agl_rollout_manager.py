@@ -452,6 +452,20 @@ class AglRolloutManagerBase:
         """Fetch triplets and reward for a terminal rollout."""
         raw_events, triplet_events = self._fetch_rollout_events(enqueued_rollout.rollout_id)
 
+        raw_requests_by_call: dict[str, list[Event]] = defaultdict(list)
+        privileged_by_call: dict[str, list[Event]] = defaultdict(list)
+        for raw_event in raw_events:
+            call_id = raw_event.data.get("logical_call_id")
+            if not isinstance(call_id, str) or not call_id:
+                continue
+            if raw_event.event_type == "model_request":
+                status = raw_event.data.get("status")
+                http_status = raw_event.data.get("http_status")
+                if status != "error" and not (isinstance(http_status, int) and http_status >= 400):
+                    raw_requests_by_call[call_id].append(raw_event)
+            elif raw_event.event_type == "privileged_state":
+                privileged_by_call[call_id].append(raw_event)
+
         triplets: list[Triplet] = []
         for event in triplet_events:
             if event.event_type != "model_request":
@@ -463,6 +477,37 @@ class AglRolloutManagerBase:
                 continue
             if not response_token_ids:
                 continue
+            metadata: dict[str, Any] = {"server": data.get("server", {})}
+            call_id = data.get("logical_call_id")
+            if call_id:
+                raw_matches = raw_requests_by_call.get(call_id, [])
+                state_matches = privileged_by_call.get(call_id, [])
+                if len(raw_matches) != 1 or len(state_matches) != 1:
+                    raise ValueError(
+                        f"Logical call {call_id} has {len(raw_matches)} successful model requests and "
+                        f"{len(state_matches)} privileged states"
+                    )
+                raw_request, state_event = raw_matches[0], state_matches[0]
+                if state_event.timestamp >= raw_request.timestamp:
+                    raise ValueError(f"Privileged state is not pre-action for logical call {call_id}")
+                state_turn = state_event.data.get("turn_index")
+                state_sequence = state_event.data.get("snapshot_sequence")
+                expected_turn = len(triplets)
+                if state_turn != expected_turn or state_sequence != expected_turn:
+                    raise ValueError(
+                        f"Privileged state turn mismatch for logical call {call_id}: "
+                        f"turn={state_turn}, sequence={state_sequence}, expected={expected_turn}"
+                    )
+                request = raw_request.data.get("request", {})
+                messages = request.get("messages")
+                if not isinstance(messages, list) or not messages:
+                    raise ValueError(f"Logical call {call_id} has no recoverable actor messages")
+                metadata.update(
+                    logical_call_id=call_id,
+                    privileged_state=state_event.data,
+                    actor_messages=messages,
+                    chat_template_kwargs=request.get("chat_template_kwargs", {}),
+                )
             triplets.append(
                 Triplet(
                     prompt={"token_ids": data.get("prompt_token_ids", [])},
@@ -471,7 +516,7 @@ class AglRolloutManagerBase:
                         "log_probs": data.get("response_log_probs"),
                     },
                     reward=None,
-                    metadata={"server": data.get("server", {})},
+                    metadata=metadata,
                 )
             )
 

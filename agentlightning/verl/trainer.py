@@ -131,6 +131,16 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
         self._carry_over_rollouts: list[EnqueuedRollout] = []
         self._train_dataloader_iter: Any | None = None
 
+    def _compute_values(self, batch: DataProto) -> DataProto:
+        from .privileged_critic import critic_batch_view
+
+        return super()._compute_values(critic_batch_view(batch))
+
+    def _update_critic(self, batch: DataProto) -> DataProto:
+        from .privileged_critic import critic_batch_view
+
+        return super()._update_critic(critic_batch_view(batch))
+
     def _ensure_hooks(self) -> RolloutHooks | None:
         if self._hooks is not None:
             return self._hooks
@@ -439,6 +449,9 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
             # [multimodal-patch] RayPPOTrainer stores the processor from entrypoint; forwarding it
             # enables pixel_values + mrope position ids for image-bearing training rows.
             processor=getattr(self, "processor", None),
+            privileged_critic_enabled=bool(
+                self.config.agentlightning.get("privileged_critic", {}).get("enabled", False) and is_train
+            ),
         )
 
         if is_train:

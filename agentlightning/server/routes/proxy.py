@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 import structlog
 from fastapi import APIRouter, Request, Response
@@ -65,6 +66,9 @@ async def llm_proxy(rollout_id: str, attempt_id: str, mode: str, upstream_path: 
         raise HTTPException(status_code=503, detail=f"No servers available for model '{model_name}'") from None
 
     prepared_body = proxy_router.prepare_body(body, mode)
+    logical_call_id = request.headers.get("x-agentlightning-logical-call-id")
+    if logical_call_id is not None and not re.fullmatch(r"[A-Za-z0-9_.:-]{1,128}", logical_call_id):
+        raise HTTPException(status_code=400, detail="Invalid logical call identifier")
 
     # Server endpoint includes the OpenAI base path (e.g., "http://vllm:8000/v1").
     return await forward_request(
@@ -75,6 +79,7 @@ async def llm_proxy(rollout_id: str, attempt_id: str, mode: str, upstream_path: 
         rollout_id=rollout_id,
         attempt_id=attempt_id,
         pause_state=pause_state,
+        logical_call_id=logical_call_id,
     )
 
 

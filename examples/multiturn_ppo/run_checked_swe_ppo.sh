@@ -3,7 +3,9 @@ set -Eeuo pipefail
 TOOLS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Reproduce the 2026-09-12 checked-editor SWE pilot; see SWE_DIAGNOSIS_2026-09-12.md.
 export AGL_GPUS="${AGL_GPUS:-4,5,6,7}"
-[[ "$AGL_GPUS" == "4,5,6,7" ]] || { echo 'This isolated trial reserves physical GPUs 4,5,6,7 only'; exit 2; }
+[[ "$AGL_GPUS" == "0,1,2,3" || "$AGL_GPUS" == "4,5,6,7" ]] || {
+  echo 'The checked four-GPU run requires physical GPUs 0-3 or 4-7'; exit 2;
+}
 export AGL_TRAIN_MODEL="${AGL_TRAIN_MODEL:-/media/ubuntu/D1/zsj/GOPD/G-OPD-main/models/Qwen3-4B-Instruct-2507}"
 export AGL_MAX_LOCAL_AGENTS="${AGL_MAX_LOCAL_AGENTS:-8}"
 export SMITH_MAX_TURNS="${SMITH_MAX_TURNS:-32}" SMITH_MAX_TOKENS="${SMITH_MAX_TOKENS:-4096}"

@@ -326,7 +326,7 @@ def test_proxy_completion_endpoint(client: TestClient, auth_headers: dict[str, s
     proxied = client.post(
         f"/proxy/rollout/{rollout['rollout_id']}/attempt/0/mode/train/openai/v1/chat/completions",
         json={"messages": [{"role": "user", "content": "hi"}]},
-        headers=auth_headers,
+        headers={**auth_headers, "X-AgentLightning-Logical-Call-Id": "call-123"},
     )
     assert proxied.status_code == 200
     assert proxied.json()["choices"][0]["message"]["content"] == "ok"
@@ -338,6 +338,14 @@ def test_proxy_completion_endpoint(client: TestClient, auth_headers: dict[str, s
     ).json()
     assert events[0]["data"]["prompt_token_ids"] == [1]
     assert events[0]["data"]["response_token_ids"] == [2]
+    assert events[0]["data"]["logical_call_id"] == "call-123"
+
+    raw_events = client.get(
+        f"/api/rollouts/{rollout['rollout_id']}/events",
+        params={"event_type": "model_request"},
+        headers=auth_headers,
+    ).json()
+    assert raw_events[0]["data"]["logical_call_id"] == "call-123"
 
 
 def test_proxy_error_triplet_preserves_status(client: TestClient, auth_headers: dict[str, str], monkeypatch):

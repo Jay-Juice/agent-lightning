@@ -72,6 +72,121 @@ def _rollout() -> Rollout:
     )
 
 
+def test_logical_call_uniquely_aligns_pre_action_state_and_raw_messages() -> None:
+    call_id = "call-7"
+    raw_request = Event(
+        event_type="model_request",
+        rollout_id="rollout-1",
+        attempt_id="0",
+        timestamp=2.0,
+        data={
+            "logical_call_id": call_id,
+            "request": {"messages": [{"role": "user", "content": "fix"}], "chat_template_kwargs": {}},
+            "response": {"prompt_token_ids": [1], "choices": [{"token_ids": [2]}]},
+            "http_status": 200,
+            "status": "ok",
+        },
+    )
+    state = Event(
+        event_type="privileged_state",
+        rollout_id="rollout-1",
+        attempt_id="0",
+        timestamp=1.0,
+        data={
+            "logical_call_id": call_id,
+            "turn_index": 0,
+            "snapshot_sequence": 0,
+            "state_hash": "hash",
+            "mode": "critic",
+            "text": "state",
+        },
+    )
+    triplet = Event(
+        event_type="model_request",
+        rollout_id="rollout-1",
+        attempt_id="0",
+        timestamp=2.0,
+        data={
+            "logical_call_id": call_id,
+            "prompt_token_ids": [1],
+            "response_token_ids": [2],
+            "response_log_probs": [-0.1],
+            "http_status": 200,
+            "status": "ok",
+        },
+    )
+    reward = Event(
+        event_type="reward", rollout_id="rollout-1", attempt_id="0", timestamp=3.0, data={"value": 1.0}
+    )
+    manager = _ManagerWithViews([state, raw_request, reward], [state, triplet, reward])
+    completed = manager._build_completed_rollout(
+        EnqueuedRollout(
+            data_id="data-1", rollout_id="rollout-1", step=0, sample_idx_in_step=0, enqueue_time=0.0
+        ),
+        _rollout(),
+    )
+    assert completed.triplets is not None
+    metadata = completed.triplets[0].metadata
+    assert metadata["logical_call_id"] == call_id
+    assert metadata["privileged_state"]["state_hash"] == "hash"
+    assert metadata["actor_messages"] == [{"role": "user", "content": "fix"}]
+
+
+@pytest.mark.parametrize("field,value", [("turn_index", 1), ("snapshot_sequence", 1)])
+def test_logical_call_rejects_misaligned_state_turn(field: str, value: int) -> None:
+    call_id = "call-7"
+    state_data = {
+        "logical_call_id": call_id,
+        "turn_index": 0,
+        "snapshot_sequence": 0,
+        "state_hash": "hash",
+        "mode": "critic",
+        "text": "state",
+    }
+    state_data[field] = value
+    raw_request = Event(
+        event_type="model_request",
+        rollout_id="rollout-1",
+        attempt_id="0",
+        timestamp=2.0,
+        data={
+            "logical_call_id": call_id,
+            "request": {"messages": [{"role": "user", "content": "fix"}]},
+            "response": {"prompt_token_ids": [1], "choices": [{"token_ids": [2]}]},
+            "http_status": 200,
+            "status": "ok",
+        },
+    )
+    state = Event(
+        event_type="privileged_state",
+        rollout_id="rollout-1",
+        attempt_id="0",
+        timestamp=1.0,
+        data=state_data,
+    )
+    triplet = Event(
+        event_type="model_request",
+        rollout_id="rollout-1",
+        attempt_id="0",
+        timestamp=2.0,
+        data={
+            "logical_call_id": call_id,
+            "prompt_token_ids": [1],
+            "response_token_ids": [2],
+            "http_status": 200,
+            "status": "ok",
+        },
+    )
+    manager = _ManagerWithViews([state, raw_request], [state, triplet])
+    with pytest.raises(ValueError, match="state turn mismatch"):
+        manager._build_completed_rollout(
+            EnqueuedRollout(
+                data_id="data-1", rollout_id="rollout-1", step=0, sample_idx_in_step=0, enqueue_time=0.0
+            ),
+            _rollout(),
+        )
+
+
 def test_build_completed_rollout_skips_error_and_empty_model_requests() -> None:
     manager = _Manager(
         [

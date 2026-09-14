@@ -105,6 +105,7 @@ async def forward_request(
     rollout_id: str,
     attempt_id: str,
     pause_state: ProxyPauseState | None = None,
+    logical_call_id: str | None = None,
 ) -> Response:
     if pause_state is not None:
         async with pause_state.lock:
@@ -143,6 +144,7 @@ async def forward_request(
             http_status=response.status_code,
             status=_status_from_http_status(response.status_code),
             retry_count=int(response.extensions.get("agl_retry_count", 0)),
+            logical_call_id=logical_call_id,
         )
         return JSONResponse(content=response_body, status_code=response.status_code)
     finally:
@@ -222,6 +224,7 @@ def _capture_event(
     http_status: int,
     status: str,
     retry_count: int,
+    logical_call_id: str | None = None,
 ) -> None:
     record_event(
         rollout_id,
@@ -239,6 +242,7 @@ def _capture_event(
             "retry_count": retry_count,
             "usage": _extract_usage(response_body),
             "finish_reason": _extract_finish_reason(response_body),
+            **({"logical_call_id": logical_call_id} if logical_call_id else {}),
         },
     )
 

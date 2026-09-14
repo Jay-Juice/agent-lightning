@@ -16,7 +16,7 @@ print(batches, batches * 4)
 PY
 )
 read -r EPOCH_STEPS TOTAL_STEPS <<< "$SCHEDULE"
-export AGL_GPUS=4,5,6,7
+export AGL_GPUS="${AGL_GPUS:-4,5,6,7}"
 export AGL_TRAIN_PORT="${AGL_TRAIN_PORT:-18501}"
 export AGL_CAPO_PROGRESS=1
 export AGL_MAX_LOCAL_AGENTS="${AGL_MAX_LOCAL_AGENTS:-32}"

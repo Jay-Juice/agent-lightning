@@ -27,6 +27,11 @@ agentlightning:
     distributed_padding: false
     whiten_advantages: true
     audit_dir: null
+  privileged_critic:
+    enabled: false
+    state_schema_version: 1
+    max_tokens: 4096
+    safety_margin: 32
   trace_aggregator:
     level: trajectory # transition | trajectory
     trajectory_max_prompt_length: 2048

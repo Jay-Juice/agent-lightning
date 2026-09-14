@@ -27,6 +27,16 @@ from .rollout_adapter import RolloutAdapter
 
 def validate_config(config: Any) -> None:
     """Reject combinations that silently change temporal PPO semantics."""
+    privileged = config.agentlightning.get("privileged_critic", {})
+    if privileged.get("enabled", False):
+        if not config.agentlightning.multi_turn_ppo.enabled:
+            raise ValueError("Privileged Critic requires multi_turn_ppo.enabled=true")
+        if privileged.get("state_schema_version") != 1:
+            raise ValueError("Privileged Critic requires state_schema_version=1")
+        if not isinstance(privileged.get("max_tokens"), int) or privileged.max_tokens < 0:
+            raise ValueError("Privileged Critic max_tokens must be a nonnegative integer")
+        if not isinstance(privileged.get("safety_margin"), int) or privileged.safety_margin < 0:
+            raise ValueError("Privileged Critic safety_margin must be a nonnegative integer")
     if not config.agentlightning.multi_turn_ppo.enabled:
         if config.agentlightning.multi_turn_ppo.get("backend", "agl") == "capo":
             raise ValueError("CAPO backend requires multi_turn_ppo.enabled=true")
@@ -36,6 +46,8 @@ def validate_config(config: Any) -> None:
     backend = config.agentlightning.multi_turn_ppo.get("backend", "agl")
     if backend not in {"agl", "capo"}:
         raise ValueError(f"Unknown multi-turn PPO backend: {backend}")
+    if privileged.get("enabled", False) and backend != "capo":
+        raise ValueError("The initial privileged Critic implementation requires the CAPO backend")
     estimator = "token_gae" if backend == "capo" else "gae"
     if config.algorithm.adv_estimator != estimator or not config.critic.enable:
         raise ValueError(f"multi_turn_ppo backend={backend} requires adv_estimator={estimator} and critic.enable=true")
@@ -93,10 +105,28 @@ def build_batch(adapter: RolloutAdapter, rollouts: list[CompletedRollout], *, gl
             raise ValueError(f"Missing/nonfinite terminal reward: {rollout.rollout_id}")
         if not rollout.triplets:
             raise ValueError(f"Episode has no model actions: {rollout.rollout_id}")
-        requests = [e for e in rollout.triplet_events if e["event_type"] == "model_request"]
+        requests = [
+            e
+            for e in rollout.triplet_events
+            if e["event_type"] == "model_request"
+            and e.get("data", {}).get("status") != "error"
+            and not (
+                isinstance(e.get("data", {}).get("http_status"), int)
+                and e["data"]["http_status"] >= 400
+            )
+        ]
         if requests and len(requests) != len(rollout.triplets):
             raise ValueError(f"Episode has missing/failed model calls: {rollout.rollout_id}")
-        raw_requests = [e for e in rollout.events if e["event_type"] == "model_request"]
+        raw_requests = [
+            e
+            for e in rollout.events
+            if e["event_type"] == "model_request"
+            and e.get("data", {}).get("status") != "error"
+            and not (
+                isinstance(e.get("data", {}).get("http_status"), int)
+                and e["data"]["http_status"] >= 400
+            )
+        ]
         if raw_requests and len(raw_requests) != len(rollout.triplets):
             raise ValueError("Model calls were deduplicated; deploy a server supporting triplet-preserve")
         for triplet in rollout.triplets:
@@ -238,6 +268,10 @@ def save_audit(batch: DataProto, directory: str | None, step: int) -> None:
         "advantages",
         "returns",
         "position_ids",
+        "critic_prompts",
+        "critic_input_ids",
+        "critic_attention_mask",
+        "critic_position_ids",
     )
     torch.save(
         {k: batch.batch[k].detach().cpu() for k in keys if k in batch.batch},
@@ -251,7 +285,10 @@ def save_audit(batch: DataProto, directory: str | None, step: int) -> None:
             "turn_index_list",
             "episode_turn_count",
             "episode_terminal",
+            "logical_call_id_list",
+            "privileged_state_hash_list",
         )
+        if k in batch.non_tensor_batch
     }
     if "is_pad" in batch.non_tensor_batch:
         metadata["is_pad"] = batch.non_tensor_batch["is_pad"].tolist()

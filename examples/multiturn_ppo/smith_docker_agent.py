@@ -6,18 +6,22 @@ SWE-smith branches are prepared by trusted code. Grading takes place in a second
 fresh container, after agent patch export. Neither container has host mounts.
 """
 
+import hashlib
 import io
 import json
 import os
 import re
 import tarfile
 import time
+import uuid
 from pathlib import Path, PurePosixPath
 
 import docker
 import httpx
 from openai import OpenAI
 from sandbox import Sandbox, load_smith, validate_task
+
+from agentlightning.privileged_state import SandboxStateSnapshotter, budgeted_state_text
 
 
 def agent_task(row):
@@ -165,6 +169,20 @@ def query_completion(llm, smith, *, gateway_wait_s=600.0, gateway_poll_s=5.0, **
             time.sleep(min(gateway_poll_s, remaining))
 
 
+def _token_hash(token_ids):
+    payload = json.dumps(list(token_ids), separators=(",", ":")).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
+def _critic_messages(actor_messages, privileged_text):
+    messages = [dict(message) for message in actor_messages]
+    if privileged_text:
+        if messages[-1].get("role") != "user":
+            raise ValueError("SWE critic PI requires the final actor message to be a user message")
+        messages[-1]["content"] += "\n\n### Privileged State (critic only; hidden from actor)\n" + privileged_text
+    return messages
+
+
 class SmithDockerAgent:
     max_grading_tests = 200
     extra_workflow_hint = ""
@@ -190,6 +208,15 @@ class SmithDockerAgent:
         model_timeout = int(os.environ.get("SMITH_MODEL_TIMEOUT", "240"))
         max_format_errors = int(os.environ.get("SMITH_MAX_FORMAT_ERRORS", "3"))
         gateway_wait_s = float(os.environ.get("SMITH_GATEWAY_WAIT_S", "600"))
+        privileged_mode = os.environ.get("SMITH_PRIVILEGED_STATE", "off")
+        if privileged_mode not in {"off", "capture", "critic"}:
+            raise ValueError("SMITH_PRIVILEGED_STATE must be off, capture, or critic")
+        # Validation remains actor-only and does not pay state-capture overhead.
+        privileged_mode = privileged_mode if "/mode/train/" in os.environ["AGL_OPENAI_BASE_URL"] else "off"
+        privileged_max_tokens = int(os.environ.get("SMITH_PRIVILEGED_MAX_TOKENS", "4096"))
+        privileged_safety_margin = int(os.environ.get("SMITH_PRIVILEGED_SAFETY_MARGIN", "32"))
+        if privileged_max_tokens < 0 or privileged_safety_margin < 0:
+            raise ValueError("Privileged token budget and safety margin must be nonnegative")
         if obs_cap <= 0 or model_timeout <= 0:
             raise ValueError("Observation budget and model timeout must be positive")
         messages = [
@@ -215,12 +242,21 @@ class SmithDockerAgent:
         (directory / "initial-messages.json").write_text(json.dumps(messages))
         client = docker.from_env(timeout=120)
         box = SmithSandbox(client, task, rid)
+        snapshotter = None
         stop_reason = "turn_budget"
         n_format_errors = 0
         try:
             preparation = box.prepare()
             if use_editor:
                 box.install_editor()
+            if privileged_mode != "off":
+                snapshotter = SandboxStateSnapshotter(box.container, directory / "privileged_state")
+                initial_state = snapshotter.initialize()
+                preparation["privileged_state"] = {
+                    "mode": privileged_mode,
+                    "schema_version": initial_state["schema_version"],
+                    "initial_snapshot_duration_s": initial_state["snapshot_duration_s"],
+                }
             with (
                 OpenAI(
                     base_url=os.environ["AGL_OPENAI_BASE_URL"],
@@ -231,15 +267,15 @@ class SmithDockerAgent:
                 (directory / "trajectory.jsonl").open("w") as trace,
             ):
                 for turn in range(int(os.environ.get("SMITH_MAX_TURNS", "8"))):
-                    token_count = len(
-                        tokenizer.apply_chat_template(
-                            messages,
-                            tokenize=True,
-                            add_generation_prompt=True,
-                            enable_thinking=False,
-                        )
+                    actor_prompt_ids = tokenizer.apply_chat_template(
+                        messages,
+                        tokenize=True,
+                        add_generation_prompt=True,
+                        enable_thinking=False,
                     )
-                    if token_count + int(os.environ.get("SMITH_MAX_TOKENS", "768")) > context_limit:
+                    token_count = len(actor_prompt_ids)
+                    response_limit = int(os.environ.get("SMITH_MAX_TOKENS", "768"))
+                    if token_count + response_limit > context_limit:
                         stop_reason = "context_budget"
                         trace.write(
                             json.dumps(
@@ -251,6 +287,57 @@ class SmithDockerAgent:
                             + "\n"
                         )
                         break
+                    logical_call_id = None
+                    if snapshotter is not None:
+                        state = snapshotter.capture()
+                        prompt_ceiling = context_limit - response_limit - privileged_safety_margin
+
+                        def critic_prompt_ids(text):
+                            return tokenizer.apply_chat_template(
+                                _critic_messages(messages, text),
+                                tokenize=True,
+                                add_generation_prompt=True,
+                                enable_thinking=False,
+                            )
+
+                        def critic_prompt_fits(text, limit=prompt_ceiling):
+                            return len(critic_prompt_ids(text)) <= limit
+
+                        privileged_text, serialization = budgeted_state_text(
+                            state["delta"],
+                            token_length=lambda text: len(tokenizer.encode(text, add_special_tokens=False)),
+                            max_tokens=privileged_max_tokens,
+                            fits=critic_prompt_fits,
+                        )
+                        critic_ids = critic_prompt_ids(privileged_text)
+                        if len(critic_ids) > prompt_ceiling:
+                            raise RuntimeError("Privileged Critic prompt exceeded its pre-action budget")
+                        logical_call_id = uuid.uuid4().hex
+                        event_data = {
+                            "logical_call_id": logical_call_id,
+                            "turn_index": turn,
+                            "snapshot_sequence": turn,
+                            "state_schema_version": state["delta"]["schema_version"],
+                            "state_hash": state["state_hash"],
+                            "state_ref": state["state_ref"],
+                            "captured_at_start": state["captured_at_start"],
+                            "captured_at_end": state["captured_at_end"],
+                            "snapshot_duration_s": state["snapshot_duration_s"],
+                            "mode": privileged_mode,
+                            "text": privileged_text,
+                            "actor_prompt_tokens": len(actor_prompt_ids),
+                            "actor_prompt_hash": _token_hash(actor_prompt_ids),
+                            "critic_prompt_tokens": len(critic_ids),
+                            "critic_prompt_hash": _token_hash(critic_ids),
+                            "pi_budget_tokens": privileged_max_tokens,
+                            **serialization,
+                        }
+                        httpx.post(
+                            event_url,
+                            headers={"Authorization": f"Bearer {key}"},
+                            json={"event_type": "privileged_state", "data": event_data},
+                            timeout=30,
+                        ).raise_for_status()
                     try:
                         response = query_completion(
                             llm,
@@ -258,8 +345,13 @@ class SmithDockerAgent:
                             gateway_wait_s=gateway_wait_s,
                             model="auto",
                             messages=messages,
-                            max_tokens=int(os.environ.get("SMITH_MAX_TOKENS", "768")),
+                            max_tokens=response_limit,
                             temperature=1.0,
+                            **(
+                                {"extra_headers": {"X-AgentLightning-Logical-Call-Id": logical_call_id}}
+                                if logical_call_id
+                                else {}
+                            ),
                             extra_body={"chat_template_kwargs": {"enable_thinking": False}},
                             **({"seed": int(row["_agl_sampling_seed"]) + turn} if "_agl_sampling_seed" in row else {}),
                         )
@@ -274,6 +366,8 @@ class SmithDockerAgent:
                     content = choice.message.content or ""
                     messages.append({"role": "assistant", "content": content})
                     record = {"turn": turn + 1, "response": content}
+                    if logical_call_id:
+                        record["logical_call_id"] = logical_call_id
                     submitted = False
                     try:
                         action = smith.parse_action(content)
