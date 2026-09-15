@@ -142,6 +142,7 @@ def build_config(args):
             "SMITH_PRIVILEGED_STATE": "critic",
             "SMITH_PRIVILEGED_MAX_TOKENS": str(pi.max_tokens),
             "SMITH_PRIVILEGED_SAFETY_MARGIN": str(pi.safety_margin),
+            "SMITH_PRIVILEGED_ENCODING": str(pi.encoding),
         }
         mismatches = {name: os.environ.get(name) for name, value in expected.items() if os.environ.get(name) != value}
         if mismatches or pi.state_schema_version != 1:
@@ -163,6 +164,7 @@ def build_config(args):
         repo / "agentlightning/verl/capo_ppo.py",
         repo / "agentlightning/verl/capo_padding.py",
         repo / "agentlightning/verl/privileged_critic.py",
+        repo / "agentlightning/verl/value_diagnostics.py",
         repo / "agentlightning/verl/entrypoint.py",
         repo / "agentlightning/verl/config.yaml",
         repo / "agentlightning/verl/trainer.py",

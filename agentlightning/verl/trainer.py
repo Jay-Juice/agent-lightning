@@ -679,6 +679,9 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
                     self.config.agentlightning.multi_turn_ppo.audit_dir,
                     self.global_steps,
                 )
+                from .value_diagnostics import compute_value_diagnostics
+
+                metrics.update(compute_value_diagnostics(batch))
             elif self.config.algorithm.get("enable_rollout_level_advantage", False):
                 batch, rollout_adv_metrics = compute_rollout_level_advantage(batch, **adv_kwargs)
                 metrics.update(rollout_adv_metrics)

@@ -21,7 +21,13 @@ import httpx
 from openai import OpenAI
 from sandbox import Sandbox, load_smith, validate_task
 
-from agentlightning.privileged_state import SandboxStateSnapshotter, budgeted_state_text
+from agentlightning.privileged_state import (
+    PreparedBaselineBlobStore,
+    SandboxStateSnapshotter,
+    budgeted_semantic_state_text,
+    budgeted_state_text,
+    build_semantic_delta,
+)
 
 
 def agent_task(row):
@@ -215,6 +221,9 @@ class SmithDockerAgent:
         privileged_mode = privileged_mode if "/mode/train/" in os.environ["AGL_OPENAI_BASE_URL"] else "off"
         privileged_max_tokens = int(os.environ.get("SMITH_PRIVILEGED_MAX_TOKENS", "4096"))
         privileged_safety_margin = int(os.environ.get("SMITH_PRIVILEGED_SAFETY_MARGIN", "32"))
+        privileged_encoding = os.environ.get("SMITH_PRIVILEGED_ENCODING", "current_file_v1")
+        if privileged_encoding not in {"current_file_v1", "semantic_hunks_v2"}:
+            raise ValueError("SMITH_PRIVILEGED_ENCODING must be current_file_v1 or semantic_hunks_v2")
         if privileged_max_tokens < 0 or privileged_safety_margin < 0:
             raise ValueError("Privileged token budget and safety margin must be nonnegative")
         if obs_cap <= 0 or model_timeout <= 0:
@@ -243,6 +252,7 @@ class SmithDockerAgent:
         client = docker.from_env(timeout=120)
         box = SmithSandbox(client, task, rid)
         snapshotter = None
+        baseline_store = None
         stop_reason = "turn_budget"
         n_format_errors = 0
         try:
@@ -250,12 +260,21 @@ class SmithDockerAgent:
             if use_editor:
                 box.install_editor()
             if privileged_mode != "off":
+                baseline_store = PreparedBaselineBlobStore(
+                    box.container, exact_commit=preparation["baseline_head"]
+                )
+                baseline_info = baseline_store.initialize()
+                (directory / "privileged_state").mkdir(parents=True, exist_ok=True)
+                baseline_store.write_manifest(directory / "privileged_state" / "baseline-blobs.json.gz")
                 snapshotter = SandboxStateSnapshotter(box.container, directory / "privileged_state")
                 initial_state = snapshotter.initialize()
                 preparation["privileged_state"] = {
                     "mode": privileged_mode,
                     "schema_version": initial_state["schema_version"],
                     "initial_snapshot_duration_s": initial_state["snapshot_duration_s"],
+                    "baseline_commit": baseline_info["commit"],
+                    "baseline_blob_manifest_hash": baseline_info["manifest_hash"],
+                    "pi_encoding": privileged_encoding,
                 }
             with (
                 OpenAI(
@@ -290,7 +309,8 @@ class SmithDockerAgent:
                     logical_call_id = None
                     if snapshotter is not None:
                         state = snapshotter.capture()
-                        prompt_ceiling = context_limit - response_limit - privileged_safety_margin
+                        hard_prompt_ceiling = context_limit - response_limit
+                        safe_pi_ceiling = hard_prompt_ceiling - privileged_safety_margin
 
                         def critic_prompt_ids(text):
                             return tokenizer.apply_chat_template(
@@ -300,17 +320,29 @@ class SmithDockerAgent:
                                 enable_thinking=False,
                             )
 
-                        def critic_prompt_fits(text, limit=prompt_ceiling):
+                        def critic_prompt_fits(text, limit=safe_pi_ceiling):
                             return len(critic_prompt_ids(text)) <= limit
 
-                        privileged_text, serialization = budgeted_state_text(
-                            state["delta"],
-                            token_length=lambda text: len(tokenizer.encode(text, add_special_tokens=False)),
-                            max_tokens=privileged_max_tokens,
-                            fits=critic_prompt_fits,
-                        )
+                        if len(actor_prompt_ids) > safe_pi_ceiling:
+                            privileged_text, serialization = "", {"serialized_tokens": 0, "truncated": True}
+                            serialization["fallback_no_pi"] = True
+                        elif privileged_encoding == "semantic_hunks_v2":
+                            semantic = build_semantic_delta(state["delta"], baseline_store)
+                            privileged_text, serialization = budgeted_semantic_state_text(
+                                semantic,
+                                token_length=lambda text: len(tokenizer.encode(text, add_special_tokens=False)),
+                                max_tokens=privileged_max_tokens,
+                                fits=critic_prompt_fits,
+                            )
+                        else:
+                            privileged_text, serialization = budgeted_state_text(
+                                state["delta"],
+                                token_length=lambda text: len(tokenizer.encode(text, add_special_tokens=False)),
+                                max_tokens=privileged_max_tokens,
+                                fits=critic_prompt_fits,
+                            )
                         critic_ids = critic_prompt_ids(privileged_text)
-                        if len(critic_ids) > prompt_ceiling:
+                        if len(critic_ids) > hard_prompt_ceiling:
                             raise RuntimeError("Privileged Critic prompt exceeded its pre-action budget")
                         logical_call_id = uuid.uuid4().hex
                         event_data = {
@@ -330,6 +362,9 @@ class SmithDockerAgent:
                             "critic_prompt_tokens": len(critic_ids),
                             "critic_prompt_hash": _token_hash(critic_ids),
                             "pi_budget_tokens": privileged_max_tokens,
+                            "pi_encoding": privileged_encoding,
+                            "baseline_commit": baseline_store.exact_commit,
+                            "baseline_blob_manifest_hash": baseline_store.manifest_hash,
                             **serialization,
                         }
                         httpx.post(

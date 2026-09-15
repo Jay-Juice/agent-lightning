@@ -30,6 +30,7 @@ agentlightning:
   privileged_critic:
     enabled: false
     state_schema_version: 1
+    encoding: current_file_v1
     max_tokens: 4096
     safety_margin: 32
   trace_aggregator:

@@ -420,6 +420,9 @@ class RolloutAdapter:
         privileged_snapshot_time_list: list[float] = []
         privileged_serialized_tokens_list: list[int] = []
         privileged_truncated_list: list[bool] = []
+        privileged_hunk_coverage_list: list[float] = []
+        privileged_changed_line_coverage_list: list[float] = []
+        privileged_files_semantic_list: list[float] = []
         n_trunc_sample_because_of_response = 0
         n_skipped_empty_training_rows = 0
         unmerged_count = 0
@@ -531,6 +534,11 @@ class RolloutAdapter:
                 privileged_snapshot_time_list.append(float(state.get("snapshot_duration_s", 0.0)))
                 privileged_serialized_tokens_list.append(int(state.get("serialized_tokens", 0)))
                 privileged_truncated_list.append(bool(state.get("truncated", False)))
+                htotal = int(state.get("hunks_total", 0))
+                ltotal = int(state.get("changed_lines_total", 0))
+                privileged_hunk_coverage_list.append(float(state.get("hunks_included", 0)) / htotal if htotal else 1.0)
+                privileged_changed_line_coverage_list.append(float(state.get("changed_lines_included", 0)) / ltotal if ltotal else 1.0)
+                privileged_files_semantic_list.append(float(state.get("files_with_semantic_content", 0)))
             if response_mask is not None:
                 one_response_mask, _ = get_right_padded_ids_and_attention_mask(
                     response_mask, self.max_response_length, 0
@@ -878,6 +886,9 @@ class RolloutAdapter:
                         + int(response_attention_mask.sum().item())
                     ),
                     "privilege/truncated_ratio": float(np.mean(privileged_truncated_list)),
+                    "privilege/hunk_coverage_mean": float(np.mean(privileged_hunk_coverage_list)),
+                    "privilege/changed_line_coverage_mean": float(np.mean(privileged_changed_line_coverage_list)),
+                    "privilege/files_with_semantic_content_mean": float(np.mean(privileged_files_semantic_list)),
                 }
             )
 

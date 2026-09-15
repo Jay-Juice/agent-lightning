@@ -2,5 +2,7 @@
 
 from .sandbox import SandboxStateSnapshotter
 from .serialize import budgeted_state_text
+from .baseline import PreparedBaselineBlobStore
+from .semantic_diff import build_semantic_delta
 
-__all__ = ["SandboxStateSnapshotter", "budgeted_state_text"]
+__all__ = ["SandboxStateSnapshotter", "budgeted_state_text", "PreparedBaselineBlobStore", "build_semantic_delta"]
