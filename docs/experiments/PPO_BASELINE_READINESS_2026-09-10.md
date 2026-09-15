@@ -41,7 +41,7 @@
 | SWE-smith 元数据 | 本轮逐行计数：训练 6,343，验证 474 |
 | 可离线训练子集 | exceptiongroup：32 条训练、6 条验证；全量仓库镜像未备齐 |
 
-最新 [环境汇总](A800_ENVIRONMENT_AND_USAGE.md) 已经覆盖了 09-09 老调研中的 Docker 权限、数据缺失和单机运行器缺失问题，不应继续将这些当作当前阻塞。
+最新的本地 A800 环境汇总已经覆盖了 09-09 老调研中的 Docker 权限、数据缺失和单机运行器缺失问题，不应继续将这些当作当前阻塞。该服务器指南包含运维信息，不随公开仓库归档。
 
 实际辅助脚本在服务器 `agent-lightning-runtime/tools/a800-training/` 和 `tools/swe-bench-local/`；本地原件仍在 `C:/Users/zsj/Documents/ChatGPT/agent-lightning/`。后续要纳入 D 盘源码维护，需按明确文件清单迁入，不能假定它们已随原仓库受版本管理。
 
@@ -140,9 +140,9 @@ SWE 中不少状态可由 Actor 主动用 shell 查询：需要区分“当前�
 
 ## 8. 可复核产物与命令
 
-- [CPU 诊断脚本](research/ppo_readiness_probe.py)：只读调用现有生产函数，不载入模型或更新参数。
-- [诊断结果 JSON](research/ppo_readiness_evidence_2026-09-10.json)：人工反例、真实轨迹重建、退出码及五个源码哈希。
-- [已有环境使用指南](A800_ENVIRONMENT_AND_USAGE.md)：GRPO 启动方式与运行资源路径。
+- 本地 CPU 诊断脚本 `research/ppo_readiness_probe.py`：只读调用现有生产函数，不载入模型或更新参数。
+- 本地诊断结果 `research/ppo_readiness_evidence_2026-09-10.json`：人工反例、真实轨迹重建、退出码及五个源码哈希。
+- 本地 A800 环境使用指南：GRPO 启动方式与运行资源路径；不随公开仓库归档。
 
 本轮最终诊断执行命令（PowerShell，工作目录为应用项目根）：
 
