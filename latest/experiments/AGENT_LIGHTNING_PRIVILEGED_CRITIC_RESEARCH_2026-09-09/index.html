@@ -1,0 +1,1636 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://microsoft.github.io/agent-lightning/latest/experiments/AGENT_LIGHTNING_PRIVILEGED_CRITIC_RESEARCH_2026-09-09/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/favicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>Agent Lightning 上重建 Privileged Critic 与扩展 SWE benchmark：调研记录 - Agent Lightning v1.0</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../css/timeago.css">
+    
+      <link rel="stylesheet" href="https://unpkg.com/katex@0/dist/katex.min.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="agl" data-md-color-accent="agl">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#agent-lightning-privileged-critic-swe-benchmark" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Agent Lightning v1.0" class="md-header__button md-logo" aria-label="Agent Lightning v1.0" data-md-component="logo">
+      
+  <img src="../../assets/favicon-white.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Agent Lightning v1.0
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Agent Lightning 上重建 Privileged Critic 与扩展 SWE benchmark：调研记录
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="agl" data-md-color-accent="agl"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="agl" data-md-color-accent="agl"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/microsoft/agent-lightning" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    agent-lightning
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Agent Lightning v1.0" class="md-nav__button md-logo" aria-label="Agent Lightning v1.0" data-md-component="logo">
+      
+  <img src="../../assets/favicon-white.svg" alt="logo">
+
+    </a>
+    Agent Lightning v1.0
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/microsoft/agent-lightning" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    agent-lightning
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Documentation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../00-installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-quick-start/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-basics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-trainer-configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trainer Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-api-gateway-configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Gateway Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../30-controller-configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Controller Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../35-asynchronous-training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Asynchronous Training
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../50-example-calc-x/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Calc-X
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../55-example-gsm8k/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GSM8K
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../60-example-science-world/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ScienceWorld
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../65-example-search-r1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Search-R1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../70-example-llm-in-sandbox/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM-in-Sandbox
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../75-example-coding-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coding Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../80-example-multimodal-qa/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multimodal QA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. 结论与建议路线
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. 项目位置、版本和审查范围
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-idea" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. 对 idea 的准确理解
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. 历史结果和偏好如何继承
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5-agent-lightning-101" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. Agent Lightning 1.0.1 的实际数据链
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="5. Agent Lightning 1.0.1 的实际数据链">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#51-adv_estimator" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.1 为什么不能仅切 adv_estimator
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#52-transition" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5.2 初版建议使用 transition 模式
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6-swe-smith-swe-bench" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. SWE-smith 训练与 SWE-bench 评测
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-swe-pi" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. SWE 环境中 PI 的设计
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. SWE 环境中 PI 的设计">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        建议的数据协议
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. 建议的实现拆分和验收
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. 日志：吸收参考中的最小必要部分
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10-a800" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. A800 工程可行性
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#11-benchmark" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        11. 其他新 benchmark 的选择
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#12-github" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        12. GitHub 维护与本轮状态
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+  <div id="version-warning" class="version-warning" style="display: none;">
+    ⚠️ You are viewing development documentation. For stable documentation, please visit
+    <a href="https://microsoft.github.io/agent-lightning/stable/">https://microsoft.github.io/agent-lightning/stable/</a>
+  </div>
+  
+                  <!-- Copied and modified from https://github.com/squidfunk/mkdocs-material/blob/master/src/templates/partials/content.html -->
+
+<!-- Tags -->
+
+
+
+<!-- Actions -->
+
+  
+  
+
+
+<!--
+  Hack: check whether the content contains a h1 headline. If it doesn't, the
+  page title (or respectively site name) is used as the main headline.
+-->
+
+
+<!-- Source file information -->
+
+
+
+
+
+
+
+  
+    
+  
+  
+    
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Last update">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-timeago" title="September 15, 2026 07:51:45 UTC"><span class="timeago" datetime="2026-09-15T07:51:45+00:00" locale="en"></span></span><span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="September 15, 2026 07:51:45 UTC">2026-09-15</span>
+  </span>
+
+    
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Created">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-timeago" title="September 15, 2026 07:51:45 UTC"><span class="timeago" datetime="2026-09-15T07:51:45+00:00" locale="en"></span></span><span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="September 15, 2026 07:51:45 UTC">2026-09-15</span>
+  </span>
+
+    
+    
+      
+  
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Contributors">
+      
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 4a4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-4-4 4 4 0 0 1 4-4m0 10c4.42 0 8 1.79 8 4v2H4v-2c0-2.21 3.58-4 8-4"/></svg>
+      
+    </span>
+    <nav>
+      
+        <a href="mailto:zsj200454@gmail.com">Jay-Juice</a>
+    </nav>
+  </span>
+
+    
+    
+  </aside>
+
+
+<!-- Page content -->
+<h1 id="agent-lightning-privileged-critic-swe-benchmark">Agent Lightning 上重建 Privileged Critic 与扩展 SWE benchmark：调研记录<a class="headerlink" href="#agent-lightning-privileged-critic-swe-benchmark" title="Permanent link">&para;</a></h1>
+<p>日期：2026-09-09（Asia/Shanghai）。范围：本地项目与参考文档、关键训练数据链、官方 benchmark 文档。本文是实现前调研，不是已经实现、部署或训练成功的报告。</p>
+<h2 id="1">1. 结论与建议路线<a class="headerlink" href="#1" title="Permanent link">&para;</a></h2>
+<p><strong>适合在这份 Agent Lightning 中重新实现，但需要先补齐面向多步 PPO 的数据语义，再加入 Critic 独立输入。不能把内置 SWE-smith 的 GRPO 配置改成 GAE 就称为完成迁移。</strong></p>
+<p>建议围绕用户希望扩展的编码任务推进：</p>
+<ol>
+<li>用现有 SWE-smith agent/harness 接通编码轨迹与终局 reward，并单独建立 SWE-bench 官方评测出口。</li>
+<li>在 Agent Lightning 内实现普通 multi-turn PPO/token GAE，建立可学习的编码 baseline。</li>
+<li>在同一实现、相同 reward、Actor prompt 和训练配置上，仅增加 pre-action state → Critic 的通路。</li>
+<li>SWE-smith 用于训练及独立开发集选模；SWE-bench Lite 用于小规模工程验证，Verified 作为标准结果对照。测试集不用于 RL reward 或反复挑配置。</li>
+<li>如需第二个新环境，ScienceWorld 是当前代码基础上很合适的候选；它已有本地 runner 示例，并有真实 simulator object-tree 接口。SWE 仍按用户提出的方向优先。</li>
+</ol>
+<p>GRPO 可以保留为算法对照，但它没有本研究所需的 learned value critic。只有普通 PPO 与 privileged PPO 的匹配对照，才能回答“Critic 多看到环境状态是否有帮助”。</p>
+<h2 id="2">2. 项目位置、版本和审查范围<a class="headerlink" href="#2" title="Permanent link">&para;</a></h2>
+<p>用户已将应用中的项目关联修正为：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>D:/ai project/RL学习/agent-lightning-main/
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── A800/
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>│   ├── AGENTS.md
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>│   └── A800_PACKAGE_INSTALL_GUIDE.md
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>└── agent-lightning-main/       # 实际 Python 源码根目录
+</code></pre></div>
+<p>参考资料位于同级 <code>D:/ai project/RL学习/Agent-R1/</code>。本次起初工具工作目录是空的 <code>C:/Users/zsj/Documents/ChatGPT/agent-lightning</code>；实际源码审查一直基于上述 D 盘目录，未将代码搬到 C 盘。</p>
+<p>源码审查前的盘点：</p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>已核验事实</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>包版本</td>
+<td><code>pyproject.toml</code>：<code>agentlightning==1.0.1</code>，Python <code>&gt;=3.12</code></td>
+</tr>
+<tr>
+<td>文件数量</td>
+<td>218 个文件，101 个 Python 文件，38 个 Markdown 文件</td>
+</tr>
+<tr>
+<td>下载归档</td>
+<td><code>D:/ai project/RL学习/agent-lightning-main.zip</code></td>
+</tr>
+<tr>
+<td>ZIP comment</td>
+<td><code>218f1f7c0bac0800de4d5a4e5e6f61cf7b5038b4</code></td>
+</tr>
+<tr>
+<td>解压一致性</td>
+<td>218 个文件逐字节匹配 ZIP，0 修改、0 缺失、0 额外文件</td>
+</tr>
+<tr>
+<td>Git 状态</td>
+<td>D 盘外层和内层均未发现 <code>.git</code>；这是源码归档，不是已有完整 Git 历史的 checkout</td>
+</tr>
+<tr>
+<td>静态语法检查</td>
+<td>本地 Python 3.13.5 对全部 101 个 <code>.py</code> 执行 <code>ast.parse</code>，均通过</td>
+</tr>
+<tr>
+<td>运行验证范围</td>
+<td>未运行训练、GPU 测试、Docker 评测或完整 pytest；本地默认 Python 缺 torch 和 openai</td>
+</tr>
+</tbody>
+</table>
+<p>ZIP comment 是本地归档标识，本次没有独立证明该 SHA 就是当前远端 main。语法检查也不代表依赖兼容或训练正确。</p>
+<p>目录职责：<code>agentlightning/</code> 30 个文件，覆盖 schema/client/hooks、Gateway、Controller、veRL；<code>examples/</code> 112 个文件，含 SWE-smith、ScienceWorld、Search-R1、Calc-X、GSM8K、LLM-in-Sandbox、multimodal QA；<code>tests/</code> 15 个文件；<code>docs/</code> 31 个文件；另有依赖锁、安装脚本、CI 和技能资料。本次完成全目录盘点，深入阅读与迁移有关的数据链、配置和测试；没有将每个 vendor 示例都当作已经完成逐行审计。</p>
+<p>已梳理 Agent-R1 根目录的九份参考 Markdown：原始 idea、<code>delta info.md</code>、09-02 总交接、<code>handoff.md</code>、token GAE guide、日志规范、磁盘泄漏复盘、09-06 CAPO 调研、09-09 CAPO P1 handoff。另核对了 CAPO 当前独立 Critic view 与 token GAE 源码。</p>
+<h2 id="3-idea">3. 对 idea 的准确理解<a class="headerlink" href="#3-idea" title="Permanent link">&para;</a></h2>
+<p>动作级形式：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Actor:  π(a_t | H_t)
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>Critic: V(H_t, Z_t)
+</code></pre></div>
+<p>token 形式：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>Actor:  π(a_t,k | H_t, a_t,&lt;k)
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>Critic: V(H_t, Z_t, a_t,&lt;k)
+</code></pre></div>
+<p><code>H_t</code> 应明确为实际给 Actor 的上下文。窗口化、压缩后的 history 与完整历史不是同一信息集。<code>Z_t</code> 从环境控制接口获取，在本次模型调用前捕获；同次生成的全部 token 使用同一份 <code>Z_t</code>。执行动作之后的状态归下一次调用。</p>
+<p>研究主变量是 Critic 的信息集。Actor rollout、old/ref logprob、Actor update、评测推理保持部署可见输入。Reward 及折扣定义在配对实验中保持一致。</p>
+<p>Delta 定义是 <code>D(C(S_0), C(S_t))</code>，即相对 episode 初始状态的当前净变化。它不是事件日志，也不是相邻两步差分。Delta 只是表示方式：它可能删掉未变化但仍重要的隐藏信息；空初始 delta 也不是完整初始状态的替代物。</p>
+<p>还应区分“真正未观测的状态信息”和“更容易读取的 Actor 历史摘要”。给 Critic Actor 刚写出的代码 diff，可能主要降低状态重建计算成本。仅因为信息来自另一个接口，不能证明其具有条件信息增量。建议后续用 Actor-visible summary、同信息集 current/delta、错配 state 等对照区分机制，而不是第一轮同时加入全部消融。</p>
+<p>“保持目标”不等于保证近似 Critic + GAE + PPO clipping 的更新完全无偏，更不保证方差必然下降。原 idea 中的 privileged value function 数学形式已有相关工作，本轮也不建立“首次提出”的 novelty claim。</p>
+<h2 id="4">4. 历史结果和偏好如何继承<a class="headerlink" href="#4" title="Permanent link">&para;</a></h2>
+<p>这些数据均来自交接文档，本次未重读 A800 原始日志：</p>
+<table>
+<thead>
+<tr>
+<th>实验</th>
+<th>文档记录</th>
+<th>应保留的解释边界</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>旧 4B step PPO/P1</td>
+<td>中期 P1 明显领先；最终 baseline seen/unseen 78.57%/86.57%，P1 83.57%/81.34%</td>
+<td>有中期收益信号，最终 unseen 没有超过 baseline；单 seed</td>
+</tr>
+<tr>
+<td>旧 1.7B step P1</td>
+<td>最新 CAPO handoff 记录最终 116/274</td>
+<td>不能与 CAPO 直接当作单变量比较</td>
+</tr>
+<tr>
+<td>CAPO 1.7B token PPO baseline</td>
+<td>最终 252/274，91.97%</td>
+<td>gamma=.99、动作行 minibatch、不同 Actor history 等均与旧 step 项目不同</td>
+</tr>
+<tr>
+<td>最新 CAPO 最小 P1</td>
+<td>09-09 20:26 快照：完成 157/270；验证155为223/274，baseline同点233/274</td>
+<td>快照中未结束，不能当作最终结果；150时P1领先、155时反转</td>
+</tr>
+</tbody>
+</table>
+<p>09-02 文档中的通用 all-token EV 混入了 step Critic 没训练的位置；后续 handoff 已纠正。不能继续用该旧表直接证明 Critic 改善。当前 CAPO 的 token EV 也要结合 return variance 和实际数据分布解释。</p>
+<p>最新交接明确：CAPO 最小 P1 保留原终止动作训练副本，避免额外 head 初始化、warmup、LR、target-KL 等配方变更。早期“应保留去重”的建议已被该实验的后续决定覆盖。</p>
+<p>这项决定约束 CAPO 复现；Agent Lightning 新编码环境不需要人为制造一个原本不存在的终止副本。新实验应先固定共同 baseline 的记录语义，普通/privileged 两组保持一致。不能将旧文档中的启动、监控、删 checkpoint 等历史操作当成本次指令。</p>
+<h2 id="5-agent-lightning-101">5. Agent Lightning 1.0.1 的实际数据链<a class="headerlink" href="#5-agent-lightning-101" title="Permanent link">&para;</a></h2>
+<p><a href="https://github.com/microsoft/agent-lightning">官方仓库</a>明确说明 v1.0 完成了架构重构。当前源码路径是：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>dataset row
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>  → entrypoint / trainer 创建 rollout
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>  → Gateway 保存 rollout
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>  → Controller 启动 local subprocess 或 K8s Job
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>  → agent 通过 Gateway 调用模型并执行环境动作
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>  → model_request / reward / 自定义 events
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>  → agl_rollout_manager: CompletedRollout + Triplet
+<a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>  → rollout_adapter: transition 或 trajectory rows
+<a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>  → veRL DataProto
+<a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>  → old/ref logprob → values → advantages → Critic / Actor update
+</code></pre></div>
+<p>关键接入点（均相对实际源码根，行号对应本地归档）：</p>
+<table>
+<thead>
+<tr>
+<th>文件 / 位置</th>
+<th>当前行为</th>
+<th>迁移需要</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>schemas.py:13</code></td>
+<td>Event 支持任意 event_type/data</td>
+<td>增加可验证的 state/request 关联协议</td>
+</tr>
+<tr>
+<td><code>server/routes/events.py</code></td>
+<td>triplet 格式裁剪 request，并按 prompt token IDs 保留最后一次调用</td>
+<td>必须处理重试、重复 prompt 与 state 的一一对应</td>
+</tr>
+<tr>
+<td><code>verl/agl_rollout_manager.py:41,448</code></td>
+<td>构造 Triplet；metadata 当前主要保存 server 信息</td>
+<td>将匹配到的 pre-action state / request ID 传入 Triplet</td>
+</tr>
+<tr>
+<td><code>verl/rollout_adapter.py:368</code></td>
+<td>聚合并 padding Actor prompt/response</td>
+<td>增加 Critic 专用输入及完整轨迹元数据</td>
+</tr>
+<tr>
+<td><code>verl/rollout_adapter.py:502</code></td>
+<td>transition 模式每一行都分配 final_reward</td>
+<td>PPO 路径应保留真实时序 reward，仅终局行放终局奖励</td>
+</tr>
+<tr>
+<td><code>verl/trainer.py:502</code></td>
+<td>在 value/GAE 前按行丢样本以满足 minibatch/update cap</td>
+<td>GAE 前保证完整轨迹；不能先随机删中间 turn</td>
+</tr>
+<tr>
+<td><code>verl/trainer.py:575,630</code></td>
+<td>value inference 和 Critic update 都读取公共 batch</td>
+<td>两个入口都使用同一独立 Critic view</td>
+</tr>
+<tr>
+<td><code>verl/rollout_level_advantage.py</code></td>
+<td>每 rollout 选代表行，要求有效 token 优势为常量，再广播</td>
+<td>适合 outcome-style 路径，不能用于一般 token GAE</td>
+</tr>
+<tr>
+<td><code>verl/per_rollout_loss.py</code></td>
+<td>对 rollout token 数与 batch 行数做 loss 权重处理</td>
+<td>明确选择并固定 loss weighting；不是普通 whitening 的同义词</td>
+</tr>
+<tr>
+<td><code>server/store.py</code></td>
+<td>rollout/event/model 保存在进程内字典</td>
+<td>增加可靠的落盘日志，不能以 Gateway 内存作为研究档案</td>
+</tr>
+</tbody>
+</table>
+<h3 id="51-adv_estimator">5.1 为什么不能仅切 <code>adv_estimator</code><a class="headerlink" href="#51-adv_estimator" title="Permanent link">&para;</a></h3>
+<p>内置 SWE-smith 默认 <code>adv_estimator=grpo</code>，基础配置 <code>enable_rollout_level_advantage=true</code>。rollout-level helper 会拒绝非恒定 token advantage。普通 PPO 需要先停用该 GRPO 风格广播，并提供真正的多步 GAE。</p>
+<p>即使关闭广播，直接调用外部 veRL 的逐行 <code>compute_advantage</code> 也不等于 CAPO 的跨 turn token GAE。当前行之间没有递推接口。若使用 transition 模式，同时保留每行重复 final_reward，会把稀疏终局奖励变成重复奖励。</p>
+<p>当前 trainer 还会在计算 values/advantages 前丢弃行；对 GRPO 有其既定目的，但对跨行 GAE 会破坏时间连续性。因此 PPO 数据选择、GAE 和优化 minibatch 的次序必须一起设计，不能只复制一个 GAE 函数。</p>
+<h3 id="52-transition">5.2 初版建议使用 transition 模式<a class="headerlink" href="#52-transition" title="Permanent link">&para;</a></h3>
+<p>每次模型调用独立成行，更容易给该调用绑定 <code>Z_t</code>，并复用相同 response token IDs。trajectory 模式会把多次 observation 和 response 合并；一条合并行只有一个开头 PI，无法表示后续更新的状态。把所有未来 PI 放在初始 prefix 又会造成未来信息泄漏。</p>
+<p>初版可按 <code>rollout_id + attempt_id + turn_index/request_id</code> 重建完整链，对有效模型生成 token 做跨 turn GAE；observation、PI、padding 不推进时间线。之后再研究 causal interleaved PI 与 trajectory packing，避免首轮复杂化。</p>
+<h2 id="6-swe-smith-swe-bench">6. SWE-smith 训练与 SWE-bench 评测<a class="headerlink" href="#6-swe-smith-swe-bench" title="Permanent link">&para;</a></h2>
+<p><a href="https://swesmith.com/">SWE-smith</a>提供面向编码 Agent 的大规模训练任务。当前 repo 的 <code>examples/swe_smith/</code> 已具备 shell agent、镜像准备、任务加载、终局测试 reward、K8s launcher；这是直接可借鉴的编码环境基础。</p>
+<p>但当前示例不等同于完整 SWE-bench adapter：</p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>当前 SWE-smith 示例</th>
+<th>SWE-bench 所需</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>数据</td>
+<td>预处理 SWE-smith JSONL，字段含 image_name、F2P/P2P</td>
+<td>issue/problem_statement、repo、base_commit 等官方实例字段</td>
+</tr>
+<tr>
+<td>初始代码</td>
+<td><code>git checkout instance_id</code> 的注入 bug 分支</td>
+<td>官方实例对应的 base commit / 实例镜像</td>
+</tr>
+<tr>
+<td>测试恢复</td>
+<td>从 <code>HEAD~1</code> 恢复 SWE-smith 删除的测试</td>
+<td>按官方 harness 的 test patch 和 repo-specific 测试流程</td>
+</tr>
+<tr>
+<td>判分</td>
+<td>内置 pytest parser，默认 <code>SMITH_F2P_ONLY=1</code></td>
+<td>官方 harness 的 resolved/report</td>
+</tr>
+<tr>
+<td>回归测试</td>
+<td>默认仅保留 F2P 文件内的 P2P</td>
+<td>遵守该 benchmark 的完整判分语义</td>
+</tr>
+<tr>
+<td>训练 reward</td>
+<td>成功后可能叠加 turn/context 长度惩罚</td>
+<td>最终报告使用官方 <code>% resolved</code>，单独记录训练 shaped reward</td>
+</tr>
+<tr>
+<td>patch 输出</td>
+<td><code>agent_output</code> event 的 <code>patch</code></td>
+<td>JSONL：instance_id、model_name_or_path、model_patch</td>
+</tr>
+</tbody>
+</table>
+<p>相关实现位置：<code>smith_agent.py:495</code> 初始化，<code>:586</code> evaluator，<code>:656,680</code> 长度惩罚，<code>:715</code> loop，<code>:843</code> main。K8s 模板还覆盖 max turns 为100、单次输出上限12288、观察字符上限6000。Python 默认值、run.sh 和 Job 环境变量并不完全一致，必须看最终 resolved config 与容器环境。</p>
+<p>训练前还缺素材：源码归档没有 <code>train_dataset_mixed.jsonl</code> / <code>val_dataset_filtered.jsonl</code>；本地文档要求单独下载。repo 镜像也不在这份源码中。数据难度过滤基于上游 Qwen3.5-9B 探测，换成1.7B后不能假设仍有足够成功样本。</p>
+<p>官方评测流程应为：固定实例 → Actor-only 生成补丁 → 干净环境应用补丁 → 官方 harness 判分 → 保存逐实例 report。JSONL 格式和 Docker 评测入口见 <a href="https://www.swebench.com/SWE-bench/guides/evaluation/">SWE-bench Evaluation Guide</a>。patch exporter 需要覆盖新建/删除文件、拒绝空或损坏记录，并在隐藏测试恢复前捕获 Actor patch；不能仅假设 <code>git diff HEAD</code> 自动包含所有未跟踪新文件。</p>
+<p>Lite 有300题、Verified有500题，见 <a href="https://www.swebench.com/">SWE-bench 官方页面</a>。可以先选固定小子集验通基础设施，但必须明确叫子集结果。Lite 与 Verified 可能交叠，应按 instance ID 去重，避免把前者反复调参后将后者称为完全独立测试。</p>
+<p>本研究可以继续用 Verified 与已有工作对照，但不能将其视为无污染的新任务泛化证明；已有 <a href="https://openai.com/index/why-we-no-longer-evaluate-swe-bench-verified/">公开审计</a>指出测试质量与污染问题。后续可考虑按时间划分的 SWE-rebench V2 作为补充，其 <a href="https://github.com/SWE-rebench/SWE-rebench-V2-OpenRewardEnv">官方运行环境</a> 已提供容器化任务接口。本轮没有评估该补充方案的全部镜像成本，也不宣称它天然无污染。</p>
+<h2 id="7-swe-pi">7. SWE 环境中 PI 的设计<a class="headerlink" href="#7-swe-pi" title="Permanent link">&para;</a></h2>
+<p>建议第一版只采集当前环境状态，保持原始研究问题：</p>
+<table>
+<thead>
+<tr>
+<th>状态候选</th>
+<th>用法</th>
+<th>必须核实</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>工作区文件与相对起点的净变化</td>
+<td>路径、创建/删除/修改、限预算内容，覆盖未跟踪文件</td>
+<td>不读取修复后的历史版本、gold patch、隐藏测试</td>
+</tr>
+<tr>
+<td>当前运行状态</td>
+<td>由任务实际产生且仍存活的进程、退出状态、任务相关临时产物</td>
+<td>只访问本 rollout 所属沙箱，不能扫描共享服务器</td>
+</tr>
+<tr>
+<td>工具输出未完整展示的实际结果</td>
+<td>被截断输出的状态后果、自动生成文件等</td>
+<td>snapshot 在下一次模型调用前完成，不能提前运行 evaluator</td>
+</tr>
+<tr>
+<td>完整当前状态 vs Delta</td>
+<td>后续在相同支持集上比较</td>
+<td>空 Delta 与未变化的隐藏状态不能混为等价输入</td>
+</tr>
+</tbody>
+</table>
+<p>不把 hidden tests、F2P/P2P 答案、gold/reference patch、未来轨迹、最终 resolved 或事后 evaluator 输出作为主 PI。若未来研究 test-progress Critic，应单独命名、说明时序与 oracle 强度，它不是此次 environment-state 主方法的无声扩展。</p>
+<p>SWE 里很多状态可通过 shell 主动查询；因此“Actor 当下没看见”和“部署时绝对不能访问”要分开。主实验可验证额外当前状态是否改善 value，但要以证据区分未观测信息与计算便利。还需承认完整 repo snapshot 昂贵；哈希只能证明文件变了，不能传达其语义。序列化要记录预算、省略字段与耗时。</p>
+<h3 id="_1">建议的数据协议<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>rollout_id / attempt_id / logical_call_id / turn_index
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>state_schema_version / snapshot_sequence / state_hash
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>actor_prompt_hash / actor_model_version
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>privileged_state_before_call
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>response_token_ids / rollout_log_probs / response_mask
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>step_reward / terminated / truncated / termination_reason
+</code></pre></div>
+<p>PI 通过独立 event/控制通道传输，不进入模型请求 messages。Gateway 当前按 prompt 去重，而相同 prompt 可能对应重试或不同真实调用，不能只按文本 hash 配对。state ID 要与有效 response 明确绑定；缺失或歧义时应拒绝样本，而不是错配后继续训练。后台进程可能随时间变化，snapshot 还要记录采集时刻/一致性边界。</p>
+<h2 id="8">8. 建议的实现拆分和验收<a class="headerlink" href="#8" title="Permanent link">&para;</a></h2>
+<p>以下是待实现设计，不是现有模块清单：</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>主要改动</th>
+<th>验收产物</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>P0：任务与评测</td>
+<td>SWE 数据 adapter、隔离 runner、官方 predictions exporter</td>
+<td>小批固定任务可得到可复核的官方 report；环境失败与未解决分别记录</td>
+</tr>
+<tr>
+<td>P1：普通 PPO</td>
+<td>transition 数据协议、真实 reward 时间线、跨 turn token GAE、完整轨迹 batching</td>
+<td>两步非零 value 递推测试；真实模型 pre-token 对齐；普通 PPO 学习信号</td>
+</tr>
+<tr>
+<td>P2：Privileged PPO</td>
+<td>snapshot event、Critic-only token builder、两个 worker 入口切换</td>
+<td>同轨迹 Actor tensors/logprobs/reward 与无 PI 构造一致；state 时间对齐</td>
+</tr>
+<tr>
+<td>P3：研究日志</td>
+<td>manifest、逐调用原始 token 数据、value/return/adv、逐实例评测</td>
+<td>可从日志还原一条真实完整轨迹和训练语义</td>
+</tr>
+<tr>
+<td>P4：正式对照</td>
+<td>同 baseline 配置，仅 PI 开关不同</td>
+<td>固定任务集的学习曲线、样本/时间成本、多 seed 后续复核</td>
+</tr>
+</tbody>
+</table>
+<p>可考虑新增 <code>agentlightning/privileged_state/</code>、<code>agentlightning/verl/privileged_critic.py</code>、<code>agentlightning/verl/trajectory_gae.py</code>，在 <code>examples/swe_smith/</code> 增加 state adapter；另设 <code>examples/swe_bench/</code> 负责官方评测。优先做通用接口和独立 adapter，避免复制整套 CAPO 或更换其历史实验。</p>
+<p>CAPO 的 <code>arft/privileged_critic.py</code> 可作为小而明确的参考：独立左 padding、复用 Actor response IDs/mask、重算 Critic positions、构造不修改原 batch 的 view。其 token GAE 也可作为语义参考；不能一并继承 ALFWorld 特有终止副本、旧 veRL 依赖或所有训练超参。</p>
+<p>GAE 验收应覆盖：跨 turn、mask 空洞、padding、重排、重复/缺失索引、无效动作、reward 所在最后有效 token、terminal 与 truncation。若是固定任务预算结束，可定义为终局；若是采样切段，则需要 continuation bootstrap；基础设施失败应独立记录。</p>
+<p>SWE 长回复下，CAPO 的每 token <code>gamma=.99</code> 不应默认照搬：100 token 后权重约0.366，1000 token后约0.000043。为了研究稀疏成功率，可以考虑显式 <code>gamma=1</code>；这是新编码 baseline 的设计选择，须在普通/PI两组一致。<code>lambda=1</code>、终局bootstrap为0时，return为折扣MC，raw advantage为return−V，不能将效果解释成lambda&lt;1的TD混合。最终 gamma/lambda 应在实现时明示。</p>
+<p>初版建议固定一种 loss aggregation，显式记录 minibatch 单位和每批实际 optimizer updates；不要同时变更 Actor 历史、prompt、head 初始化和学习率。模型规格需要根据编码任务成功信号和显存再定，1.7B 可用于通路验证，但不能预设它适合正式 SWE 学习。</p>
+<h2 id="9">9. 日志：吸收参考中的最小必要部分<a class="headerlink" href="#9" title="Permanent link">&para;</a></h2>
+<p>当前 Gateway Store 是内存数据；W&amp;B 压缩轨迹上传也是抽样路径。两者不能代替可重算的实验日志。</p>
+<p>从第一轮 baseline 开始统一保留：</p>
+<ul>
+<li>run：源码版本/归档标识、dirty patch、resolved config、模型/tokenizer/chat template、数据任务清单与 hash、镜像 digest、harness/veRL/vLLM版本、初始化与 seed 记录。</li>
+<li>每 update：成功数、实际任务/环境步/生成 token 数、raw/normalized advantage统计、value MSE/EV/return variance、all/first/last scope、KL/clipfrac/ratio/entropy/梯度、optimizer updates和耗时。</li>
+<li>抽样完整轨迹：原始 token IDs、mask、old/ref logprob、pre-action PI、V/return/advantage数组、request/attempt/turn关联。仅保存解码文本后重分词不能恢复历史训练 batch。</li>
+<li>每次正式评测：全量逐实例 patch、resolved、失败原因、时间/命令预算、harness report；失败项保留在预先约定分母中，基础设施错误另列。</li>
+<li>本地持久化与 checkpoint retention 分开；日志抽样采用固定hash，避免消耗训练RNG。</li>
+</ul>
+<p>EV 在 return variance 为0时应标未定义或不可解释。不同 on-policy batch 的EV不能直接证明纯Critic因果优势。固定诊断集应记录采集 Actor/continuation policy 与target来源，避免把旧策略return当成新策略真实value。</p>
+<h2 id="10-a800">10. A800 工程可行性<a class="headerlink" href="#10-a800" title="Permanent link">&para;</a></h2>
+<p>已阅读 <code>A800/AGENTS.md</code> 与 <code>A800/A800_PACKAGE_INSTALL_GUIDE.md</code>。Windows 为源码工作站，A800 为部署目标；使用 WSL rsync 预览后同步，远端模型/数据/日志/checkpoint 独立保护。</p>
+<p>本轮没有连接 A800，所以指南中的GPU数量、镜像IP、Conda目录、磁盘余量和旧实验占用均只按历史资料理解，不能声称已实时核验。</p>
+<p>关键依赖差异：</p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>当前源码要求 / 示例</th>
+<th>实际含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Python</td>
+<td>&gt;=3.12</td>
+<td>不能默认复用旧 Agent-R1 环境</td>
+</tr>
+<tr>
+<td>veRL</td>
+<td>项目标明兼容0.7.1/0.8.0；0.9存在入口变化</td>
+<td>固定一套版本再实现，避免同时迁移后端</td>
+</tr>
+<tr>
+<td>vLLM</td>
+<td>安装脚本映射0.7.1→0.12.0，0.8.0→0.20.2</td>
+<td>与torch/CUDA配套核实</td>
+</tr>
+<tr>
+<td>CUDA示例</td>
+<td>cu129/cu130，FlashAttention2.8.3源码构建</td>
+<td>A800旧指南的torch2.5.1/cu124只是旧验证，不是此项目兼容证明</td>
+</tr>
+<tr>
+<td>SWE官方示例硬件</td>
+<td>4×B200、Qwen3.5-9B、长上下文</td>
+<td>不能据此承诺相同配方可在4×A800运行</td>
+</tr>
+<tr>
+<td>运行环境</td>
+<td>当前SWE示例K8s；local runner启动Python子进程</td>
+<td>单机Docker runner需要新增，不是改一个runner_type即可复用smith main</td>
+</tr>
+<tr>
+<td>素材</td>
+<td>数据JSONL、Python wheels、镜像</td>
+<td>离线服务器必须预备并核对可访问性</td>
+</tr>
+</tbody>
+</table>
+<p>SWE 评测的CPU、内存和镜像磁盘成本可能比GPU更早成为瓶颈。<a href="https://www.swebench.com/SWE-bench/reference/harness/">官方 harness 文档</a> 给出至少120GB可用空间的参考，缓存全部instance可更大；这不等于128个repo的SWE-smith训练镜像总量。需要对所选小子集独立做磁盘预算。</p>
+<p>单机A800优先考虑 Gateway+trainer+受限并发Docker rollout，避免以复现“两台机器K8s”作为第一目标；若现成K8s和CPU节点已可用，则直接复用官方Job路径更省工作。运行器应保证每rollout的容器/进程所有权与退出清理，保留之前native资源泄漏修复的生命周期经验。</p>
+<p>现成多个 <code>run_local.sh</code> 含全局 <code>pkill -f agl-server/agl-controller</code> 和 <code>ray stop --force</code>；在共享A800不能原样执行，应改为仅清理本run创建的进程。SWE示例的regex命令拦截与移动.git也不能独立视为不可绕过的隔离边界；评测数据、网络、只读素材和容器权限要按实验边界配置。</p>
+<p>部署实施前仍需确定该项目的远端代码目录、专属Conda环境、实际GPU/磁盘/驱动和Docker/K8s权限。此处只是待核实信息，不要求为了完成本次源码调研立即创建环境。</p>
+<h2 id="11-benchmark">11. 其他新 benchmark 的选择<a class="headerlink" href="#11-benchmark" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>候选</th>
+<th>与 idea 的关系</th>
+<th>当前准备程度 / 建议</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SWE-smith → SWE-bench</td>
+<td>编码任务，跨域价值高；真正PI增量需要验证</td>
+<td>当前优先方向，已有训练harness雏形，需PPO和官方评测接入</td>
+</tr>
+<tr>
+<td>ScienceWorld</td>
+<td>当前物理状态与局部文本观测天然不同，更接近原AAC问题</td>
+<td>已有local示例；<a href="https://raw.githubusercontent.com/allenai/ScienceWorld/main/scienceworld/scienceworld.py">官方API</a>含getObjectTree，可作为第二新环境候选</td>
+</tr>
+<tr>
+<td>LLM-in-Sandbox / Terminal类</td>
+<td>文件、后台进程、服务副作用，适合通用snapshot/delta</td>
+<td>repo已有LLM-in-Sandbox示例；本轮未验证完整Terminal-Bench接入，工程成本较高</td>
+</tr>
+<tr>
+<td>AppWorld / WebShop</td>
+<td>数据库、session/backend状态更直接</td>
+<td>原idea中有方案；当前Lightning归档未发现对应现成example，列为后续adapter</td>
+</tr>
+</tbody>
+</table>
+<p>ScienceWorld也不能直接把现成示例成绩叫官方test成绩：<code>train_sw_agent.py:55</code>目前按variation索引尾部切出20%作为val；官方环境提供train/dev/test variation接口。正式benchmark应固定所选split、simplification和reward口径。对象树API存在不等于所有字段都允许进入主PI，仍需审查其内容并排除gold行动序列和隐藏评估目标。</p>
+<h2 id="12-github">12. GitHub 维护与本轮状态<a class="headerlink" href="#12-github" title="Permanent link">&para;</a></h2>
+<p>用户指定后续维护仓库为 <a href="https://github.com/Jay-Juice/agent-lightning">Jay-Juice/agent-lightning</a>。本轮 GitHub connector 请求返回404，安装范围搜索未找到该repo；非交互 <code>git ls-remote</code> 也未取得refs。不能仅据此判断仓库不存在，私有仓库授权/连接范围也可能导致不可见。</p>
+<p>后续以实际内层源码目录作为Git根较清晰；访问恢复后先检查远端是否已有提交，再选择保留远端历史的接入方式。建议 <code>origin</code> 指向用户仓库、<code>upstream</code> 指向Microsoft，开发用 <code>codex/</code> 分支。若远端为空，可用当前已核验归档建立明确的初始版本；不要将参考handoff、模型、数据、日志或所有未知文件一并提交。</p>
+<p>本次实际完成：全目录/归档盘点、参考材料梳理、关键源码审查、101份Python静态语法检查、官方SWE资料核查、形成此调研报告。</p>
+<p>本次未执行：算法实现、源码改动、Git初始化/commit/push、A800部署/环境创建、Docker镜像下载、训练或SWE-bench评分。后续实现已有具体入口和验证边界，但这些待实现模块尚未交付。</p>
+
+<!-- Was this page helpful? -->
+
+
+
+
+<!-- Comment system -->
+
+                
+
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+    
+    
+  
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../js/timeago.min.js"></script>
+      
+        <script src="../../js/timeago_mkdocs_material.js"></script>
+      
+        <script src="https://unpkg.com/mermaid@10.6.1/dist/mermaid.min.js"></script>
+      
+        <script src="https://unpkg.com/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+      
+        <script src="https://unpkg.com/katex@0/dist/katex.min.js"></script>
+      
+        <script src="https://unpkg.com/katex@0/dist/contrib/auto-render.min.js"></script>
+      
+        <script src="../../javascripts/charts.js"></script>
+      
+        <script src="../../javascripts/move-source-file.js"></script>
+      
+        <script src="../../javascripts/katex.js"></script>
+      
+    
+  <script>
+    // Show warning banner if not viewing stable documentation
+    document.addEventListener("DOMContentLoaded", function() {
+      const currentURL = window.location.href;
+      const warningDiv = document.getElementById("version-warning");
+
+      // Check if we're on the stable docs or the redirect page
+      if (currentURL.includes('agent-lightning/latest/')) {
+        // Show warning for explicitly latest docs
+        warningDiv.style.display = "block";
+      }
+    });
+  </script>
+
+  </body>
+</html>

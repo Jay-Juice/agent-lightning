@@ -1,0 +1,1663 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://microsoft.github.io/agent-lightning/latest/experiments/SWE_PPO_BASELINE_HANDOFF_2026-09-14/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/favicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>SWE 多轮 PPO baseline 工作总结与 Handoff - Agent Lightning v1.0</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../css/timeago.css">
+    
+      <link rel="stylesheet" href="https://unpkg.com/katex@0/dist/katex.min.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="agl" data-md-color-accent="agl">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#swe-ppo-baseline-handoff" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Agent Lightning v1.0" class="md-header__button md-logo" aria-label="Agent Lightning v1.0" data-md-component="logo">
+      
+  <img src="../../assets/favicon-white.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Agent Lightning v1.0
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              SWE 多轮 PPO baseline 工作总结与 Handoff
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="agl" data-md-color-accent="agl"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="agl" data-md-color-accent="agl"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/microsoft/agent-lightning" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    agent-lightning
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Agent Lightning v1.0" class="md-nav__button md-logo" aria-label="Agent Lightning v1.0" data-md-component="logo">
+      
+  <img src="../../assets/favicon-white.svg" alt="logo">
+
+    </a>
+    Agent Lightning v1.0
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/microsoft/agent-lightning" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    agent-lightning
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Documentation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../00-installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-quick-start/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-basics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-trainer-configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trainer Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-api-gateway-configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Gateway Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../30-controller-configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Controller Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../35-asynchronous-training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Asynchronous Training
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../50-example-calc-x/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Calc-X
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../55-example-gsm8k/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GSM8K
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../60-example-science-world/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ScienceWorld
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../65-example-search-r1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Search-R1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../70-example-llm-in-sandbox/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM-in-Sandbox
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../75-example-coding-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coding Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../80-example-multimodal-qa/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multimodal QA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        1. 当前结论与接手重点
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. 两个运行务必区分
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#3-github" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. 本地、GitHub 与远端位置
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#4-baseline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. 新 baseline 的最终配置
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        5. 数据与评分器改动
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        6. 已完成的验收
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#7-eta" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        7. 加速结果、显存与 ETA 的正确解释
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="7. 加速结果、显存与 ETA 的正确解释">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        验证明显加速，训练整步目前基本持平
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#eta" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        进度条 ETA 不等于纯训练速度
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#gpu" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        显存低不代表 GPU 没在计算
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#_2" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        已试过但未用于正式运行的参数
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        8. 日志与只读检查入口
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#9" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        9. 磁盘、剩余风险与后续验证
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#10" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        10. 相关工作记录
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+  <div id="version-warning" class="version-warning" style="display: none;">
+    ⚠️ You are viewing development documentation. For stable documentation, please visit
+    <a href="https://microsoft.github.io/agent-lightning/stable/">https://microsoft.github.io/agent-lightning/stable/</a>
+  </div>
+  
+                  <!-- Copied and modified from https://github.com/squidfunk/mkdocs-material/blob/master/src/templates/partials/content.html -->
+
+<!-- Tags -->
+
+
+
+<!-- Actions -->
+
+  
+  
+
+
+<!--
+  Hack: check whether the content contains a h1 headline. If it doesn't, the
+  page title (or respectively site name) is used as the main headline.
+-->
+
+
+<!-- Source file information -->
+
+
+
+
+
+
+
+  
+    
+  
+  
+    
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Last update">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-timeago" title="September 15, 2026 07:51:45 UTC"><span class="timeago" datetime="2026-09-15T07:51:45+00:00" locale="en"></span></span><span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="September 15, 2026 07:51:45 UTC">2026-09-15</span>
+  </span>
+
+    
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Created">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-timeago" title="September 15, 2026 07:51:45 UTC"><span class="timeago" datetime="2026-09-15T07:51:45+00:00" locale="en"></span></span><span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="September 15, 2026 07:51:45 UTC">2026-09-15</span>
+  </span>
+
+    
+    
+      
+  
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Contributors">
+      
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 4a4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-4-4 4 4 0 0 1 4-4m0 10c4.42 0 8 1.79 8 4v2H4v-2c0-2.21 3.58-4 8-4"/></svg>
+      
+    </span>
+    <nav>
+      
+        <a href="mailto:zsj200454@gmail.com">Jay-Juice</a>
+    </nav>
+  </span>
+
+    
+    
+  </aside>
+
+
+<!-- Page content -->
+<h1 id="swe-ppo-baseline-handoff">SWE 多轮 PPO baseline 工作总结与 Handoff<a class="headerlink" href="#swe-ppo-baseline-handoff" title="Permanent link">&para;</a></h1>
+<p>更新时间：2026-09-14 13:13，Asia/Shanghai。以下运行状态为该时点的只读检查结果，不代表此后状态。</p>
+<h2 id="1">1. 当前结论与接手重点<a class="headerlink" href="#1" title="Permanent link">&para;</a></h2>
+<p>后四卡的 Qwen3-4B-Instruct-2507 全量 baseline 已成功启动，并完成 24 个 PPO step，正在第 25 步采样（检查时 30/32）。训练前及第 20 步的完整验证均完成。没有在训练主日志中发现 Traceback、OOM、RuntimeError 或 AssertionError，已记录的数值指标无 NaN/Inf。</p>
+<p>训练前验证为 <strong>70/470（14.89%）</strong>，第 20 步为 <strong>73/470（15.53%）</strong>，增加 3 条、约 0.64 个百分点。这个幅度不足以证明稳定的能力提升；验证采用随机采样，需要继续观察。前 24 步累计训练成功 188/768（24.48%），这是不同训练任务上的在线成功率，不能直接与验证分数比较。</p>
+<p>接手后优先事项：</p>
+<ol>
+<li>查看后四卡当前 step、运行是否退出及最新完整验证结果，不要重复启动已有作业。</li>
+<li>在第 40 步检查全量验证和首次 checkpoint：actor/critic 权重、optimizer/RNG 是否完整，保留策略是否符合要求。</li>
+<li>持续比较第 40、60……步验证与初始 70/470，区分模型修复失败、测试执行问题和 rollout 执行失败。</li>
+<li>保留当前 microbatch=2。不要根据某一时刻显存较空就直接改成 4。</li>
+<li>后续加速实验必须固定任务/轨迹进行对照，不能仅比较两次在线训练的 ETA。</li>
+</ol>
+<p><strong>后四卡尚未到第 40 步，因此本次运行的 checkpoint 保存、恢复和最终模型导出尚未验收。</strong> 当前无需重启训练。</p>
+<h2 id="2">2. 两个运行务必区分<a class="headerlink" href="#2" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>后四卡：本次新 baseline</th>
+<th>前四卡：保留的旧运行</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>物理 GPU</td>
+<td>4,5,6,7</td>
+<td>0,1,2,3</td>
+</tr>
+<tr>
+<td>tag</td>
+<td><code>capo-swe-pythonfull-v7-4b-gpu47-20260914-01</code></td>
+<td><code>capo-swe-pythonfull-v6-4b-20260913-03</code></td>
+</tr>
+<tr>
+<td>screen</td>
+<td><code>agl-full-v7-4b-gpu47-20260914-01</code></td>
+<td><code>agl-full-v6-4b-20260913-03</code></td>
+</tr>
+<tr>
+<td>数据</td>
+<td>v7：6248 train / 470 val</td>
+<td>v6：6251 train / 470 val</td>
+</tr>
+<tr>
+<td>agents</td>
+<td>32</td>
+<td>16</td>
+</tr>
+<tr>
+<td>vLLM max_num_seqs / max_num_batched_tokens</td>
+<td>8 / 16384</td>
+<td>4 / 8192</td>
+</tr>
+<tr>
+<td>验证</td>
+<td>每 20 步全量</td>
+<td>每 196 步全量</td>
+</tr>
+<tr>
+<td>保存 / 最多保留</td>
+<td>每 40 步 / 3 组</td>
+<td>每 32 步 / 1 组</td>
+</tr>
+<tr>
+<td>Lightning 端口</td>
+<td>18501</td>
+<td>18401</td>
+</tr>
+<tr>
+<td>13:13 核对状态</td>
+<td>完成 24 步，第 25 步采样</td>
+<td>完成 32 步，继续运行</td>
+</tr>
+<tr>
+<td>checkpoint 目录</td>
+<td>尚无</td>
+<td>已出现 <code>global_step_32</code>，本次仅核对目录存在</td>
+</tr>
+</tbody>
+</table>
+<p>此次操作没有停止、重启或修改前四卡原训练。旧运行仍使用其原始评分器和数据，不能把两组指标当成严格同条件实验。不要对共享服务器执行全局 <code>ray stop</code>、按名称批量 kill 或 Docker 全局清理。</p>
+<h2 id="3-github">3. 本地、GitHub 与远端位置<a class="headerlink" href="#3-github" title="Permanent link">&para;</a></h2>
+<p>本地项目主文件夹，即本报告所在位置：</p>
+<p><code>D:\ai project\RL学习\agent-lightning-main</code></p>
+<p>本次源代码工作树：</p>
+<p><code>D:\ai project\RL学习\agent-lightning-main\agent-lightning-speedtrial-20260913</code></p>
+<p>原代码工作树：</p>
+<p><code>D:\ai project\RL学习\agent-lightning-main\agent-lightning-main</code></p>
+<p>GitHub：<a href="https://github.com/Jay-Juice/agent-lightning">Jay-Juice/agent-lightning</a>，本次分支为 <code>experiment/swe-speed-20260913</code>。截至本次核对，该工作树干净；此前已确认推送到远端的最新提交为：</p>
+<p><code>ed12734c1afcd89f273e004e2b0f47a3aadf0fa9</code> — Record verified GPU 4-7 full baseline startup。</p>
+<p>重要提交：</p>
+<ul>
+<li><code>5e0b695</code>：记录 actor4/critic2 容量试验，拆分试验 microbatch 控制。</li>
+<li><code>9179047</code>：配置后四卡加速全量入口、三条数据剔除脚本及启动报告。</li>
+<li><code>ed12734</code>：补充实际启动验收记录。</li>
+</ul>
+<p>本报告是放在外层主文件夹的新交接文件；该外层不属于上述 Git 工作树，本次没有把本报告另行提交或部署。仓库内原有启动记录仍是启动时快照，以本报告的带时间戳状态为更新信息。</p>
+<p>SSH 主机别名：<code>A800</code>，用户：<code>ubuntu</code>。远端路径：</p>
+<table>
+<thead>
+<tr>
+<th>用途</th>
+<th>绝对路径</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>新代码部署目录</td>
+<td><code>/media/ubuntu/D1/zsj/agent-lightning-speedtrial-20260913</code></td>
+</tr>
+<tr>
+<td>原代码部署目录</td>
+<td><code>/media/ubuntu/D1/zsj/agent-lightning-main/agent-lightning-main</code></td>
+</tr>
+<tr>
+<td>runtime 根目录</td>
+<td><code>/media/ubuntu/D1/zsj/agent-lightning-runtime</code></td>
+</tr>
+<tr>
+<td>环境激活脚本</td>
+<td><code>/media/ubuntu/D1/zsj/agent-lightning-runtime/admin/activate-agent-lightning-d1.sh</code></td>
+</tr>
+<tr>
+<td>模型目录</td>
+<td><code>/media/ubuntu/D1/zsj/GOPD/G-OPD-main/models/Qwen3-4B-Instruct-2507</code></td>
+</tr>
+<tr>
+<td>新 Ray 临时目录</td>
+<td><code>/media/ubuntu/D1/zsj/ray-speed-0913</code></td>
+</tr>
+</tbody>
+</table>
+<p>开发约束见本地主文件夹下 <code>A800/AGENTS.md</code>：Windows 是源代码权威副本；本地编辑后使用 WSL rsync，先 dry-run 再同步；不使用 <code>--delete</code>。远端数据、权重、日志是运行状态，不要用代码同步覆盖。此次没有升级共享训练环境。</p>
+<h2 id="4-baseline">4. 新 baseline 的最终配置<a class="headerlink" href="#4-baseline" title="Permanent link">&para;</a></h2>
+<p>以本次日志目录中的 <code>resolved-config.json</code> 为准，避免依据某层脚本的默认值误判最终覆盖结果。该文件含服务凭据，检查时只选择必要字段，不要整份公开、粘贴或提交。</p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>已生效的值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>模型</td>
+<td>Qwen3-4B-Instruct-2507，从原始权重开始，<code>resume_mode=disable</code></td>
+</tr>
+<tr>
+<td>GPU</td>
+<td>4 张 A800 80GB，物理编号 4–7</td>
+</tr>
+<tr>
+<td>PPO 后端</td>
+<td><code>capo</code>，使用 vendored CAPO actor/critic 更新循环与适配层</td>
+</tr>
+<tr>
+<td>数据量</td>
+<td>6248 Python train，470 Python val</td>
+</tr>
+<tr>
+<td>训练长度</td>
+<td>4 epochs，保留尾批，196 steps/epoch，总计 784 PPO steps</td>
+</tr>
+<tr>
+<td>task batch / PPO minibatch</td>
+<td>32 / 32</td>
+</tr>
+<tr>
+<td>actor / critic PPO epochs</td>
+<td>1 / 1</td>
+</tr>
+<tr>
+<td>actor / critic 更新 microbatch</td>
+<td>2 / 2</td>
+</tr>
+<tr>
+<td>old/ref log-prob、critic forward microbatch</td>
+<td>全部 2</td>
+</tr>
+<tr>
+<td>actor / critic 学习率</td>
+<td>1e-6 / 1e-5</td>
+</tr>
+<tr>
+<td>weight decay</td>
+<td>0.01</td>
+</tr>
+<tr>
+<td>warmup</td>
+<td>无学习率 warmup；ratio=0，steps=-1 为按比例计算；critic_warmup=0</td>
+</tr>
+<tr>
+<td>gamma / lambda</td>
+<td>1 / 1</td>
+</tr>
+<tr>
+<td>PPO clip / KL 系数</td>
+<td>0.2 / 0.001</td>
+</tr>
+<tr>
+<td>优势处理</td>
+<td>token GAE、优势 whitening、padding loss 适配</td>
+</tr>
+<tr>
+<td>actor FSDP</td>
+<td>FSDP1，<code>reshard_after_forward=false</code></td>
+</tr>
+<tr>
+<td>critic FSDP</td>
+<td>FSDP1，保留现有 FULL_SHARD 路径</td>
+</tr>
+<tr>
+<td>CPU offload</td>
+<td>actor/critic 参数和 optimizer 均开启，保留梯度检查点</td>
+</tr>
+<tr>
+<td>采样并发</td>
+<td>32 agents；每个 vLLM 实例最多 8 条序列</td>
+</tr>
+<tr>
+<td>vLLM 调度 tokens / 显存比例</td>
+<td>16384 / 0.30</td>
+</tr>
+<tr>
+<td>任务预算</td>
+<td>32 turns；每次输出最多 4096 tokens；上下文 65536 tokens</td>
+</tr>
+<tr>
+<td>观测字符上限</td>
+<td>32000</td>
+</tr>
+<tr>
+<td>训练采样</td>
+<td>temperature=1、top_p=1、top_k=-1</td>
+</tr>
+<tr>
+<td>验证采样</td>
+<td>temperature=0.7、top_p=0.8、top_k=20、n=1</td>
+</tr>
+<tr>
+<td>超时</td>
+<td>模型 600s、命令 120s、测试 600s、rollout 3600s</td>
+</tr>
+<tr>
+<td>检查和终止</td>
+<td>保留 checked editor、syntax/submission 检查与最多 3 次格式错误限制</td>
+</tr>
+<tr>
+<td>验证</td>
+<td>初始全量验证；每 20 步全量；末步全量；val batch=470</td>
+</tr>
+<tr>
+<td>保存</td>
+<td>每 40 步及末步；最多 3 组 actor+critic；保留 model/optimizer/extra</td>
+</tr>
+<tr>
+<td>导出</td>
+<td>中间 checkpoint 不额外重复导出 HF；末步后导出最终 actor，尚待实际验收</td>
+</tr>
+</tbody>
+</table>
+<p>“784 步”是完整四遍数据的计划，不是之前的 32 步试验。日志中父类初始化曾打印 780，随后 <code>FullDatasetRayPPOTrainer</code> 设置保留尾批，最终明确输出 784。</p>
+<h2 id="5">5. 数据与评分器改动<a class="headerlink" href="#5" title="Permanent link">&para;</a></h2>
+<p>本次数据目录：</p>
+<p><code>/media/ubuntu/D1/zsj/agent-lightning-runtime/data/swe-smith-training/python-full-v7</code></p>
+<p>原始数据包包含 6315 条 Python 训练任务和 470 条 Python 验证任务。用户已选择全部 Python 范围；Go 不纳入此 baseline。</p>
+<p>此前已批准的 64 条训练排除记录保留：55 条依赖离线环境不可用的在线服务，9 条仅修改测试、恢复测试后不再保留实际生产代码 bug 的任务。相关历史修复不应简单归结为“PPO 算法错误”；需要区分数据、评分协议、测试运行环境与训练适配层。</p>
+<p>此次直接相关的 Paramiko 修复：</p>
+<ul>
+<li>数据中的两个参数化 pytest node ID 被空格截断，造成测试无法正确收集。</li>
+<li>上游结果解析的非空白匹配也会截断带空格的 node ID。</li>
+<li><code>full_python_agent.py</code> 对已核验的两个 Paramiko ID 做精确映射，并按完整期望 ID 解析测试结果。</li>
+<li>17 条受影响任务的参考补丁全部通过；14 条空补丁失败。</li>
+<li>剩余 3 条训练任务的空补丁及参考补丁都通过所有 113 项指定测试，会形成虚假成功奖励。</li>
+</ul>
+<p>用户于 2026-09-14 明确批准从新训练中剔除以下三条，保留原始文件及全部验证任务：</p>
+<ol>
+<li><code>paramiko__paramiko.23f92003.lm_rewrite__22j0m5ms</code></li>
+<li><code>paramiko__paramiko.23f92003.lm_rewrite__ekwh2bqe</code></li>
+<li><code>paramiko__paramiko.23f92003.func_basic__pi2mww3n</code></li>
+</ol>
+<p>最终排除训练任务 67 条，保留 6248 条。<code>manifest.json</code>、<code>exclusions.json</code> 记录授权、原始任务哈希、证据路径和证据哈希。生成脚本为 <code>examples/multiturn_ppo/prepare_paramiko_filtered.py</code>。保留的训练行及整个验证文件字节未改变，v6 目录未修改。</p>
+<p>验证文件 SHA256：<code>efba07a2e430fc55208053601aef0d90bf1b48f82504c7a70ef397f84210e80b</code>。</p>
+<p>证据目录：</p>
+<ul>
+<li><code>/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/paramiko-collection-20260913-01</code></li>
+<li><code>/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/paramiko-grading-20260913-01</code></li>
+<li><code>/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/paramiko-original-val-regrade-20260913-01</code></li>
+</ul>
+<p>没有通过强制 reward、篡改测试断言或重写旧指标使成绩“通过”。旧运行的原始验证指标仍保留原值。</p>
+<h2 id="6">6. 已完成的验收<a class="headerlink" href="#6" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>tests/examples/test_full_python.py</code>：25 passed。</li>
+<li>新数据记录脚本 Ruff 检查通过；启动 shell 通过 <code>bash -n</code>。</li>
+<li>使用新评分器、新数据重新完成 124/124 镜像空补丁/参考补丁对照，<code>audit.exit=0</code>。</li>
+<li>所有 6718 条保留任务（6248+470）的代码分支检查通过。</li>
+<li>启动 guard 核对数据和评分代码哈希，没有复用旧签名绕过检查。</li>
+<li>运行时确认主训练进程 GPU mask 为 <code>4,5,6,7</code>，agents=32、port=18501；服务健康接口 HTTP 200；18 项最终配置断言通过。</li>
+<li>已完成真实多轮采样、actor/critic 更新以及第 20 步完整验证。</li>
+</ul>
+<p>注意：124 个镜像对照是每个镜像选择代表任务进行测试，<strong>不是对全部 6248 条训练任务逐一执行空补丁/参考补丁评分</strong>；全任务检查主要核对代码分支与修复协议兼容性。因此仍需留意新任务上的评分异常。</p>
+<p>启动验收目录：</p>
+<p><code>/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/swe-full-python-envs-speed-20260914-01</code></p>
+<p>其中 <code>summary.json</code>、<code>signature.json</code>、<code>all-task-branches.json</code> 和每个镜像的结果构成证据。训练目录另有 <code>startup-verification.json</code>。</p>
+<h2 id="7-eta">7. 加速结果、显存与 ETA 的正确解释<a class="headerlink" href="#7-eta" title="Permanent link">&para;</a></h2>
+<h3 id="_1">验证明显加速，训练整步目前基本持平<a class="headerlink" href="#_1" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>完整 470 条验证</th>
+<th style="text-align: right;">实测耗时</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>旧运行初始验证</td>
+<td style="text-align: right;">97 分 34 秒</td>
+</tr>
+<tr>
+<td>独立加速验证试验</td>
+<td style="text-align: right;">34 分 54 秒</td>
+</tr>
+<tr>
+<td>新全量运行初始验证</td>
+<td style="text-align: right;">33 分 37 秒</td>
+</tr>
+<tr>
+<td>新全量运行第 20 步验证</td>
+<td style="text-align: right;">39 分 55 秒</td>
+</tr>
+</tbody>
+</table>
+<p>主要改动是 32 agents、vLLM 8 条序列/16384 调度 tokens、470 条验证一次排队并持续补充空闲 worker，减少原先分批等待长尾任务的空闲时间。470 是队列/验证批大小，不表示同时运行 470 个 agent。</p>
+<p>两组都截取前 19 步，平均值如下：</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th style="text-align: right;">旧运行</th>
+<th style="text-align: right;">新运行</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>每步采样</td>
+<td style="text-align: right;">8.17 分钟</td>
+<td style="text-align: right;">6.42 分钟</td>
+</tr>
+<tr>
+<td>每步 actor+critic 更新</td>
+<td style="text-align: right;">14.80 分钟</td>
+<td style="text-align: right;">15.95 分钟</td>
+</tr>
+<tr>
+<td>整个训练 step，不含验证</td>
+<td style="text-align: right;">28.08 分钟</td>
+<td style="text-align: right;">27.86 分钟</td>
+</tr>
+<tr>
+<td>每步模型调用数</td>
+<td style="text-align: right;">379.89</td>
+<td style="text-align: right;">383.95</td>
+</tr>
+<tr>
+<td>每次调用平均输入上下文</td>
+<td style="text-align: right;">7055 tokens</td>
+<td style="text-align: right;">7752 tokens</td>
+</tr>
+<tr>
+<td>每步新生成动作 tokens</td>
+<td style="text-align: right;">101639</td>
+<td style="text-align: right;">96233</td>
+</tr>
+<tr>
+<td>每步输入+输出计算 tokens</td>
+<td style="text-align: right;">2813601</td>
+<td style="text-align: right;">3109835</td>
+</tr>
+</tbody>
+</table>
+<p>新运行采样约省 21%，但平均输入上下文更长，计算 tokens 多约 10.5%，抵消了大部分采样收益。回复输出反而略少，不能描述为“多生成了 10% 的回答”。两组各 608 条任务仅有 61 条相同，且模型轨迹随机，不构成固定工作负载的速度对照。</p>
+<p><code>perf/total_num_tokens</code> 来自 <code>attention_mask</code> 有效位置总数，包含各次调用的输入上下文和输出；<code>ppo/action_tokens</code> 来自 response mask。多轮交互中历史上下文在后续调用里再次参与计算，但不等于这些输入位置都作为动作计算 PPO loss。两边 PPO epochs 都是 1，microbatch 都是 2，没有增加 PPO 训练遍数。</p>
+<p>按上述 token 总量粗略归一化，新运行 actor/critic 更新时间分别少约 1.7%/3.2%；这支持计算量变化的解释，但不能替代固定轨迹 benchmark，也不说明所有差异都由 token 数决定。</p>
+<h3 id="eta">进度条 ETA 不等于纯训练速度<a class="headerlink" href="#eta" title="Permanent link">&para;</a></h3>
+<p>初始验证结束后才创建 <code>Training Progress</code>。第 19 步旧运行显示 8:53:28，新运行 8:49:20，这两者不包含初始验证，因此看不到新版在初始验证上节省的约 64 分钟。</p>
+<p>之后进度条在验证完成后才 <code>update(1)</code>。新运行第 20 步纯训练约 23.8 分钟，再加约 39.9 分钟验证，这一次更新间隔变为约 63.8 分钟，导致平滑 ETA 从约 367 小时跳到 500 小时。不要将这个瞬间的 ETA 作为总工期。</p>
+<p>新运行每 20 步验证，旧运行每 196 步验证。即使单次验证更快，新运行更频繁的验证仍有额外总开销；评价全流程速度时必须使用相同频率或将验证单独统计。</p>
+<h3 id="gpu">显存低不代表 GPU 没在计算<a class="headerlink" href="#gpu" title="Permanent link">&para;</a></h3>
+<p>11:32 的一次抽样中，两组都在 critic 更新：旧运行显存约 67–69 GiB，新运行约 37–38 GiB，但两组 GPU 计算利用率均为 100%。当步展开的 microbatch 数分别为 136 和 71，上下文长度、所处子阶段以及内存缓存也会改变占用。</p>
+<p>截至当时，旧运行每卡历史 nvidia-smi 显存峰值约 72–74 GiB，新运行约 64–65 GiB。13:13 新运行又在采样，显存约 25 GiB。比较必须同时注明阶段、任务量与时间，不能用瞬时显存代表训练峰值。</p>
+<h3 id="_2">已试过但未用于正式运行的参数<a class="headerlink" href="#_2" title="Permanent link">&para;</a></h3>
+<ul>
+<li>actor=4、critic=2、所有前向 microbatch=2：长上下文压力测试未通过。</li>
+<li>默认 allocator、90% 容量预算：actor OOM；开启 <code>expandable_segments</code> 后仍 OOM。</li>
+<li>放开至 100% 容量的诊断测试：进程约占 78.78 GiB，仍需再分配约 4.18 GiB 而失败。这只是诊断配置，没有用于全量运行。</li>
+<li>压力样本取真实轨迹中的长上下文，最长约 63900 tokens。上述结果不表示短上下文绝对无法使用 4，但固定 4 无法覆盖本次任务预算。</li>
+<li>先前 actor/critic 都为 4 的测试也曾在 critic 阶段失败；前向 microbatch=4 的数值对照未过既定容差。</li>
+<li>安装的 VERL FSDP1 critic 路径不读取尝试过的 <code>reshard_after_forward</code> 开关，不能只改该参数就声称 critic 已切换分片策略并加速。</li>
+</ul>
+<p>用户最终选择全部保留 2；没有把失败试验的 allocator/容量环境变量带入全量作业。</p>
+<h2 id="8">8. 日志与只读检查入口<a class="headerlink" href="#8" title="Permanent link">&para;</a></h2>
+<p>新运行日志目录：</p>
+<p><code>/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/training-capo-swe-pythonfull-v7-4b-gpu47-20260914-01</code></p>
+<p>启动器日志目录：</p>
+<p><code>/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/launch-capo-swe-pythonfull-v7-4b-gpu47-20260914-01</code></p>
+<table>
+<thead>
+<tr>
+<th>文件或目录</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>trainer.log</code></td>
+<td>step、rollout、CAPO 更新进度和训练错误；开头配置可能含凭据</td>
+</tr>
+<tr>
+<td><code>metrics.jsonl</code></td>
+<td>每步 reward、完整验证分数、更新指标与计时</td>
+</tr>
+<tr>
+<td><code>gpu.csv</code></td>
+<td>每 2 秒记录 GPU index、utilization、memory、power</td>
+</tr>
+<tr>
+<td><code>controller.log</code> / <code>server.log</code></td>
+<td>agent controller 和 Lightning 服务运行情况</td>
+</tr>
+<tr>
+<td><code>agent/&lt;rollout_id&gt;/</code></td>
+<td>trajectory、model.patch、grade.json、test-output 等</td>
+</tr>
+<tr>
+<td><code>traces/&lt;rollout_id&gt;.json</code></td>
+<td>rollout 输入、is_train、状态时间戳和事件</td>
+</tr>
+<tr>
+<td><code>ppo-audit/</code></td>
+<td>有限频率的训练张量审计，非每步都保存</td>
+</tr>
+<tr>
+<td><code>checkpoints/global_step_N/</code></td>
+<td>按保存频率产生的 actor/critic checkpoint</td>
+</tr>
+<tr>
+<td><code>run.exit</code></td>
+<td>作业退出后写入退出码；缺失本身不能单独证明进程健康</td>
+</tr>
+<tr>
+<td><code>launcher.log</code> / <code>launcher.exit</code></td>
+<td>位于启动器目录，覆盖启动检查及最终导出流程</td>
+</tr>
+</tbody>
+</table>
+<p>SSH 登录后，以下命令仅查看状态：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nv">RUN</span><span class="o">=</span>/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/training-capo-swe-pythonfull-v7-4b-gpu47-20260914-01
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>screen<span class="w"> </span>-ls
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>nvidia-smi<span class="w"> </span>--query-gpu<span class="o">=</span>index,memory.used,utilization.gpu<span class="w"> </span>--format<span class="o">=</span>csv
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>tail<span class="w"> </span>-n<span class="w"> </span><span class="m">30</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$RUN</span><span class="s2">/trainer.log&quot;</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>tail<span class="w"> </span>-n<span class="w"> </span><span class="m">2</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$RUN</span><span class="s2">/metrics.jsonl&quot;</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>df<span class="w"> </span>-h<span class="w"> </span>/media/ubuntu/D1
+</code></pre></div>
+<p><code>completed=... succeeded=... failed=...</code> 表示 rollout 调度/执行结果，<strong>succeeded 不等于修复成功</strong>。模型修复率看 <code>val/reward</code>、<code>training/reward</code> 和对应 grade。</p>
+<p>第 20、40……步的训练指标会等该步验证结束后一起落盘。因此验证期间 metrics 的最后一行可能仍是上一 step，这不表示参数更新没发生。用户要求验证期间不要不断查询，验证完成后再统计；状态询问时做有针对性的检查即可。</p>
+<p>如需定位入口，查看独立工作树下 <code>examples/multiturn_ppo/run_full_python_ppo.sh</code>。当前作业已运行，不要再次执行同 tag。该入口默认从原始权重开始，<strong>不是现成的断点恢复命令</strong>；如中断，先核验已完成 checkpoint，再明确配置恢复路径和独立 tag。仅有 screen 存在不算启动验收。</p>
+<h2 id="9">9. 磁盘、剩余风险与后续验证<a class="headerlink" href="#9" title="Permanent link">&para;</a></h2>
+<p>13:13 磁盘剩余约 <strong>587.4 GiB</strong>，相比启动时约 684 GiB 已下降；前四卡出现了首个 checkpoint。此前完整 checkpoint 实测约 107.82 GiB，仅作容量估计，新运行的实际大小仍待首次保存确认。</p>
+<p>用户希望每 40 步保存、最多保留 3 组。后续检查应同时考虑旧运行 checkpoint、保存期间临时文件及最终 actor 导出，不能把“保留 3 组”理解为没有瞬时额外占用。用户曾授权清理自己的失败尝试 checkpoint，但不要在未辨认归属及可恢复价值前删除其他作业数据。</p>
+<p>尚不能承诺的事项：</p>
+<ul>
+<li>全量长期训练已收敛或能力已经显著提升。</li>
+<li>所有任务的评分环境都完全正确；代表镜像测试不能替代逐任务评分验证。</li>
+<li>新配置完成全程一定比旧配置更快；任务轨迹和验证频率不同。</li>
+<li>后四卡 checkpoint 保存、保留三个的轮转、断点恢复及最终导出已经通过真实验收。</li>
+</ul>
+<p>截至本报告，没有为新 tag 新建或修改定时监控。本会话此前提到的三小时监控针对旧运行；接手时先确认监控对象，不能假设新运行已被覆盖。</p>
+<h2 id="10">10. 相关工作记录<a class="headerlink" href="#10" title="Permanent link">&para;</a></h2>
+<p>以下文件位于本地独立工作树 <code>D:\ai project\RL学习\agent-lightning-main\agent-lightning-speedtrial-20260913\examples\multiturn_ppo</code>：</p>
+<ul>
+<li><code>SWE_FULL_GPU47_2026-09-14.md</code>：此次启动时的配置及验收记录。</li>
+<li><code>SWE_SPEED_TRIAL_2026-09-13.md</code>：独立完整验证加速试验。</li>
+<li><code>PARAMIKO_AND_TRAINING_SPEED_2026-09-13.md</code>：Paramiko 评分问题、17 条对照结果及训练耗时分析。</li>
+<li><code>ACTOR4_CRITIC2_TRIAL_2026-09-14.md</code>：三次 actor4/critic2 压力试验及 OOM 证据。</li>
+<li><code>SWE_EXPORT_RECOVERY_2026-09-13.md</code>、<code>SWE_LOOP_ALIGNMENT_2026-09-13.md</code>：此前修复背景，阅读时注意其运行 tag、分支及记录时间。</li>
+</ul>
+<p>接手者应以本报告说明的运行身份找到实时日志，再决定下一步；无需重新开始调研、重新搭环境或重新启动已经运行的 baseline。</p>
+
+<!-- Was this page helpful? -->
+
+
+
+
+<!-- Comment system -->
+
+                
+
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+    
+    
+  
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../js/timeago.min.js"></script>
+      
+        <script src="../../js/timeago_mkdocs_material.js"></script>
+      
+        <script src="https://unpkg.com/mermaid@10.6.1/dist/mermaid.min.js"></script>
+      
+        <script src="https://unpkg.com/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+      
+        <script src="https://unpkg.com/katex@0/dist/katex.min.js"></script>
+      
+        <script src="https://unpkg.com/katex@0/dist/contrib/auto-render.min.js"></script>
+      
+        <script src="../../javascripts/charts.js"></script>
+      
+        <script src="../../javascripts/move-source-file.js"></script>
+      
+        <script src="../../javascripts/katex.js"></script>
+      
+    
+  <script>
+    // Show warning banner if not viewing stable documentation
+    document.addEventListener("DOMContentLoaded", function() {
+      const currentURL = window.location.href;
+      const warningDiv = document.getElementById("version-warning");
+
+      // Check if we're on the stable docs or the redirect page
+      if (currentURL.includes('agent-lightning/latest/')) {
+        // Show warning for explicitly latest docs
+        warningDiv.style.display = "block";
+      }
+    });
+  </script>
+
+  </body>
+</html>

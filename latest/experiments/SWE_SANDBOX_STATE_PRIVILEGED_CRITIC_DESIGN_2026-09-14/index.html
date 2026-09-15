@@ -1,0 +1,2429 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://microsoft.github.io/agent-lightning/latest/experiments/SWE_SANDBOX_STATE_PRIVILEGED_CRITIC_DESIGN_2026-09-14/">
+      
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/favicon.svg">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
+    
+    
+      
+        <title>SWE Sandbox-State Privileged Critic 设计方案 - Agent Lightning v1.0</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.ec1eaa64.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/_mkdocstrings.css">
+    
+      <link rel="stylesheet" href="../../css/timeago.css">
+    
+      <link rel="stylesheet" href="https://unpkg.com/katex@0/dist/katex.min.css">
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="agl" data-md-color-accent="agl">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#swe-sandbox-state-privileged-critic" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Agent Lightning v1.0" class="md-header__button md-logo" aria-label="Agent Lightning v1.0" data-md-component="logo">
+      
+  <img src="../../assets/favicon-white.svg" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Agent Lightning v1.0
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              SWE Sandbox-State Privileged Critic 设计方案
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="default" data-md-color-primary="agl" data-md-color-accent="agl"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="" data-md-color-scheme="slate" data-md-color-primary="agl" data-md-color-accent="agl"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/microsoft/agent-lightning" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    agent-lightning
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Agent Lightning v1.0" class="md-nav__button md-logo" aria-label="Agent Lightning v1.0" data-md-component="logo">
+      
+  <img src="../../assets/favicon-white.svg" alt="logo">
+
+    </a>
+    Agent Lightning v1.0
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/microsoft/agent-lightning" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    agent-lightning
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Documentation
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Documentation
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../00-installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Installation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../01-quick-start/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Quick Start
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../05-basics/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Basics
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../20-trainer-configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Trainer Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../25-api-gateway-configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API Gateway Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../30-controller-configuration/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Controller Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../35-asynchronous-training/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Asynchronous Training
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--section md-nav__item--nested">
+      
+        
+        
+          
+        
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Examples
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Examples
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../50-example-calc-x/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Calc-X
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../55-example-gsm8k/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    GSM8K
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../60-example-science-world/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    ScienceWorld
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../65-example-search-r1/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Search-R1
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../70-example-llm-in-sandbox/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    LLM-in-Sandbox
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../75-example-coding-agent/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coding Agent
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../80-example-multimodal-qa/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Multimodal QA
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#0" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        0. 一句话结论
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+  <div id="version-warning" class="version-warning" style="display: none;">
+    ⚠️ You are viewing development documentation. For stable documentation, please visit
+    <a href="https://microsoft.github.io/agent-lightning/stable/">https://microsoft.github.io/agent-lightning/stable/</a>
+  </div>
+  
+                  <!-- Copied and modified from https://github.com/squidfunk/mkdocs-material/blob/master/src/templates/partials/content.html -->
+
+<!-- Tags -->
+
+
+
+<!-- Actions -->
+
+  
+  
+
+
+<!--
+  Hack: check whether the content contains a h1 headline. If it doesn't, the
+  page title (or respectively site name) is used as the main headline.
+-->
+
+
+<!-- Source file information -->
+
+
+
+
+
+
+
+  
+    
+  
+  
+    
+  
+
+
+  <aside class="md-source-file">
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Last update">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-timeago" title="September 15, 2026 07:51:45 UTC"><span class="timeago" datetime="2026-09-15T07:51:45+00:00" locale="en"></span></span><span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="September 15, 2026 07:51:45 UTC">2026-09-15</span>
+  </span>
+
+    
+    
+      
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Created">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M14.47 15.08 11 13V7h1.5v5.25l3.08 1.83c-.41.28-.79.62-1.11 1m-1.39 4.84c-.36.05-.71.08-1.08.08-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8c0 .37-.03.72-.08 1.08.69.1 1.33.32 1.92.64.1-.56.16-1.13.16-1.72 0-5.5-4.5-10-10-10S2 6.5 2 12s4.47 10 10 10c.59 0 1.16-.06 1.72-.16-.32-.59-.54-1.23-.64-1.92M18 15v3h-3v2h3v3h2v-3h3v-2h-3v-3z"/></svg>
+    </span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-timeago" title="September 15, 2026 07:51:45 UTC"><span class="timeago" datetime="2026-09-15T07:51:45+00:00" locale="en"></span></span><span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="September 15, 2026 07:51:45 UTC">2026-09-15</span>
+  </span>
+
+    
+    
+      
+  
+  <span class="md-source-file__fact">
+    <span class="md-icon" title="Contributors">
+      
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 4a4 4 0 0 1 4 4 4 4 0 0 1-4 4 4 4 0 0 1-4-4 4 4 0 0 1 4-4m0 10c4.42 0 8 1.79 8 4v2H4v-2c0-2.21 3.58-4 8-4"/></svg>
+      
+    </span>
+    <nav>
+      
+        <a href="mailto:zsj200454@gmail.com">Jay-Juice</a>
+    </nav>
+  </span>
+
+    
+    
+  </aside>
+
+
+<!-- Page content -->
+<h1 id="swe-sandbox-state-privileged-critic">SWE Sandbox-State Privileged Critic 设计方案<a class="headerlink" href="#swe-sandbox-state-privileged-critic" title="Permanent link">&para;</a></h1>
+<blockquote>
+<p>日期：2026-09-14
+目标框架：Agent Lightning + 当前 SWE multi-turn PPO / CAPO backend
+目标任务：SWE-smith 训练，后续 SWE-bench Actor-only 评测
+研究主题：将 ALFWorld 中的 Asymmetric Actor-Critic / Privileged Critic 迁移到软件工程 Agent
+本文用途：交接给后续实施 Agent，作为第一版实现的技术设计与边界约束
+状态：<strong>设计稿，尚未表示本方案已在当前 SWE 训练代码中实现</strong></p>
+</blockquote>
+<hr />
+<h2 id="0">0. 一句话结论<a class="headerlink" href="#0" title="Permanent link">&para;</a></h2>
+<p>本方案只有一条主线：</p>
+<p>[
+\boxed{
+\text{Actor}: \pi_\theta(a_t\mid H_t),\qquad
+\text{Critic}: V_\phi(H_t,Z_t)
+}
+]</p>
+<p>其中 Actor 继续只使用正常 SWE terminal/tool interaction history <span class="arithmatex">\(H_t\)</span>，而 Critic 在训练阶段额外读取当前 action / model call <strong>之前</strong>的真实 sandbox state：</p>
+<p>[
+\boxed{
+Z_t =
+\operatorname{BudgetSerialize}
+\left(
+D(
+\operatorname{Snapshot}(S_0),
+\operatorname{Snapshot}(S_t)
+)
+\right)
+}
+]</p>
+<p>第一版的 <code>Snapshot()</code> 只包含两大类：</p>
+<ol>
+<li><code>/testbed</code> 工作区的当前文件系统状态；</li>
+<li>当前 rollout sandbox 内的 process / socket runtime state。</li>
+</ol>
+<p>这里的 cumulative delta、4K token budget、event transport、Critic-only input 都属于同一套方案的不同组成部分，不是多个互斥方案。</p>
+<p>后续可以研究 learned state encoder、full tool output、full current state 等增强，但<strong>第一版一律不做</strong>。</p>
+<hr />
+<h1 id="1">1. 研究问题<a class="headerlink" href="#1" title="Permanent link">&para;</a></h1>
+<p>当前 SWE PPO 中，Actor 和普通 Critic 都主要依赖可见交互历史：</p>
+<p>[
+H_t =
+{
+\text{issue / task},
+\text{previous model outputs},
+\text{executed shell commands},
+\text{visible tool observations}
+}
+]</p>
+<p>普通 Critic：</p>
+<p>[
+V_\phi(H_t)
+]</p>
+<p>必须同时完成两件事：</p>
+<ol>
+<li>从长交互历史中推断当前真实代码 / runtime 状态；</li>
+<li>在推断出的状态上预测最终任务成功概率 / return。</li>
+</ol>
+<p>本项目希望将机器人强化学习中的 Asymmetric Actor-Critic 思路迁移到 SWE Agent：</p>
+<p>[
+\text{Actor}: \pi_\theta(a_t\mid H_t)
+]</p>
+<p>[
+\text{Critic}: V_\phi(H_t,Z_t)
+]</p>
+<p>其中 <span class="arithmatex">\(Z_t\)</span> 是训练阶段通过 sandbox control plane 获得的当前真实环境状态。</p>
+<p>研究问题不是“把答案告诉 Critic 会不会更强”，而是：</p>
+<blockquote>
+<p>当 action history 不能完全确定软件环境当前真实状态时，训练期额外提供当前 sandbox state，是否能够降低 Critic 的状态重建负担，提高 value estimation、credit assignment 和 PPO sample efficiency？</p>
+</blockquote>
+<hr />
+<h1 id="2-alfworld">2. 与 ALFWorld 的对应关系<a class="headerlink" href="#2-alfworld" title="Permanent link">&para;</a></h1>
+<p>ALFWorld 中：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Actor:
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>    textual observation / interaction history
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>Critic:
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    textual history
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    + simulator current symbolic facts
+</code></pre></div>
+<p>SWE 中对应为：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>Actor:
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    issue + shell/tool interaction history
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>Critic:
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    same Actor history
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    + current sandbox state
+</code></pre></div>
+<p>对应关系：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>ALFWorld simulator symbolic state
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>            ↓
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>SWE rollout sandbox state
+</code></pre></div>
+<p>核心叙事保持一致：</p>
+<blockquote>
+<p>The actor knows what it attempted; the privileged critic observes what the environment actually became.</p>
+</blockquote>
+<p>在 SWE 中，Actor 可能知道自己执行了：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>python<span class="w"> </span>setup.py
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>pytest<span class="w"> </span>...
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>python<span class="w"> </span>server.py<span class="w"> </span><span class="p">&amp;</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>make<span class="w"> </span>...
+</code></pre></div>
+<p>但并不必然知道：</p>
+<ul>
+<li>哪些文件被工具间接创建或修改；</li>
+<li>新建文件是否真正写入成功；</li>
+<li>formatter / generator 实际改了哪些文件；</li>
+<li>background process 是否仍然存活；</li>
+<li>server 是否真正监听某个端口；</li>
+<li>某个 command 被截断后完整产生了哪些环境副作用。</li>
+</ul>
+<p>因此 action history 并不唯一确定当前真实 sandbox state。</p>
+<hr />
+<h1 id="3">3. 第一版方法的严格定义<a class="headerlink" href="#3" title="Permanent link">&para;</a></h1>
+<h2 id="31-actor">3.1 Actor 信息<a class="headerlink" href="#31-actor" title="Permanent link">&para;</a></h2>
+<p>Actor 保持当前正式 baseline 的输入和 rollout 行为：</p>
+<p>[
+\pi_\theta(a_t\mid H_t)
+]</p>
+<p>不得因为加入 Privileged Critic 而修改：</p>
+<ul>
+<li>task / issue prompt；</li>
+<li>system prompt；</li>
+<li>tool protocol；</li>
+<li>Actor history；</li>
+<li>rollout generation；</li>
+<li>reward；</li>
+<li>old log-prob；</li>
+<li>reference log-prob；</li>
+<li>Actor PPO update；</li>
+<li>validation / deployment inference。</li>
+</ul>
+<h2 id="32-critic">3.2 Critic 信息<a class="headerlink" href="#32-critic" title="Permanent link">&para;</a></h2>
+<p>Critic：</p>
+<p>[
+V_\phi(H_t,Z_t)
+]</p>
+<p>其中：</p>
+<p>[
+Z_t = \text{pre-model-call sandbox state}
+]</p>
+<p>必须满足：</p>
+<h3 id="temporal-admissibility">Temporal admissibility<a class="headerlink" href="#temporal-admissibility" title="Permanent link">&para;</a></h3>
+<p>[
+Z_t
+]</p>
+<p>必须在当前 model call / action <span class="arithmatex">\(a_t\)</span> 生成之前已经存在。</p>
+<p>禁止把：</p>
+<p>[
+S_{t+1}
+]</p>
+<p>错配给当前 action。</p>
+<h2 id="33-privilege">3.3 Privilege 来源<a class="headerlink" href="#33-privilege" title="Permanent link">&para;</a></h2>
+<p>Privilege 必须来自 Actor 正常 observation channel 之外的 control-plane state。</p>
+<p>第一版定义：</p>
+<p>[
+\boxed{
+S_t =
+\text{mutable state inside this rollout's sandbox boundary}
+}
+]</p>
+<p>而不是：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>我们认为对任务有用的几个 feature
+</code></pre></div>
+<p>因此方法目标是：</p>
+<blockquote>
+<p>zero semantic feature engineering, not zero environment integration.</p>
+</blockquote>
+<p>不同 repo / task 不写不同规则。</p>
+<hr />
+<h1 id="4-sandbox-state">4. 第一版 Sandbox State 内容<a class="headerlink" href="#4-sandbox-state" title="Permanent link">&para;</a></h1>
+<p>第一版只实现两个 namespace。</p>
+<h2 id="41-filesystem-state">4.1 Filesystem state<a class="headerlink" href="#41-filesystem-state" title="Permanent link">&para;</a></h2>
+<p>作用范围：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>/testbed
+</code></pre></div>
+<p>或者当前自定义 SWE agent 中对应的 task working tree。</p>
+<p>每个文件的 canonical metadata：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>relative_path
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>type
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>mode
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>size
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>mtime / stat metadata
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>content hash
+</code></pre></div>
+<p>对于文本文件，在文件发生变化时额外读取：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>current textual content
+</code></pre></div>
+<p>对于 binary / 非文本文件，只保留：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>path
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>size
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>hash
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>type
+</code></pre></div>
+<p>禁止扫描任务容器以外的共享服务器目录。</p>
+<h2 id="42-runtime-state">4.2 Runtime state<a class="headerlink" href="#42-runtime-state" title="Permanent link">&para;</a></h2>
+<p>只读取当前 rollout sandbox / container / cgroup / namespace 内部的运行状态。</p>
+<p>包括：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>process:
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    pid / namespace-local id
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    ppid
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    command
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    state
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    cwd
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>socket:
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>    protocol
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>    local address
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>    listening state
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>    owner process if resolvable
+</code></pre></div>
+<p>第一版不追求复杂 service semantics。</p>
+<p>例如不要写：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">if</span> <span class="n">nginx</span><span class="p">:</span>
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="o">...</span>
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="k">if</span> <span class="n">postgres</span><span class="p">:</span>
+<a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="o">...</span>
+</code></pre></div>
+<p>只做 generic process / socket enumeration。</p>
+<hr />
+<h1 id="5-pi">5. 明确禁止进入 PI 的内容<a class="headerlink" href="#5-pi" title="Permanent link">&para;</a></h1>
+<p>以下内容即使 control plane 能访问，也禁止作为第一版 Privileged Critic 输入：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>hidden .git history
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>pre-bug / fixed commit
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>gold patch
+<a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>reference solution
+<a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>FAIL_TO_PASS / PASS_TO_PASS 答案
+<a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>hidden tests 内容
+<a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>grader / evaluator internal state
+<a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>最终 resolved
+<a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>最终 reward
+<a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>future trajectory
+<a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>future tool observation
+<a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>当前 action 执行后的 state
+</code></pre></div>
+<p>当前公开 SWE-smith agent 会把 <code>.git</code> 从 <code>/testbed</code> 搬到隐藏路径，因为其中包含 injected bug 修复和删除的测试信息。</p>
+<p>因此：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>Actor-owned sandbox state
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>        !=
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>Evaluator / harness secret state
+</code></pre></div>
+<p>本方案只允许前者。</p>
+<hr />
+<h1 id="6-cumulative-sandbox-delta">6. 为什么第一版使用 Cumulative Sandbox Delta<a class="headerlink" href="#6-cumulative-sandbox-delta" title="Permanent link">&para;</a></h1>
+<p>完整 repo 往往非常大，而且 episode 内绝大多数文件保持不变。</p>
+<p>因此不直接把：</p>
+<p>[
+S_t
+]</p>
+<p>全文放入 Critic，而是计算：</p>
+<p>[
+\boxed{
+\Delta S_t=D(S_0,S_t)
+}
+]</p>
+<p>其中：</p>
+<ul>
+<li><span class="arithmatex">\(S_0\)</span>：episode / rollout 初始化后的 sandbox snapshot；</li>
+<li><span class="arithmatex">\(S_t\)</span>：当前 model call 前 snapshot；</li>
+<li><span class="arithmatex">\(D\)</span>：generic structural diff。</li>
+</ul>
+<p>注意：</p>
+<p>[
+D(S_0,S_t)
+]</p>
+<p>不是：</p>
+<p>[
+D(S_{t-1},S_t)
+]</p>
+<p>也不是 event log。</p>
+<p>如果一个文件改了以后又恢复到初始状态，则它应从 cumulative delta 中消失。</p>
+<hr />
+<h1 id="7-delta">7. Delta 示例<a class="headerlink" href="#7-delta" title="Permanent link">&para;</a></h1>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>[SANDBOX STATE DELTA]
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>filesystem:
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>  modified:
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>    src/parser.py
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>      size: 4812 -&gt; 5073
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>  added:
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>    repro.py
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a>      size: 824
+<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>
+<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>  removed:
+<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a>    tmp/old.cache
+<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>
+<a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>process:
+<a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a>  added:
+<a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>    pid: 182
+<a id="__codelineno-13-18" name="__codelineno-13-18" href="#__codelineno-13-18"></a>    command: python server.py
+<a id="__codelineno-13-19" name="__codelineno-13-19" href="#__codelineno-13-19"></a>    state: sleeping
+<a id="__codelineno-13-20" name="__codelineno-13-20" href="#__codelineno-13-20"></a>    cwd: /testbed
+<a id="__codelineno-13-21" name="__codelineno-13-21" href="#__codelineno-13-21"></a>
+<a id="__codelineno-13-22" name="__codelineno-13-22" href="#__codelineno-13-22"></a>socket:
+<a id="__codelineno-13-23" name="__codelineno-13-23" href="#__codelineno-13-23"></a>  added:
+<a id="__codelineno-13-24" name="__codelineno-13-24" href="#__codelineno-13-24"></a>    tcp 127.0.0.1:8000 LISTEN
+<a id="__codelineno-13-25" name="__codelineno-13-25" href="#__codelineno-13-25"></a>    owner_pid: 182
+</code></pre></div>
+<p>如果 token budget 允许，再展开文本文件的实际内容差异：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>[FILE DELTA: src/parser.py]
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>@@ ...
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>-old code
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>+new code
+</code></pre></div>
+<hr />
+<h1 id="8-git-diff">8. 不建议直接使用 <code>git diff</code><a class="headerlink" href="#8-git-diff" title="Permanent link">&para;</a></h1>
+<p><code>git diff</code> 可以作为 debug / sanity check，但不建议作为方法定义。</p>
+<p>原因：</p>
+<ol>
+<li>方法会显得 SWE-specific；</li>
+<li>untracked 新文件容易漏掉；</li>
+<li>tool 产生的其他 writable state 不一定由 git 表示；</li>
+<li>Runtime state 完全不在 git 中；</li>
+<li>当前 SWE agent 的 <code>.git</code> 还属于隐藏 harness 区域，不应依赖它作为 Actor-side environment API。</li>
+</ol>
+<p>因此第一版应实现 generic filesystem snapshotter。</p>
+<hr />
+<h1 id="9-filesystem-snapshot">9. Filesystem Snapshot 的工程实现建议<a class="headerlink" href="#9-filesystem-snapshot" title="Permanent link">&para;</a></h1>
+<p>不应在每个 turn 对整个 repo 的每个文件重新做完整 SHA 和全文读取。</p>
+<p>建议流程：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>initial snapshot
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>    ↓
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>stat scan
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>    ↓
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>size / mtime / inode 无变化
+<a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>    → 复用旧 hash
+<a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>
+<a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a>可能变化
+<a id="__codelineno-15-9" name="__codelineno-15-9" href="#__codelineno-15-9"></a>    → 重新 hash
+<a id="__codelineno-15-10" name="__codelineno-15-10" href="#__codelineno-15-10"></a>
+<a id="__codelineno-15-11" name="__codelineno-15-11" href="#__codelineno-15-11"></a>hash 变化
+<a id="__codelineno-15-12" name="__codelineno-15-12" href="#__codelineno-15-12"></a>    → 标记 dirty
+<a id="__codelineno-15-13" name="__codelineno-15-13" href="#__codelineno-15-13"></a>    → 文本文件按需读取内容
+</code></pre></div>
+<p>可选优化：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>inotify / watchdog
+</code></pre></div>
+<p>维护 dirty path set。</p>
+<p>但首版如果 repo 规模允许，可以先用简单、确定性的 stat + hash 方案保证正确性，再优化速度。</p>
+<hr />
+<h1 id="10-pre-action">10. Pre-action 时间对齐<a class="headerlink" href="#10-pre-action" title="Permanent link">&para;</a></h1>
+<p>这是实现中最重要的约束。</p>
+<p>当前逻辑应变成：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>messages = H_t
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>capture sandbox state S_t
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>        ↓
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>emit privileged_state event
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>        ↓
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>query Actor
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>        ↓
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>generate action a_t
+<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a>        ↓
+<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>execute action
+<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>        ↓
+<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>receive observation
+<a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a>        ↓
+<a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a>append observation
+<a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a>        ↓
+<a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a>next turn
+</code></pre></div>
+<p>伪代码：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="k">for</span> <span class="n">turn_index</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">max_turns</span><span class="p">):</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a>    <span class="n">snapshot_t</span> <span class="o">=</span> <span class="n">snapshotter</span><span class="o">.</span><span class="n">snapshot</span><span class="p">()</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a>    <span class="n">logical_call_id</span> <span class="o">=</span> <span class="n">new_id</span><span class="p">()</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a>
+<a id="__codelineno-18-7" name="__codelineno-18-7" href="#__codelineno-18-7"></a>    <span class="n">emit_privileged_state</span><span class="p">(</span>
+<a id="__codelineno-18-8" name="__codelineno-18-8" href="#__codelineno-18-8"></a>        <span class="n">rollout_id</span><span class="o">=</span><span class="n">rollout_id</span><span class="p">,</span>
+<a id="__codelineno-18-9" name="__codelineno-18-9" href="#__codelineno-18-9"></a>        <span class="n">attempt_id</span><span class="o">=</span><span class="n">attempt_id</span><span class="p">,</span>
+<a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a>        <span class="n">turn_index</span><span class="o">=</span><span class="n">turn_index</span><span class="p">,</span>
+<a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a>        <span class="n">logical_call_id</span><span class="o">=</span><span class="n">logical_call_id</span><span class="p">,</span>
+<a id="__codelineno-18-12" name="__codelineno-18-12" href="#__codelineno-18-12"></a>        <span class="n">snapshot</span><span class="o">=</span><span class="n">snapshot_t</span><span class="p">,</span>
+<a id="__codelineno-18-13" name="__codelineno-18-13" href="#__codelineno-18-13"></a>    <span class="p">)</span>
+<a id="__codelineno-18-14" name="__codelineno-18-14" href="#__codelineno-18-14"></a>
+<a id="__codelineno-18-15" name="__codelineno-18-15" href="#__codelineno-18-15"></a>    <span class="n">response</span> <span class="o">=</span> <span class="n">query_actor</span><span class="p">(</span>
+<a id="__codelineno-18-16" name="__codelineno-18-16" href="#__codelineno-18-16"></a>        <span class="n">messages</span><span class="p">,</span>
+<a id="__codelineno-18-17" name="__codelineno-18-17" href="#__codelineno-18-17"></a>        <span class="n">logical_call_id</span><span class="o">=</span><span class="n">logical_call_id</span><span class="p">,</span>
+<a id="__codelineno-18-18" name="__codelineno-18-18" href="#__codelineno-18-18"></a>    <span class="p">)</span>
+<a id="__codelineno-18-19" name="__codelineno-18-19" href="#__codelineno-18-19"></a>
+<a id="__codelineno-18-20" name="__codelineno-18-20" href="#__codelineno-18-20"></a>    <span class="n">action</span> <span class="o">=</span> <span class="n">parse</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+<a id="__codelineno-18-21" name="__codelineno-18-21" href="#__codelineno-18-21"></a>
+<a id="__codelineno-18-22" name="__codelineno-18-22" href="#__codelineno-18-22"></a>    <span class="n">output</span> <span class="o">=</span> <span class="n">run</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
+<a id="__codelineno-18-23" name="__codelineno-18-23" href="#__codelineno-18-23"></a>
+<a id="__codelineno-18-24" name="__codelineno-18-24" href="#__codelineno-18-24"></a>    <span class="n">messages</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">render_observation</span><span class="p">(</span><span class="n">output</span><span class="p">))</span>
+</code></pre></div>
+<p>禁止：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="n">response</span> <span class="o">=</span> <span class="n">query_actor</span><span class="p">(</span><span class="o">...</span><span class="p">)</span>
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a><span class="n">run</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a><span class="n">snapshot</span> <span class="o">=</span> <span class="n">snapshotter</span><span class="o">.</span><span class="n">snapshot</span><span class="p">()</span>
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a><span class="c1"># 然后把这个 snapshot 配给当前 response</span>
+</code></pre></div>
+<p>这是未来信息泄漏。</p>
+<hr />
+<h1 id="11-logical_call_id">11. <code>logical_call_id</code> 是必须新增的字段<a class="headerlink" href="#11-logical_call_id" title="Permanent link">&para;</a></h1>
+<p>不能只依赖：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>prompt hash
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>prompt_token_ids
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a>turn_index
+</code></pre></div>
+<p>因为：</p>
+<ul>
+<li>request 可能重试；</li>
+<li>Gateway 可能发生 pause / weight sync；</li>
+<li>当前 Agent Lightning Gateway 会对重复 prompt request 做去重；</li>
+<li>同样 prompt 不一定表示同一逻辑调用。</li>
+</ul>
+<p>因此每次逻辑 Actor call 必须生成：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>logical_call_id
+</code></pre></div>
+<p>绑定：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>rollout_id
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>attempt_id
+<a id="__codelineno-22-3" name="__codelineno-22-3" href="#__codelineno-22-3"></a>turn_index
+<a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>logical_call_id
+<a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>snapshot_id
+<a id="__codelineno-22-6" name="__codelineno-22-6" href="#__codelineno-22-6"></a>model_request
+<a id="__codelineno-22-7" name="__codelineno-22-7" href="#__codelineno-22-7"></a>response
+</code></pre></div>
+<p>缺失唯一配对关系时：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>drop / reject training row
+</code></pre></div>
+<p>不能猜测匹配。</p>
+<hr />
+<h1 id="12-lightning-event">12. Lightning Event 数据通路<a class="headerlink" href="#12-lightning-event" title="Permanent link">&para;</a></h1>
+<p>Agent Lightning event API 支持任意：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>event_type
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a>data
+</code></pre></div>
+<p>因此第一版建议新增：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>event_type = privileged_state
+</code></pre></div>
+<p>数据结构建议：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="p">{</span>
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a><span class="w">  </span><span class="nt">&quot;logical_call_id&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a><span class="w">  </span><span class="nt">&quot;turn_index&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
+<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="w">  </span><span class="nt">&quot;snapshot_sequence&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">7</span><span class="p">,</span>
+<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a><span class="w">  </span><span class="nt">&quot;captured_at&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">123456.7</span><span class="p">,</span>
+<a id="__codelineno-26-6" name="__codelineno-26-6" href="#__codelineno-26-6"></a><span class="w">  </span><span class="nt">&quot;state_schema_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-26-7" name="__codelineno-26-7" href="#__codelineno-26-7"></a><span class="w">  </span><span class="nt">&quot;state_hash&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+<a id="__codelineno-26-8" name="__codelineno-26-8" href="#__codelineno-26-8"></a><span class="w">  </span><span class="nt">&quot;state_ref&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span>
+<a id="__codelineno-26-9" name="__codelineno-26-9" href="#__codelineno-26-9"></a><span class="w">  </span><span class="nt">&quot;summary&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-26-10" name="__codelineno-26-10" href="#__codelineno-26-10"></a><span class="w">    </span><span class="nt">&quot;changed_files&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">14</span><span class="p">,</span>
+<a id="__codelineno-26-11" name="__codelineno-26-11" href="#__codelineno-26-11"></a><span class="w">    </span><span class="nt">&quot;new_processes&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+<a id="__codelineno-26-12" name="__codelineno-26-12" href="#__codelineno-26-12"></a><span class="w">    </span><span class="nt">&quot;listening_sockets&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span>
+<a id="__codelineno-26-13" name="__codelineno-26-13" href="#__codelineno-26-13"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-26-14" name="__codelineno-26-14" href="#__codelineno-26-14"></a><span class="p">}</span>
+</code></pre></div>
+<p>如果 raw snapshot 较大：</p>
+<p>不要把全文长期放 Gateway memory store。</p>
+<p>优先：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>event:
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>    state_id
+<a id="__codelineno-27-3" name="__codelineno-27-3" href="#__codelineno-27-3"></a>    hash
+<a id="__codelineno-27-4" name="__codelineno-27-4" href="#__codelineno-27-4"></a>    metadata
+<a id="__codelineno-27-5" name="__codelineno-27-5" href="#__codelineno-27-5"></a>    raw state file reference
+</code></pre></div>
+<p>raw snapshot 压缩后单独写入 D1：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a>runtime/&lt;run&gt;/privileged_state/&lt;rollout&gt;/&lt;call&gt;.json.zst
+</code></pre></div>
+<hr />
+<h1 id="13-rolloutmanager">13. RolloutManager 修改<a class="headerlink" href="#13-rolloutmanager" title="Permanent link">&para;</a></h1>
+<p>当前 <code>Triplet</code> 已有：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
+</code></pre></div>
+<p>后续应把配对后的 PI metadata 写入每个 Triplet：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="n">Triplet</span><span class="p">(</span>
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>    <span class="n">prompt</span><span class="o">=...</span><span class="p">,</span>
+<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a>    <span class="n">response</span><span class="o">=...</span><span class="p">,</span>
+<a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a>    <span class="n">reward</span><span class="o">=...</span><span class="p">,</span>
+<a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a>    <span class="n">metadata</span><span class="o">=</span><span class="p">{</span>
+<a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a>        <span class="s2">&quot;server&quot;</span><span class="p">:</span> <span class="o">...</span><span class="p">,</span>
+<a id="__codelineno-30-7" name="__codelineno-30-7" href="#__codelineno-30-7"></a>        <span class="s2">&quot;logical_call_id&quot;</span><span class="p">:</span> <span class="n">logical_call_id</span><span class="p">,</span>
+<a id="__codelineno-30-8" name="__codelineno-30-8" href="#__codelineno-30-8"></a>        <span class="s2">&quot;privileged_state_id&quot;</span><span class="p">:</span> <span class="n">state_id</span><span class="p">,</span>
+<a id="__codelineno-30-9" name="__codelineno-30-9" href="#__codelineno-30-9"></a>        <span class="s2">&quot;privileged_state_hash&quot;</span><span class="p">:</span> <span class="n">state_hash</span><span class="p">,</span>
+<a id="__codelineno-30-10" name="__codelineno-30-10" href="#__codelineno-30-10"></a>        <span class="s2">&quot;snapshot_sequence&quot;</span><span class="p">:</span> <span class="n">snapshot_sequence</span><span class="p">,</span>
+<a id="__codelineno-30-11" name="__codelineno-30-11" href="#__codelineno-30-11"></a>        <span class="s2">&quot;privileged_state_ref&quot;</span><span class="p">:</span> <span class="n">state_ref</span><span class="p">,</span>
+<a id="__codelineno-30-12" name="__codelineno-30-12" href="#__codelineno-30-12"></a>    <span class="p">},</span>
+<a id="__codelineno-30-13" name="__codelineno-30-13" href="#__codelineno-30-13"></a><span class="p">)</span>
+</code></pre></div>
+<p>要求：</p>
+<ul>
+<li>一个有效 Triplet 对应唯一 pre-action state；</li>
+<li>缺失 / 多义 / 时序错误直接拒绝；</li>
+<li>不把 PI 拼进 Actor model request messages。</li>
+</ul>
+<hr />
+<h1 id="14-rolloutadapter">14. RolloutAdapter 修改<a class="headerlink" href="#14-rolloutadapter" title="Permanent link">&para;</a></h1>
+<p>当前 transition 模式已经天然按：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a>rollout_id
+<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a>turn_index
+</code></pre></div>
+<p>拆成每次模型调用一行。</p>
+<p>这正是第一版 PI 最适合的数据表示。</p>
+<p>应增加：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>logical_call_id_list
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>privileged_state_id_list
+<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a>privileged_state_ref_list
+<a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a>privileged_state_hash_list
+</code></pre></div>
+<p>随后为每行分别构建：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>actor view
+<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>critic view
+</code></pre></div>
+<p>Actor view：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a>H_t
+<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a>+
+<a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a>same response IDs
+</code></pre></div>
+<p>Critic view：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a>H_t
+<a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a>+
+<a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a>budgeted Z_t
+<a id="__codelineno-35-4" name="__codelineno-35-4" href="#__codelineno-35-4"></a>+
+<a id="__codelineno-35-5" name="__codelineno-35-5" href="#__codelineno-35-5"></a>same response IDs
+</code></pre></div>
+<p>必须复用：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>same response_ids
+<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a>same response_mask
+</code></pre></div>
+<hr />
+<h1 id="15-critic-only-tensor">15. Critic-only Tensor<a class="headerlink" href="#15-critic-only-tensor" title="Permanent link">&para;</a></h1>
+<p>参考已经在 ALFWorld / CAPO 中验证过的做法，构造独立：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a>critic_input_ids
+<a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a>critic_attention_mask
+<a id="__codelineno-37-3" name="__codelineno-37-3" href="#__codelineno-37-3"></a>critic_position_ids
+</code></pre></div>
+<p>Actor 原字段继续是：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>input_ids
+<a id="__codelineno-38-2" name="__codelineno-38-2" href="#__codelineno-38-2"></a>attention_mask
+<a id="__codelineno-38-3" name="__codelineno-38-3" href="#__codelineno-38-3"></a>position_ids
+</code></pre></div>
+<p>不得原地覆盖公共 batch。</p>
+<hr />
+<h1 id="16-trainer">16. Trainer 路由<a class="headerlink" href="#16-trainer" title="Permanent link">&para;</a></h1>
+<p>只有：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a>compute_values
+<a id="__codelineno-39-2" name="__codelineno-39-2" href="#__codelineno-39-2"></a>update_critic
+</code></pre></div>
+<p>使用 Critic view。</p>
+<p>以下全部保持 Actor view：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-40-1" name="__codelineno-40-1" href="#__codelineno-40-1"></a>rollout
+<a id="__codelineno-40-2" name="__codelineno-40-2" href="#__codelineno-40-2"></a>old log-prob
+<a id="__codelineno-40-3" name="__codelineno-40-3" href="#__codelineno-40-3"></a>reference log-prob
+<a id="__codelineno-40-4" name="__codelineno-40-4" href="#__codelineno-40-4"></a>reward
+<a id="__codelineno-40-5" name="__codelineno-40-5" href="#__codelineno-40-5"></a>Actor PPO update
+<a id="__codelineno-40-6" name="__codelineno-40-6" href="#__codelineno-40-6"></a>validation
+</code></pre></div>
+<p>数据流：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-41-1" name="__codelineno-41-1" href="#__codelineno-41-1"></a>actor_input
+<a id="__codelineno-41-2" name="__codelineno-41-2" href="#__codelineno-41-2"></a>    ├── rollout
+<a id="__codelineno-41-3" name="__codelineno-41-3" href="#__codelineno-41-3"></a>    ├── old logprob
+<a id="__codelineno-41-4" name="__codelineno-41-4" href="#__codelineno-41-4"></a>    ├── ref logprob
+<a id="__codelineno-41-5" name="__codelineno-41-5" href="#__codelineno-41-5"></a>    └── actor update
+<a id="__codelineno-41-6" name="__codelineno-41-6" href="#__codelineno-41-6"></a>
+<a id="__codelineno-41-7" name="__codelineno-41-7" href="#__codelineno-41-7"></a>critic_input
+<a id="__codelineno-41-8" name="__codelineno-41-8" href="#__codelineno-41-8"></a>    ├── compute_values
+<a id="__codelineno-41-9" name="__codelineno-41-9" href="#__codelineno-41-9"></a>    └── update_critic
+</code></pre></div>
+<hr />
+<h1 id="17-token-gae">17. Token GAE 保持不变<a class="headerlink" href="#17-token-gae" title="Permanent link">&para;</a></h1>
+<p>当前正式 SWE PPO baseline 已使用：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-42-1" name="__codelineno-42-1" href="#__codelineno-42-1"></a>token GAE
+<a id="__codelineno-42-2" name="__codelineno-42-2" href="#__codelineno-42-2"></a>gamma = 1
+<a id="__codelineno-42-3" name="__codelineno-42-3" href="#__codelineno-42-3"></a>lambda = 1
+</code></pre></div>
+<p>第一版 PI 实验必须保持这些设置不变。</p>
+<p>对于一个 model call：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-43-1" name="__codelineno-43-1" href="#__codelineno-43-1"></a>response token 1
+<a id="__codelineno-43-2" name="__codelineno-43-2" href="#__codelineno-43-2"></a>response token 2
+<a id="__codelineno-43-3" name="__codelineno-43-3" href="#__codelineno-43-3"></a>...
+<a id="__codelineno-43-4" name="__codelineno-43-4" href="#__codelineno-43-4"></a>response token K
+</code></pre></div>
+<p>全部使用同一份：</p>
+<p>[
+Z_t
+]</p>
+<p>即：</p>
+<p>[
+V(H_t,Z_t,a_{t,&lt;k})
+]</p>
+<p>下一次 model call 才切换：</p>
+<p>[
+Z_{t+1}
+]</p>
+<p>PI prompt tokens 本身不属于 RL 时间步，也不进入 GAE 递推。</p>
+<hr />
+<h1 id="18-context">18. Context 是第一版必须处理的问题<a class="headerlink" href="#18-context" title="Permanent link">&para;</a></h1>
+<p>当前正式 baseline 的关键配置为：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-44-1" name="__codelineno-44-1" href="#__codelineno-44-1"></a>Qwen3-4B-Instruct-2507
+<a id="__codelineno-44-2" name="__codelineno-44-2" href="#__codelineno-44-2"></a>context = 65536
+<a id="__codelineno-44-3" name="__codelineno-44-3" href="#__codelineno-44-3"></a>response max = 4096
+<a id="__codelineno-44-4" name="__codelineno-44-4" href="#__codelineno-44-4"></a>turns = 32
+<a id="__codelineno-44-5" name="__codelineno-44-5" href="#__codelineno-44-5"></a>observation char cap = 32000
+</code></pre></div>
+<p>因此不能简单：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-45-1" name="__codelineno-45-1" href="#__codelineno-45-1"></a>Actor prompt
+<a id="__codelineno-45-2" name="__codelineno-45-2" href="#__codelineno-45-2"></a>+
+<a id="__codelineno-45-3" name="__codelineno-45-3" href="#__codelineno-45-3"></a>完整 PI
+</code></pre></div>
+<p>否则可能挤掉 Actor history。</p>
+<p>这会把实验变成：</p>
+<p>[
+V(\text{truncated }H_t,Z_t)
+]</p>
+<p>对比：</p>
+<p>[
+V(H_t)
+]</p>
+<p>失去单变量意义。</p>
+<hr />
+<h1 id="19-context">19. Context 核心原则<a class="headerlink" href="#19-context" title="Permanent link">&para;</a></h1>
+<p>[
+\boxed{
+\textbf{永远优先保留完整 Actor }H_t
+}
+]</p>
+<p>如果空间不足：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-46-1" name="__codelineno-46-1" href="#__codelineno-46-1"></a>截 PI
+</code></pre></div>
+<p>而不是：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-47-1" name="__codelineno-47-1" href="#__codelineno-47-1"></a>截 Actor history
+</code></pre></div>
+<hr />
+<h1 id="20-pi-budget">20. 动态 PI Budget<a class="headerlink" href="#20-pi-budget" title="Permanent link">&para;</a></h1>
+<p>定义：</p>
+<p>[
+P_t = |\text{Actor prompt tokens}|
+]</p>
+<p>[
+R_t = |\text{actual response tokens}|
+]</p>
+<p>Critic sequence 上限：</p>
+<p>[
+L_C
+]</p>
+<p>则当前样本可用 PI budget：</p>
+<p>[
+B_t
+=
+L_C-P_t-R_t-M
+]</p>
+<p>其中 <span class="arithmatex">\(M\)</span> 是 safety margin。</p>
+<p>实际：</p>
+<p>[
+B_t^{PI}
+=
+\min(
+B_{\max},
+\max(0,B_t)
+)
+]</p>
+<p>第一版建议：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-48-1" name="__codelineno-48-1" href="#__codelineno-48-1"></a>B_max = 4096 tokens
+</code></pre></div>
+<p>但这个值必须通过 PI-size audit 验证。</p>
+<hr />
+<h1 id="21-raw-snapshot">21. Raw Snapshot 先保存，序列化可以后做<a class="headerlink" href="#21-raw-snapshot" title="Permanent link">&para;</a></h1>
+<p>时间正确性要求的是：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-49-1" name="__codelineno-49-1" href="#__codelineno-49-1"></a>raw state S_t
+</code></pre></div>
+<p>必须在 action 前采集。</p>
+<p>但是：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-50-1" name="__codelineno-50-1" href="#__codelineno-50-1"></a>S_t -&gt; textual PI
+</code></pre></div>
+<p>不要求必须在 action 前立刻完成。</p>
+<p>因此推荐：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-51-1" name="__codelineno-51-1" href="#__codelineno-51-1"></a>pre-action:
+<a id="__codelineno-51-2" name="__codelineno-51-2" href="#__codelineno-51-2"></a>    capture raw structured snapshot
+<a id="__codelineno-51-3" name="__codelineno-51-3" href="#__codelineno-51-3"></a>
+<a id="__codelineno-51-4" name="__codelineno-51-4" href="#__codelineno-51-4"></a>rollout completed:
+<a id="__codelineno-51-5" name="__codelineno-51-5" href="#__codelineno-51-5"></a>    已知 actual actor prompt tokens
+<a id="__codelineno-51-6" name="__codelineno-51-6" href="#__codelineno-51-6"></a>    已知 actual response tokens
+<a id="__codelineno-51-7" name="__codelineno-51-7" href="#__codelineno-51-7"></a>        ↓
+<a id="__codelineno-51-8" name="__codelineno-51-8" href="#__codelineno-51-8"></a>    calculate exact PI budget
+<a id="__codelineno-51-9" name="__codelineno-51-9" href="#__codelineno-51-9"></a>        ↓
+<a id="__codelineno-51-10" name="__codelineno-51-10" href="#__codelineno-51-10"></a>    budgeted serialization
+</code></pre></div>
+<p>这样不会使用 future state，只是晚一些决定如何编码已经保存的 pre-action state。</p>
+<hr />
+<h1 id="22-pi-serializer">22. PI Serializer 的固定优先级<a class="headerlink" href="#22-pi-serializer" title="Permanent link">&para;</a></h1>
+<p>不要做 task-specific ranking。</p>
+<p>采用 generic hierarchy：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-52-1" name="__codelineno-52-1" href="#__codelineno-52-1"></a>Level 1: snapshot / delta summary
+<a id="__codelineno-52-2" name="__codelineno-52-2" href="#__codelineno-52-2"></a>Level 2: complete changed-path manifest
+<a id="__codelineno-52-3" name="__codelineno-52-3" href="#__codelineno-52-3"></a>Level 3: process + socket state
+<a id="__codelineno-52-4" name="__codelineno-52-4" href="#__codelineno-52-4"></a>Level 4: text file content / unified diff
+<a id="__codelineno-52-5" name="__codelineno-52-5" href="#__codelineno-52-5"></a>Level 5: omitted-state metadata
+</code></pre></div>
+<p>例如：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-53-1" name="__codelineno-53-1" href="#__codelineno-53-1"></a>[STATE SUMMARY]
+<a id="__codelineno-53-2" name="__codelineno-53-2" href="#__codelineno-53-2"></a>changed_files: 14
+<a id="__codelineno-53-3" name="__codelineno-53-3" href="#__codelineno-53-3"></a>added: 2
+<a id="__codelineno-53-4" name="__codelineno-53-4" href="#__codelineno-53-4"></a>removed: 0
+<a id="__codelineno-53-5" name="__codelineno-53-5" href="#__codelineno-53-5"></a>modified: 12
+<a id="__codelineno-53-6" name="__codelineno-53-6" href="#__codelineno-53-6"></a>new_processes: 1
+<a id="__codelineno-53-7" name="__codelineno-53-7" href="#__codelineno-53-7"></a>listening_sockets: 1
+<a id="__codelineno-53-8" name="__codelineno-53-8" href="#__codelineno-53-8"></a>
+<a id="__codelineno-53-9" name="__codelineno-53-9" href="#__codelineno-53-9"></a>[FILE MANIFEST]
+<a id="__codelineno-53-10" name="__codelineno-53-10" href="#__codelineno-53-10"></a>M src/parser.py
+<a id="__codelineno-53-11" name="__codelineno-53-11" href="#__codelineno-53-11"></a>M src/utils.py
+<a id="__codelineno-53-12" name="__codelineno-53-12" href="#__codelineno-53-12"></a>A repro.py
+<a id="__codelineno-53-13" name="__codelineno-53-13" href="#__codelineno-53-13"></a>
+<a id="__codelineno-53-14" name="__codelineno-53-14" href="#__codelineno-53-14"></a>[RUNTIME]
+<a id="__codelineno-53-15" name="__codelineno-53-15" href="#__codelineno-53-15"></a>+ python server.py pid=182
+<a id="__codelineno-53-16" name="__codelineno-53-16" href="#__codelineno-53-16"></a>+ tcp 127.0.0.1:8000 LISTEN
+<a id="__codelineno-53-17" name="__codelineno-53-17" href="#__codelineno-53-17"></a>
+<a id="__codelineno-53-18" name="__codelineno-53-18" href="#__codelineno-53-18"></a>[FILE DELTAS]
+<a id="__codelineno-53-19" name="__codelineno-53-19" href="#__codelineno-53-19"></a>...
+</code></pre></div>
+<p>如果超预算：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-54-1" name="__codelineno-54-1" href="#__codelineno-54-1"></a>[OMITTED]
+<a id="__codelineno-54-2" name="__codelineno-54-2" href="#__codelineno-54-2"></a>7 file deltas
+<a id="__codelineno-54-3" name="__codelineno-54-3" href="#__codelineno-54-3"></a>6341 estimated tokens omitted
+</code></pre></div>
+<p>这样 Critic 至少知道还有未展开的状态变化。</p>
+<hr />
+<h1 id="23-4k-budget">23. 4K Budget 不是最终结论<a class="headerlink" href="#23-4k-budget" title="Permanent link">&para;</a></h1>
+<p>第一阶段实现 snapshotter 后，应先做只读 PI-size audit。</p>
+<p>建议收集至少数百到数千个真实 model calls：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-55-1" name="__codelineno-55-1" href="#__codelineno-55-1"></a>actor_prompt_tokens
+<a id="__codelineno-55-2" name="__codelineno-55-2" href="#__codelineno-55-2"></a>response_tokens
+<a id="__codelineno-55-3" name="__codelineno-55-3" href="#__codelineno-55-3"></a>context_slack
+<a id="__codelineno-55-4" name="__codelineno-55-4" href="#__codelineno-55-4"></a>
+<a id="__codelineno-55-5" name="__codelineno-55-5" href="#__codelineno-55-5"></a>changed_file_count
+<a id="__codelineno-55-6" name="__codelineno-55-6" href="#__codelineno-55-6"></a>filesystem_delta_bytes
+<a id="__codelineno-55-7" name="__codelineno-55-7" href="#__codelineno-55-7"></a>filesystem_delta_tokens
+<a id="__codelineno-55-8" name="__codelineno-55-8" href="#__codelineno-55-8"></a>
+<a id="__codelineno-55-9" name="__codelineno-55-9" href="#__codelineno-55-9"></a>process_delta_tokens
+<a id="__codelineno-55-10" name="__codelineno-55-10" href="#__codelineno-55-10"></a>socket_delta_tokens
+<a id="__codelineno-55-11" name="__codelineno-55-11" href="#__codelineno-55-11"></a>
+<a id="__codelineno-55-12" name="__codelineno-55-12" href="#__codelineno-55-12"></a>PI 1K coverage
+<a id="__codelineno-55-13" name="__codelineno-55-13" href="#__codelineno-55-13"></a>PI 2K coverage
+<a id="__codelineno-55-14" name="__codelineno-55-14" href="#__codelineno-55-14"></a>PI 4K coverage
+<a id="__codelineno-55-15" name="__codelineno-55-15" href="#__codelineno-55-15"></a>PI 8K coverage
+</code></pre></div>
+<p>目标是回答：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-56-1" name="__codelineno-56-1" href="#__codelineno-56-1"></a>1K 可以完整表示多少样本？
+<a id="__codelineno-56-2" name="__codelineno-56-2" href="#__codelineno-56-2"></a>2K 呢？
+<a id="__codelineno-56-3" name="__codelineno-56-3" href="#__codelineno-56-3"></a>4K 呢？
+<a id="__codelineno-56-4" name="__codelineno-56-4" href="#__codelineno-56-4"></a>8K 呢？
+</code></pre></div>
+<p>根据真实分布决定正式 <span class="arithmatex">\(B_{\max}\)</span>。</p>
+<hr />
+<h1 id="24-pi-audit">24. PI Audit 建议指标<a class="headerlink" href="#24-pi-audit" title="Permanent link">&para;</a></h1>
+<p>每个 call 记录：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-57-1" name="__codelineno-57-1" href="#__codelineno-57-1"></a>privilege/raw_record_count
+<a id="__codelineno-57-2" name="__codelineno-57-2" href="#__codelineno-57-2"></a>privilege/raw_bytes
+<a id="__codelineno-57-3" name="__codelineno-57-3" href="#__codelineno-57-3"></a>privilege/raw_tokens_estimate
+<a id="__codelineno-57-4" name="__codelineno-57-4" href="#__codelineno-57-4"></a>
+<a id="__codelineno-57-5" name="__codelineno-57-5" href="#__codelineno-57-5"></a>privilege/budget_tokens
+<a id="__codelineno-57-6" name="__codelineno-57-6" href="#__codelineno-57-6"></a>privilege/serialized_tokens
+<a id="__codelineno-57-7" name="__codelineno-57-7" href="#__codelineno-57-7"></a>privilege/truncated
+<a id="__codelineno-57-8" name="__codelineno-57-8" href="#__codelineno-57-8"></a>privilege/omitted_record_count
+<a id="__codelineno-57-9" name="__codelineno-57-9" href="#__codelineno-57-9"></a>
+<a id="__codelineno-57-10" name="__codelineno-57-10" href="#__codelineno-57-10"></a>privilege/files_changed
+<a id="__codelineno-57-11" name="__codelineno-57-11" href="#__codelineno-57-11"></a>privilege/files_added
+<a id="__codelineno-57-12" name="__codelineno-57-12" href="#__codelineno-57-12"></a>privilege/files_removed
+<a id="__codelineno-57-13" name="__codelineno-57-13" href="#__codelineno-57-13"></a>privilege/processes_changed
+<a id="__codelineno-57-14" name="__codelineno-57-14" href="#__codelineno-57-14"></a>privilege/sockets_changed
+<a id="__codelineno-57-15" name="__codelineno-57-15" href="#__codelineno-57-15"></a>
+<a id="__codelineno-57-16" name="__codelineno-57-16" href="#__codelineno-57-16"></a>privilege/serialization_time
+<a id="__codelineno-57-17" name="__codelineno-57-17" href="#__codelineno-57-17"></a>privilege/snapshot_time
+</code></pre></div>
+<p>建议增加：</p>
+<p>[
+\text{state coverage}
+=
+\frac{
+\text{records preserved}
+}{
+\text{raw changed records}
+}
+]</p>
+<p>以及：</p>
+<p>[
+\text{information density}
+=
+\frac{
+\text{records preserved}
+}{
+\text{PI tokens}
+}
+]</p>
+<hr />
+<h1 id="25-full-tool-output">25. 第一版不包含 Full Tool Output<a class="headerlink" href="#25-full-tool-output" title="Permanent link">&para;</a></h1>
+<p>当前 SWE agent 对超长 command output 会进行 observation truncation。</p>
+<p>这意味着：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-58-1" name="__codelineno-58-1" href="#__codelineno-58-1"></a>Actor:
+<a id="__codelineno-58-2" name="__codelineno-58-2" href="#__codelineno-58-2"></a>    only sees truncated output
+<a id="__codelineno-58-3" name="__codelineno-58-3" href="#__codelineno-58-3"></a>
+<a id="__codelineno-58-4" name="__codelineno-58-4" href="#__codelineno-58-4"></a>control plane:
+<a id="__codelineno-58-5" name="__codelineno-58-5" href="#__codelineno-58-5"></a>    may possess full stdout/stderr
+</code></pre></div>
+<p>这确实是一种非常强的 privilege。</p>
+<p>但是第一版不要把它与 sandbox state 混在一起。</p>
+<p>原因：如果效果提升，无法判断来自：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-59-1" name="__codelineno-59-1" href="#__codelineno-59-1"></a>true environment state
+</code></pre></div>
+<p>还是：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-60-1" name="__codelineno-60-1" href="#__codelineno-60-1"></a>只是补全了被截断的 tool output
+</code></pre></div>
+<p>所以：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-61-1" name="__codelineno-61-1" href="#__codelineno-61-1"></a>Full Tool Feedback PI
+</code></pre></div>
+<p>只作为后续独立 ablation。</p>
+<hr />
+<h1 id="26-learned-state-encoder">26. 第一版也不包含 Learned State Encoder<a class="headerlink" href="#26-learned-state-encoder" title="Permanent link">&para;</a></h1>
+<p>如果未来发现 raw sandbox delta 经常需要：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-62-1" name="__codelineno-62-1" href="#__codelineno-62-1"></a>20K
+<a id="__codelineno-62-2" name="__codelineno-62-2" href="#__codelineno-62-2"></a>50K
+<a id="__codelineno-62-3" name="__codelineno-62-3" href="#__codelineno-62-3"></a>100K tokens
+</code></pre></div>
+<p>那么文本序列化会成为瓶颈。</p>
+<p>后续可以研究：</p>
+<p>[
+e_i = E(x_i)
+]</p>
+<p>将每个 state record 编码后，再用 fixed latent queries：</p>
+<p>[
+z_{1:K}
+=
+\operatorname{Resampler}({e_i})
+]</p>
+<p>最终：</p>
+<p>[
+V(H_t,z_{1:K},a_{t,&lt;k})
+]</p>
+<p>例如把任意 sandbox state 压成固定 32 / 64 / 128 个 privileged latent tokens。</p>
+<p>但是这会同时改变：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-63-1" name="__codelineno-63-1" href="#__codelineno-63-1"></a>Critic architecture
+<a id="__codelineno-63-2" name="__codelineno-63-2" href="#__codelineno-63-2"></a>representation
+<a id="__codelineno-63-3" name="__codelineno-63-3" href="#__codelineno-63-3"></a>PI
+</code></pre></div>
+<p>第一版禁止引入，避免混淆主变量。</p>
+<hr />
+<h1 id="27">27. 第一版正式方法名称建议<a class="headerlink" href="#27" title="Permanent link">&para;</a></h1>
+<p>暂定：</p>
+<h2 id="sandbox-state-privileged-critic">Sandbox-State Privileged Critic<a class="headerlink" href="#sandbox-state-privileged-critic" title="Permanent link">&para;</a></h2>
+<p>或：</p>
+<h2 id="asymmetric-actor-critic-with-sandbox-state-for-software-engineering-agents">Asymmetric Actor-Critic with Sandbox State for Software Engineering Agents<a class="headerlink" href="#asymmetric-actor-critic-with-sandbox-state-for-software-engineering-agents" title="Permanent link">&para;</a></h2>
+<p>一句话方法描述：</p>
+<blockquote>
+<p>We treat the execution sandbox as the simulator of a software-engineering agent. The deployable policy observes only normal tool interactions, while the training-time critic additionally observes the pre-action state of the sandbox through an out-of-band control interface.</p>
+</blockquote>
+<hr />
+<h1 id="28">28. 代码改动层级<a class="headerlink" href="#28" title="Permanent link">&para;</a></h1>
+<p>实际文件名需以当前自定义 SWE PPO 工作树为准。</p>
+<p>预计修改层：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-64-1" name="__codelineno-64-1" href="#__codelineno-64-1"></a>SWE agent / full_python_agent.py
+<a id="__codelineno-64-2" name="__codelineno-64-2" href="#__codelineno-64-2"></a>        ↓
+<a id="__codelineno-64-3" name="__codelineno-64-3" href="#__codelineno-64-3"></a>SandboxSnapshotter
+<a id="__codelineno-64-4" name="__codelineno-64-4" href="#__codelineno-64-4"></a>        ↓
+<a id="__codelineno-64-5" name="__codelineno-64-5" href="#__codelineno-64-5"></a>privileged_state Event
+<a id="__codelineno-64-6" name="__codelineno-64-6" href="#__codelineno-64-6"></a>        ↓
+<a id="__codelineno-64-7" name="__codelineno-64-7" href="#__codelineno-64-7"></a>Gateway
+<a id="__codelineno-64-8" name="__codelineno-64-8" href="#__codelineno-64-8"></a>        ↓
+<a id="__codelineno-64-9" name="__codelineno-64-9" href="#__codelineno-64-9"></a>AglRolloutManager
+<a id="__codelineno-64-10" name="__codelineno-64-10" href="#__codelineno-64-10"></a>        ↓
+<a id="__codelineno-64-11" name="__codelineno-64-11" href="#__codelineno-64-11"></a>Triplet.metadata
+<a id="__codelineno-64-12" name="__codelineno-64-12" href="#__codelineno-64-12"></a>        ↓
+<a id="__codelineno-64-13" name="__codelineno-64-13" href="#__codelineno-64-13"></a>RolloutAdapter
+<a id="__codelineno-64-14" name="__codelineno-64-14" href="#__codelineno-64-14"></a>        ↓
+<a id="__codelineno-64-15" name="__codelineno-64-15" href="#__codelineno-64-15"></a>critic-only input builder
+<a id="__codelineno-64-16" name="__codelineno-64-16" href="#__codelineno-64-16"></a>        ↓
+<a id="__codelineno-64-17" name="__codelineno-64-17" href="#__codelineno-64-17"></a>CAPO / PPO trainer
+<a id="__codelineno-64-18" name="__codelineno-64-18" href="#__codelineno-64-18"></a>        ↓
+<a id="__codelineno-64-19" name="__codelineno-64-19" href="#__codelineno-64-19"></a>compute_values + update_critic
+</code></pre></div>
+<hr />
+<h1 id="29">29. 推荐新增模块<a class="headerlink" href="#29" title="Permanent link">&para;</a></h1>
+<p>建议新增类似：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-65-1" name="__codelineno-65-1" href="#__codelineno-65-1"></a>agentlightning/privileged_state/
+<a id="__codelineno-65-2" name="__codelineno-65-2" href="#__codelineno-65-2"></a>    __init__.py
+<a id="__codelineno-65-3" name="__codelineno-65-3" href="#__codelineno-65-3"></a>    snapshot.py
+<a id="__codelineno-65-4" name="__codelineno-65-4" href="#__codelineno-65-4"></a>    filesystem.py
+<a id="__codelineno-65-5" name="__codelineno-65-5" href="#__codelineno-65-5"></a>    runtime.py
+<a id="__codelineno-65-6" name="__codelineno-65-6" href="#__codelineno-65-6"></a>    canonicalize.py
+<a id="__codelineno-65-7" name="__codelineno-65-7" href="#__codelineno-65-7"></a>    diff.py
+<a id="__codelineno-65-8" name="__codelineno-65-8" href="#__codelineno-65-8"></a>    serialize.py
+</code></pre></div>
+<p>以及：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-66-1" name="__codelineno-66-1" href="#__codelineno-66-1"></a>agentlightning/verl/privileged_critic.py
+</code></pre></div>
+<p>具体文件位置可根据当前分支结构调整。</p>
+<p>环境相关 snapshot adapter 可放：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-67-1" name="__codelineno-67-1" href="#__codelineno-67-1"></a>examples/multiturn_ppo/
+</code></pre></div>
+<p>或者当前 SWE agent 所在目录。</p>
+<p>核心要求是：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-68-1" name="__codelineno-68-1" href="#__codelineno-68-1"></a>generic state engine
+</code></pre></div>
+<p>不要把 repo/task semantic rule 写进 trainer。</p>
+<hr />
+<h1 id="30">30. 推荐的数据字段<a class="headerlink" href="#30" title="Permanent link">&para;</a></h1>
+<p>每次 model call 至少保存：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-69-1" name="__codelineno-69-1" href="#__codelineno-69-1"></a>rollout_id
+<a id="__codelineno-69-2" name="__codelineno-69-2" href="#__codelineno-69-2"></a>attempt_id
+<a id="__codelineno-69-3" name="__codelineno-69-3" href="#__codelineno-69-3"></a>turn_index
+<a id="__codelineno-69-4" name="__codelineno-69-4" href="#__codelineno-69-4"></a>logical_call_id
+<a id="__codelineno-69-5" name="__codelineno-69-5" href="#__codelineno-69-5"></a>
+<a id="__codelineno-69-6" name="__codelineno-69-6" href="#__codelineno-69-6"></a>snapshot_sequence
+<a id="__codelineno-69-7" name="__codelineno-69-7" href="#__codelineno-69-7"></a>snapshot_timestamp
+<a id="__codelineno-69-8" name="__codelineno-69-8" href="#__codelineno-69-8"></a>state_schema_version
+<a id="__codelineno-69-9" name="__codelineno-69-9" href="#__codelineno-69-9"></a>state_hash
+<a id="__codelineno-69-10" name="__codelineno-69-10" href="#__codelineno-69-10"></a>privileged_state_ref
+<a id="__codelineno-69-11" name="__codelineno-69-11" href="#__codelineno-69-11"></a>
+<a id="__codelineno-69-12" name="__codelineno-69-12" href="#__codelineno-69-12"></a>actor_prompt_hash
+<a id="__codelineno-69-13" name="__codelineno-69-13" href="#__codelineno-69-13"></a>actor_prompt_tokens
+<a id="__codelineno-69-14" name="__codelineno-69-14" href="#__codelineno-69-14"></a>response_tokens
+<a id="__codelineno-69-15" name="__codelineno-69-15" href="#__codelineno-69-15"></a>
+<a id="__codelineno-69-16" name="__codelineno-69-16" href="#__codelineno-69-16"></a>pi_budget_tokens
+<a id="__codelineno-69-17" name="__codelineno-69-17" href="#__codelineno-69-17"></a>pi_serialized_tokens
+<a id="__codelineno-69-18" name="__codelineno-69-18" href="#__codelineno-69-18"></a>pi_truncated
+<a id="__codelineno-69-19" name="__codelineno-69-19" href="#__codelineno-69-19"></a>
+<a id="__codelineno-69-20" name="__codelineno-69-20" href="#__codelineno-69-20"></a>terminated
+<a id="__codelineno-69-21" name="__codelineno-69-21" href="#__codelineno-69-21"></a>truncated
+<a id="__codelineno-69-22" name="__codelineno-69-22" href="#__codelineno-69-22"></a>termination_reason
+</code></pre></div>
+<hr />
+<h1 id="31-actor-leakage">31. Actor Leakage 自动断言<a class="headerlink" href="#31-actor-leakage" title="Permanent link">&para;</a></h1>
+<p>正式训练前必须有 hard assertion：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-70-1" name="__codelineno-70-1" href="#__codelineno-70-1"></a>Actor prompt 不含 PI marker
+<a id="__codelineno-70-2" name="__codelineno-70-2" href="#__codelineno-70-2"></a>Actor input_ids 与 baseline builder 一致
+<a id="__codelineno-70-3" name="__codelineno-70-3" href="#__codelineno-70-3"></a>Actor old/ref logprob 使用 Actor inputs
+<a id="__codelineno-70-4" name="__codelineno-70-4" href="#__codelineno-70-4"></a>Actor PPO update 使用 Actor inputs
+<a id="__codelineno-70-5" name="__codelineno-70-5" href="#__codelineno-70-5"></a>
+<a id="__codelineno-70-6" name="__codelineno-70-6" href="#__codelineno-70-6"></a>Critic prompt 包含正确 PI
+<a id="__codelineno-70-7" name="__codelineno-70-7" href="#__codelineno-70-7"></a>compute_values 使用 Critic view
+<a id="__codelineno-70-8" name="__codelineno-70-8" href="#__codelineno-70-8"></a>update_critic 使用同一 Critic view
+<a id="__codelineno-70-9" name="__codelineno-70-9" href="#__codelineno-70-9"></a>
+<a id="__codelineno-70-10" name="__codelineno-70-10" href="#__codelineno-70-10"></a>Critic response_ids == Actor response_ids
+<a id="__codelineno-70-11" name="__codelineno-70-11" href="#__codelineno-70-11"></a>Critic response_mask == Actor response_mask
+<a id="__codelineno-70-12" name="__codelineno-70-12" href="#__codelineno-70-12"></a>
+<a id="__codelineno-70-13" name="__codelineno-70-13" href="#__codelineno-70-13"></a>state_timestamp &lt; model_request timestamp
+<a id="__codelineno-70-14" name="__codelineno-70-14" href="#__codelineno-70-14"></a>state turn / call id 唯一匹配
+</code></pre></div>
+<p>失败应：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-71-1" name="__codelineno-71-1" href="#__codelineno-71-1"></a>raise / reject sample
+</code></pre></div>
+<p>不要仅 warning。</p>
+<hr />
+<h1 id="32">32. 单元测试<a class="headerlink" href="#32" title="Permanent link">&para;</a></h1>
+<p>至少覆盖以下测试。</p>
+<h2 id="321-snapshot">32.1 Snapshot<a class="headerlink" href="#321-snapshot" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-72-1" name="__codelineno-72-1" href="#__codelineno-72-1"></a>文件未变化 -&gt; diff 中不存在
+<a id="__codelineno-72-2" name="__codelineno-72-2" href="#__codelineno-72-2"></a>文件修改 -&gt; changed
+<a id="__codelineno-72-3" name="__codelineno-72-3" href="#__codelineno-72-3"></a>文件新增 -&gt; added
+<a id="__codelineno-72-4" name="__codelineno-72-4" href="#__codelineno-72-4"></a>文件删除 -&gt; removed
+<a id="__codelineno-72-5" name="__codelineno-72-5" href="#__codelineno-72-5"></a>修改后恢复初始 -&gt; cumulative diff 消失
+<a id="__codelineno-72-6" name="__codelineno-72-6" href="#__codelineno-72-6"></a>binary -&gt; 不读全文，只 metadata/hash
+</code></pre></div>
+<h2 id="322-runtime">32.2 Runtime<a class="headerlink" href="#322-runtime" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-73-1" name="__codelineno-73-1" href="#__codelineno-73-1"></a>后台进程启动 -&gt; added
+<a id="__codelineno-73-2" name="__codelineno-73-2" href="#__codelineno-73-2"></a>后台进程退出 -&gt; 与初始一致时消失
+<a id="__codelineno-73-3" name="__codelineno-73-3" href="#__codelineno-73-3"></a>监听端口出现 -&gt; added
+<a id="__codelineno-73-4" name="__codelineno-73-4" href="#__codelineno-73-4"></a>rollout 外进程 -&gt; 不可见
+</code></pre></div>
+<h2 id="323">32.3 时间对齐<a class="headerlink" href="#323" title="Permanent link">&para;</a></h2>
+<p>构造两步轨迹：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-74-1" name="__codelineno-74-1" href="#__codelineno-74-1"></a>S0
+<a id="__codelineno-74-2" name="__codelineno-74-2" href="#__codelineno-74-2"></a> -&gt; call 0 uses Z0
+<a id="__codelineno-74-3" name="__codelineno-74-3" href="#__codelineno-74-3"></a> -&gt; execute a0
+<a id="__codelineno-74-4" name="__codelineno-74-4" href="#__codelineno-74-4"></a> -&gt; S1
+<a id="__codelineno-74-5" name="__codelineno-74-5" href="#__codelineno-74-5"></a> -&gt; call 1 uses Z1
+</code></pre></div>
+<p>断言：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-75-1" name="__codelineno-75-1" href="#__codelineno-75-1"></a>call0 不能看到 S1
+</code></pre></div>
+<h2 id="324-request-retry">32.4 Request Retry<a class="headerlink" href="#324-request-retry" title="Permanent link">&para;</a></h2>
+<p>相同 prompt 重试：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-76-1" name="__codelineno-76-1" href="#__codelineno-76-1"></a>logical_call_id A
+<a id="__codelineno-76-2" name="__codelineno-76-2" href="#__codelineno-76-2"></a>logical_call_id B
+</code></pre></div>
+<p>必须能够唯一绑定 state 和 response。</p>
+<h2 id="325-context">32.5 Context<a class="headerlink" href="#325-context" title="Permanent link">&para;</a></h2>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-77-1" name="__codelineno-77-1" href="#__codelineno-77-1"></a>Actor prompt 很长
+<a id="__codelineno-77-2" name="__codelineno-77-2" href="#__codelineno-77-2"></a>PI 很长
+</code></pre></div>
+<p>断言：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-78-1" name="__codelineno-78-1" href="#__codelineno-78-1"></a>Actor H_t 不被 PI 截断
+<a id="__codelineno-78-2" name="__codelineno-78-2" href="#__codelineno-78-2"></a>PI 被 budget 截断
+<a id="__codelineno-78-3" name="__codelineno-78-3" href="#__codelineno-78-3"></a>response 不错位
+</code></pre></div>
+<h2 id="326-actor-critic-view">32.6 Actor / Critic View<a class="headerlink" href="#326-actor-critic-view" title="Permanent link">&para;</a></h2>
+<p>断言：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-79-1" name="__codelineno-79-1" href="#__codelineno-79-1"></a>actor tensor unchanged
+<a id="__codelineno-79-2" name="__codelineno-79-2" href="#__codelineno-79-2"></a>critic tensor different
+<a id="__codelineno-79-3" name="__codelineno-79-3" href="#__codelineno-79-3"></a>same response IDs
+<a id="__codelineno-79-4" name="__codelineno-79-4" href="#__codelineno-79-4"></a>same response mask
+<a id="__codelineno-79-5" name="__codelineno-79-5" href="#__codelineno-79-5"></a>batch 原对象未被原地修改
+</code></pre></div>
+<hr />
+<h1 id="33-smoke-test">33. Smoke Test<a class="headerlink" href="#33-smoke-test" title="Permanent link">&para;</a></h1>
+<p>正式训练前做小型真实环境 smoke。</p>
+<p>必须验证：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-80-1" name="__codelineno-80-1" href="#__codelineno-80-1"></a>1. raw snapshot 能生成
+<a id="__codelineno-80-2" name="__codelineno-80-2" href="#__codelineno-80-2"></a>2. privileged_state event 能到 Gateway
+<a id="__codelineno-80-3" name="__codelineno-80-3" href="#__codelineno-80-3"></a>3. RolloutManager 能唯一配对
+<a id="__codelineno-80-4" name="__codelineno-80-4" href="#__codelineno-80-4"></a>4. RolloutAdapter 能生成 Critic view
+<a id="__codelineno-80-5" name="__codelineno-80-5" href="#__codelineno-80-5"></a>5. compute_values 正常
+<a id="__codelineno-80-6" name="__codelineno-80-6" href="#__codelineno-80-6"></a>6. update_critic 正常
+<a id="__codelineno-80-7" name="__codelineno-80-7" href="#__codelineno-80-7"></a>7. Actor logprob 不变
+<a id="__codelineno-80-8" name="__codelineno-80-8" href="#__codelineno-80-8"></a>8. token GAE 正常
+<a id="__codelineno-80-9" name="__codelineno-80-9" href="#__codelineno-80-9"></a>9. Actor/critic 两组件可保存
+<a id="__codelineno-80-10" name="__codelineno-80-10" href="#__codelineno-80-10"></a>10. 无明显 context overflow / OOM
+</code></pre></div>
+<p>零成功 smoke 只能验证通路，不能验证方法效果。</p>
+<hr />
+<h1 id="34-pi-size-audit">34. PI-size Audit 阶段<a class="headerlink" href="#34-pi-size-audit" title="Permanent link">&para;</a></h1>
+<p>建议先不改训练：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-81-1" name="__codelineno-81-1" href="#__codelineno-81-1"></a>privileged_state_enabled = capture_only
+</code></pre></div>
+<p>只采集：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-82-1" name="__codelineno-82-1" href="#__codelineno-82-1"></a>snapshot
+<a id="__codelineno-82-2" name="__codelineno-82-2" href="#__codelineno-82-2"></a>delta
+<a id="__codelineno-82-3" name="__codelineno-82-3" href="#__codelineno-82-3"></a>serialization stats
+<a id="__codelineno-82-4" name="__codelineno-82-4" href="#__codelineno-82-4"></a>context headroom
+</code></pre></div>
+<p>不送 Critic。</p>
+<p>目标：</p>
+<ul>
+<li>确定 4K 是否足够；</li>
+<li>确定 snapshot 开销；</li>
+<li>确定文件 diff 的长尾；</li>
+<li>确定 process/socket 是否经常非空；</li>
+<li>检查是否出现 context 无余量的 turn。</li>
+</ul>
+<hr />
+<h1 id="35">35. 正式实验的最小对照<a class="headerlink" href="#35" title="Permanent link">&para;</a></h1>
+<p>第一轮主实验只做：</p>
+<h2 id="baseline">Baseline<a class="headerlink" href="#baseline" title="Permanent link">&para;</a></h2>
+<p>[
+V(H_t)
+]</p>
+<h2 id="sandbox-state-privileged-critic_1">Sandbox-State Privileged Critic<a class="headerlink" href="#sandbox-state-privileged-critic_1" title="Permanent link">&para;</a></h2>
+<p>[
+V(H_t,Z_t)
+]</p>
+<p>两组保持：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-83-1" name="__codelineno-83-1" href="#__codelineno-83-1"></a>Actor model
+<a id="__codelineno-83-2" name="__codelineno-83-2" href="#__codelineno-83-2"></a>Critic model
+<a id="__codelineno-83-3" name="__codelineno-83-3" href="#__codelineno-83-3"></a>reward
+<a id="__codelineno-83-4" name="__codelineno-83-4" href="#__codelineno-83-4"></a>PPO
+<a id="__codelineno-83-5" name="__codelineno-83-5" href="#__codelineno-83-5"></a>token GAE
+<a id="__codelineno-83-6" name="__codelineno-83-6" href="#__codelineno-83-6"></a>gamma / lambda
+<a id="__codelineno-83-7" name="__codelineno-83-7" href="#__codelineno-83-7"></a>LR
+<a id="__codelineno-83-8" name="__codelineno-83-8" href="#__codelineno-83-8"></a>batch
+<a id="__codelineno-83-9" name="__codelineno-83-9" href="#__codelineno-83-9"></a>sampling
+<a id="__codelineno-83-10" name="__codelineno-83-10" href="#__codelineno-83-10"></a>prompt
+<a id="__codelineno-83-11" name="__codelineno-83-11" href="#__codelineno-83-11"></a>context policy
+<a id="__codelineno-83-12" name="__codelineno-83-12" href="#__codelineno-83-12"></a>validation
+<a id="__codelineno-83-13" name="__codelineno-83-13" href="#__codelineno-83-13"></a>training data
+</code></pre></div>
+<p>全部一致。</p>
+<p>研究主变量只有：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-84-1" name="__codelineno-84-1" href="#__codelineno-84-1"></a>Critic 是否收到 sandbox PI
+</code></pre></div>
+<hr />
+<h1 id="36">36. 后续机制对照<a class="headerlink" href="#36" title="Permanent link">&para;</a></h1>
+<p>主实验稳定后，再考虑：</p>
+<h2 id="history-derived-state-summary">History-derived state summary<a class="headerlink" href="#history-derived-state-summary" title="Permanent link">&para;</a></h2>
+<p>[
+V(H_t,\hat Z(H_t))
+]</p>
+<p>仅从 Actor 已见 history 构造 state summary。</p>
+<p>用于区分：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-85-1" name="__codelineno-85-1" href="#__codelineno-85-1"></a>真实信息增量
+<a id="__codelineno-85-2" name="__codelineno-85-2" href="#__codelineno-85-2"></a>vs
+<a id="__codelineno-85-3" name="__codelineno-85-3" href="#__codelineno-85-3"></a>只是更方便的 state representation
+</code></pre></div>
+<h2 id="shuffled-state">Shuffled State<a class="headerlink" href="#shuffled-state" title="Permanent link">&para;</a></h2>
+<p>将其他 rollout 的 <span class="arithmatex">\(Z\)</span> 给当前 Critic。</p>
+<p>验证收益是否来自正确 state，而不是额外文本长度。</p>
+<h2 id="full-tool-feedback">Full Tool Feedback<a class="headerlink" href="#full-tool-feedback" title="Permanent link">&para;</a></h2>
+<p>加入 Actor 被截断的 stdout/stderr。</p>
+<p>单独实验，不与主方法混合。</p>
+<h2 id="full-current-state">Full Current State<a class="headerlink" href="#full-current-state" title="Permanent link">&para;</a></h2>
+<p>与 cumulative delta 对比，分析 compression 是否损失信息。</p>
+<h2 id="learned-state-encoder">Learned State Encoder<a class="headerlink" href="#learned-state-encoder" title="Permanent link">&para;</a></h2>
+<p>只有 text PI context 成为明显瓶颈时再做。</p>
+<hr />
+<h1 id="37">37. 第一版明确不做的事情<a class="headerlink" href="#37" title="Permanent link">&para;</a></h1>
+<p>实施 Agent 不要顺手加入：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-86-1" name="__codelineno-86-1" href="#__codelineno-86-1"></a>gold patch
+<a id="__codelineno-86-2" name="__codelineno-86-2" href="#__codelineno-86-2"></a>hidden tests
+<a id="__codelineno-86-3" name="__codelineno-86-3" href="#__codelineno-86-3"></a>goal progress
+<a id="__codelineno-86-4" name="__codelineno-86-4" href="#__codelineno-86-4"></a>grader progress
+<a id="__codelineno-86-5" name="__codelineno-86-5" href="#__codelineno-86-5"></a>test pass ratio
+<a id="__codelineno-86-6" name="__codelineno-86-6" href="#__codelineno-86-6"></a>final outcome
+<a id="__codelineno-86-7" name="__codelineno-86-7" href="#__codelineno-86-7"></a>future state
+<a id="__codelineno-86-8" name="__codelineno-86-8" href="#__codelineno-86-8"></a>
+<a id="__codelineno-86-9" name="__codelineno-86-9" href="#__codelineno-86-9"></a>Actor-visible PI
+<a id="__codelineno-86-10" name="__codelineno-86-10" href="#__codelineno-86-10"></a>reward shaping
+<a id="__codelineno-86-11" name="__codelineno-86-11" href="#__codelineno-86-11"></a>新的 process reward
+<a id="__codelineno-86-12" name="__codelineno-86-12" href="#__codelineno-86-12"></a>
+<a id="__codelineno-86-13" name="__codelineno-86-13" href="#__codelineno-86-13"></a>critic warmup
+<a id="__codelineno-86-14" name="__codelineno-86-14" href="#__codelineno-86-14"></a>新的 LR
+<a id="__codelineno-86-15" name="__codelineno-86-15" href="#__codelineno-86-15"></a>新的 PPO clip
+<a id="__codelineno-86-16" name="__codelineno-86-16" href="#__codelineno-86-16"></a>新的 gamma/lambda
+<a id="__codelineno-86-17" name="__codelineno-86-17" href="#__codelineno-86-17"></a>新的 Actor prompt
+<a id="__codelineno-86-18" name="__codelineno-86-18" href="#__codelineno-86-18"></a>新的 reward
+<a id="__codelineno-86-19" name="__codelineno-86-19" href="#__codelineno-86-19"></a>新的 architecture
+<a id="__codelineno-86-20" name="__codelineno-86-20" href="#__codelineno-86-20"></a>learned state encoder
+</code></pre></div>
+<p>如果发现当前 baseline bug，则应先独立说明并修复 baseline，而不是把修复混进 PI 实验。</p>
+<hr />
+<h1 id="38-baseline">38. 当前 Baseline 需要保持的关键设置<a class="headerlink" href="#38-baseline" title="Permanent link">&para;</a></h1>
+<p>根据 2026-09-14 的正式 SWE PPO handoff，当前主 baseline 为：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-87-1" name="__codelineno-87-1" href="#__codelineno-87-1"></a>Model:
+<a id="__codelineno-87-2" name="__codelineno-87-2" href="#__codelineno-87-2"></a>    Qwen3-4B-Instruct-2507
+<a id="__codelineno-87-3" name="__codelineno-87-3" href="#__codelineno-87-3"></a>
+<a id="__codelineno-87-4" name="__codelineno-87-4" href="#__codelineno-87-4"></a>PPO backend:
+<a id="__codelineno-87-5" name="__codelineno-87-5" href="#__codelineno-87-5"></a>    CAPO
+<a id="__codelineno-87-6" name="__codelineno-87-6" href="#__codelineno-87-6"></a>
+<a id="__codelineno-87-7" name="__codelineno-87-7" href="#__codelineno-87-7"></a>Data:
+<a id="__codelineno-87-8" name="__codelineno-87-8" href="#__codelineno-87-8"></a>    6248 Python train
+<a id="__codelineno-87-9" name="__codelineno-87-9" href="#__codelineno-87-9"></a>    470 Python val
+<a id="__codelineno-87-10" name="__codelineno-87-10" href="#__codelineno-87-10"></a>
+<a id="__codelineno-87-11" name="__codelineno-87-11" href="#__codelineno-87-11"></a>Train:
+<a id="__codelineno-87-12" name="__codelineno-87-12" href="#__codelineno-87-12"></a>    4 epochs
+<a id="__codelineno-87-13" name="__codelineno-87-13" href="#__codelineno-87-13"></a>    784 PPO steps
+<a id="__codelineno-87-14" name="__codelineno-87-14" href="#__codelineno-87-14"></a>
+<a id="__codelineno-87-15" name="__codelineno-87-15" href="#__codelineno-87-15"></a>Task batch:
+<a id="__codelineno-87-16" name="__codelineno-87-16" href="#__codelineno-87-16"></a>    32
+<a id="__codelineno-87-17" name="__codelineno-87-17" href="#__codelineno-87-17"></a>
+<a id="__codelineno-87-18" name="__codelineno-87-18" href="#__codelineno-87-18"></a>PPO minibatch:
+<a id="__codelineno-87-19" name="__codelineno-87-19" href="#__codelineno-87-19"></a>    32
+<a id="__codelineno-87-20" name="__codelineno-87-20" href="#__codelineno-87-20"></a>
+<a id="__codelineno-87-21" name="__codelineno-87-21" href="#__codelineno-87-21"></a>Actor / critic LR:
+<a id="__codelineno-87-22" name="__codelineno-87-22" href="#__codelineno-87-22"></a>    1e-6 / 1e-5
+<a id="__codelineno-87-23" name="__codelineno-87-23" href="#__codelineno-87-23"></a>
+<a id="__codelineno-87-24" name="__codelineno-87-24" href="#__codelineno-87-24"></a>gamma:
+<a id="__codelineno-87-25" name="__codelineno-87-25" href="#__codelineno-87-25"></a>    1
+<a id="__codelineno-87-26" name="__codelineno-87-26" href="#__codelineno-87-26"></a>
+<a id="__codelineno-87-27" name="__codelineno-87-27" href="#__codelineno-87-27"></a>lambda:
+<a id="__codelineno-87-28" name="__codelineno-87-28" href="#__codelineno-87-28"></a>    1
+<a id="__codelineno-87-29" name="__codelineno-87-29" href="#__codelineno-87-29"></a>
+<a id="__codelineno-87-30" name="__codelineno-87-30" href="#__codelineno-87-30"></a>PPO clip:
+<a id="__codelineno-87-31" name="__codelineno-87-31" href="#__codelineno-87-31"></a>    0.2
+<a id="__codelineno-87-32" name="__codelineno-87-32" href="#__codelineno-87-32"></a>
+<a id="__codelineno-87-33" name="__codelineno-87-33" href="#__codelineno-87-33"></a>KL:
+<a id="__codelineno-87-34" name="__codelineno-87-34" href="#__codelineno-87-34"></a>    0.001
+<a id="__codelineno-87-35" name="__codelineno-87-35" href="#__codelineno-87-35"></a>
+<a id="__codelineno-87-36" name="__codelineno-87-36" href="#__codelineno-87-36"></a>GAE:
+<a id="__codelineno-87-37" name="__codelineno-87-37" href="#__codelineno-87-37"></a>    token GAE
+<a id="__codelineno-87-38" name="__codelineno-87-38" href="#__codelineno-87-38"></a>
+<a id="__codelineno-87-39" name="__codelineno-87-39" href="#__codelineno-87-39"></a>Turns:
+<a id="__codelineno-87-40" name="__codelineno-87-40" href="#__codelineno-87-40"></a>    32
+<a id="__codelineno-87-41" name="__codelineno-87-41" href="#__codelineno-87-41"></a>
+<a id="__codelineno-87-42" name="__codelineno-87-42" href="#__codelineno-87-42"></a>Response max:
+<a id="__codelineno-87-43" name="__codelineno-87-43" href="#__codelineno-87-43"></a>    4096
+<a id="__codelineno-87-44" name="__codelineno-87-44" href="#__codelineno-87-44"></a>
+<a id="__codelineno-87-45" name="__codelineno-87-45" href="#__codelineno-87-45"></a>Context:
+<a id="__codelineno-87-46" name="__codelineno-87-46" href="#__codelineno-87-46"></a>    65536
+<a id="__codelineno-87-47" name="__codelineno-87-47" href="#__codelineno-87-47"></a>
+<a id="__codelineno-87-48" name="__codelineno-87-48" href="#__codelineno-87-48"></a>Observation char cap:
+<a id="__codelineno-87-49" name="__codelineno-87-49" href="#__codelineno-87-49"></a>    32000
+<a id="__codelineno-87-50" name="__codelineno-87-50" href="#__codelineno-87-50"></a>
+<a id="__codelineno-87-51" name="__codelineno-87-51" href="#__codelineno-87-51"></a>Validation:
+<a id="__codelineno-87-52" name="__codelineno-87-52" href="#__codelineno-87-52"></a>    initial
+<a id="__codelineno-87-53" name="__codelineno-87-53" href="#__codelineno-87-53"></a>    every 20 steps
+<a id="__codelineno-87-54" name="__codelineno-87-54" href="#__codelineno-87-54"></a>    final
+</code></pre></div>
+<p>PI 实验原则上应继承该 baseline，而不是重新设计训练 recipe。</p>
+<p>实际实现时必须再次检查当前 run 的 <code>resolved-config.json</code>，不能只依赖本文。</p>
+<hr />
+<h1 id="39-context">39. 对 Context 长度的正式决策流程<a class="headerlink" href="#39-context" title="Permanent link">&para;</a></h1>
+<p>实施 Agent 不要直接把 Critic context 改成更大。</p>
+<p>先按以下顺序：</p>
+<h3 id="step-a">Step A<a class="headerlink" href="#step-a" title="Permanent link">&para;</a></h3>
+<p>保持：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-88-1" name="__codelineno-88-1" href="#__codelineno-88-1"></a>critic context = current baseline context
+</code></pre></div>
+<p>PI dynamic budget 先设：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-89-1" name="__codelineno-89-1" href="#__codelineno-89-1"></a>max 4096
+</code></pre></div>
+<p>Actor H 不截。</p>
+<h3 id="step-b">Step B<a class="headerlink" href="#step-b" title="Permanent link">&para;</a></h3>
+<p>通过 capture-only audit 统计：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-90-1" name="__codelineno-90-1" href="#__codelineno-90-1"></a>4K state coverage
+<a id="__codelineno-90-2" name="__codelineno-90-2" href="#__codelineno-90-2"></a>context headroom
+<a id="__codelineno-90-3" name="__codelineno-90-3" href="#__codelineno-90-3"></a>PI truncation rate
+</code></pre></div>
+<h3 id="step-c">Step C<a class="headerlink" href="#step-c" title="Permanent link">&para;</a></h3>
+<p>如果大量样本 PI 因为 context headroom 不足被截：</p>
+<p>再单独测试：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-91-1" name="__codelineno-91-1" href="#__codelineno-91-1"></a>critic context 72K / 80K
+</code></pre></div>
+<p>但这属于系统容量实验。</p>
+<p>必须测：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-92-1" name="__codelineno-92-1" href="#__codelineno-92-1"></a>critic forward memory
+<a id="__codelineno-92-2" name="__codelineno-92-2" href="#__codelineno-92-2"></a>critic update memory
+<a id="__codelineno-92-3" name="__codelineno-92-3" href="#__codelineno-92-3"></a>throughput
+<a id="__codelineno-92-4" name="__codelineno-92-4" href="#__codelineno-92-4"></a>OOM
+</code></pre></div>
+<p>不能直接用于主实验而不说明额外成本。</p>
+<hr />
+<h1 id="40">40. 成功验收标准<a class="headerlink" href="#40" title="Permanent link">&para;</a></h1>
+<p>第一版实现完成必须满足：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-93-1" name="__codelineno-93-1" href="#__codelineno-93-1"></a>[ ] Actor 输入 byte/token 级不含 PI
+<a id="__codelineno-93-2" name="__codelineno-93-2" href="#__codelineno-93-2"></a>[ ] reward 不变
+<a id="__codelineno-93-3" name="__codelineno-93-3" href="#__codelineno-93-3"></a>[ ] PPO objective 不变
+<a id="__codelineno-93-4" name="__codelineno-93-4" href="#__codelineno-93-4"></a>[ ] GAE 不变
+<a id="__codelineno-93-5" name="__codelineno-93-5" href="#__codelineno-93-5"></a>[ ] PI 为 action 前 state
+<a id="__codelineno-93-6" name="__codelineno-93-6" href="#__codelineno-93-6"></a>[ ] hidden evaluator info 不进入 PI
+<a id="__codelineno-93-7" name="__codelineno-93-7" href="#__codelineno-93-7"></a>[ ] 每个 Triplet 唯一匹配 state
+<a id="__codelineno-93-8" name="__codelineno-93-8" href="#__codelineno-93-8"></a>[ ] Actor H 不因 PI 被截
+<a id="__codelineno-93-9" name="__codelineno-93-9" href="#__codelineno-93-9"></a>[ ] Critic-only tensor 独立
+<a id="__codelineno-93-10" name="__codelineno-93-10" href="#__codelineno-93-10"></a>[ ] compute_values / update_critic 都使用 PI view
+<a id="__codelineno-93-11" name="__codelineno-93-11" href="#__codelineno-93-11"></a>[ ] filesystem cumulative delta 正确
+<a id="__codelineno-93-12" name="__codelineno-93-12" href="#__codelineno-93-12"></a>[ ] runtime state 局限在 rollout sandbox
+<a id="__codelineno-93-13" name="__codelineno-93-13" href="#__codelineno-93-13"></a>[ ] 4K budget 的截断行为可审计
+<a id="__codelineno-93-14" name="__codelineno-93-14" href="#__codelineno-93-14"></a>[ ] snapshot / serialize 性能有日志
+<a id="__codelineno-93-15" name="__codelineno-93-15" href="#__codelineno-93-15"></a>[ ] 小规模真实训练可以完成 Actor/Critic update
+<a id="__codelineno-93-16" name="__codelineno-93-16" href="#__codelineno-93-16"></a>[ ] checkpoint actor + critic 完整
+</code></pre></div>
+<hr />
+<h1 id="41">41. 论文主叙事<a class="headerlink" href="#41" title="Permanent link">&para;</a></h1>
+<p>不要写成：</p>
+<blockquote>
+<p>We manually design privileged features for SWE tasks.</p>
+</blockquote>
+<p>建议写成：</p>
+<blockquote>
+<p>We treat the software execution sandbox as the simulator state of a software-engineering agent.</p>
+</blockquote>
+<p>Actor：</p>
+<p>[
+\pi_\theta(a_t\mid H_t)
+]</p>
+<p>Critic：</p>
+<p>[
+V_\phi(H_t,Z_t)
+]</p>
+<p>其中：</p>
+<p>[
+Z_t
+=
+\text{current out-of-band sandbox state}
+]</p>
+<p>为了控制 context：</p>
+<p>[
+\tilde Z_t
+=
+D(Z_0,Z_t)
+]</p>
+<p>并做 budgeted serialization。</p>
+<p>更完整的一句话：</p>
+<blockquote>
+<p>Long-horizon software agents interact with a persistent execution environment whose realized state is only partially reflected in terminal transcripts. We therefore train an asymmetric value function that additionally observes the pre-action state of the task sandbox, while keeping the policy, reward, and deployment interface unchanged.</p>
+</blockquote>
+<hr />
+<h1 id="42">42. 与相关工作的边界<a class="headerlink" href="#42" title="Permanent link">&para;</a></h1>
+<p>当前 idea 不应 claim：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-94-1" name="__codelineno-94-1" href="#__codelineno-94-1"></a>首次提出 privileged value function
+</code></pre></div>
+<p>更合理的定位是：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-95-1" name="__codelineno-95-1" href="#__codelineno-95-1"></a>Privileged Value Function
+<a id="__codelineno-95-2" name="__codelineno-95-2" href="#__codelineno-95-2"></a>+
+<a id="__codelineno-95-3" name="__codelineno-95-3" href="#__codelineno-95-3"></a>real long-horizon SWE agent
+<a id="__codelineno-95-4" name="__codelineno-95-4" href="#__codelineno-95-4"></a>+
+<a id="__codelineno-95-5" name="__codelineno-95-5" href="#__codelineno-95-5"></a>environment-side sandbox state
+<a id="__codelineno-95-6" name="__codelineno-95-6" href="#__codelineno-95-6"></a>+
+<a id="__codelineno-95-7" name="__codelineno-95-7" href="#__codelineno-95-7"></a>strict PPO value baseline
+</code></pre></div>
+<p>与 hindsight / retrospective 方法不同：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-96-1" name="__codelineno-96-1" href="#__codelineno-96-1"></a>future trajectory
+<a id="__codelineno-96-2" name="__codelineno-96-2" href="#__codelineno-96-2"></a>gold answer
+<a id="__codelineno-96-3" name="__codelineno-96-3" href="#__codelineno-96-3"></a>final verifier
+<a id="__codelineno-96-4" name="__codelineno-96-4" href="#__codelineno-96-4"></a>final reward
+</code></pre></div>
+<p>不进入 Critic PI。</p>
+<p>方法的特色是：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-97-1" name="__codelineno-97-1" href="#__codelineno-97-1"></a>current pre-action environment state
+</code></pre></div>
+<hr />
+<h1 id="43-agent">43. 实施 Agent 推荐执行顺序<a class="headerlink" href="#43-agent" title="Permanent link">&para;</a></h1>
+<h2 id="phase-0">Phase 0：只读核对当前源码<a class="headerlink" href="#phase-0" title="Permanent link">&para;</a></h2>
+<p>确认当前自定义工作树：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-98-1" name="__codelineno-98-1" href="#__codelineno-98-1"></a>full_python_agent.py
+<a id="__codelineno-98-2" name="__codelineno-98-2" href="#__codelineno-98-2"></a>Gateway event path
+<a id="__codelineno-98-3" name="__codelineno-98-3" href="#__codelineno-98-3"></a>AglRolloutManager
+<a id="__codelineno-98-4" name="__codelineno-98-4" href="#__codelineno-98-4"></a>RolloutAdapter
+<a id="__codelineno-98-5" name="__codelineno-98-5" href="#__codelineno-98-5"></a>CAPO trainer adapter
+<a id="__codelineno-98-6" name="__codelineno-98-6" href="#__codelineno-98-6"></a>current resolved config
+</code></pre></div>
+<p>不要直接根据公开 main 的文件行号修改。</p>
+<h2 id="phase-1-snapshotter">Phase 1：实现 Snapshotter<a class="headerlink" href="#phase-1-snapshotter" title="Permanent link">&para;</a></h2>
+<p>仅：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-99-1" name="__codelineno-99-1" href="#__codelineno-99-1"></a>filesystem
+<a id="__codelineno-99-2" name="__codelineno-99-2" href="#__codelineno-99-2"></a>process
+<a id="__codelineno-99-3" name="__codelineno-99-3" href="#__codelineno-99-3"></a>socket
+</code></pre></div>
+<p>并有 deterministic schema / hash。</p>
+<h2 id="phase-2capture-only">Phase 2：Capture-only<a class="headerlink" href="#phase-2capture-only" title="Permanent link">&para;</a></h2>
+<p>在真实 rollout 中 action 前采 snapshot。</p>
+<p>落盘。</p>
+<p>不送 Critic。</p>
+<p>跑 PI-size audit。</p>
+<h2 id="phase-3event-alignment">Phase 3：Event + Alignment<a class="headerlink" href="#phase-3event-alignment" title="Permanent link">&para;</a></h2>
+<p>实现：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-100-1" name="__codelineno-100-1" href="#__codelineno-100-1"></a>logical_call_id
+<a id="__codelineno-100-2" name="__codelineno-100-2" href="#__codelineno-100-2"></a>privileged_state event
+<a id="__codelineno-100-3" name="__codelineno-100-3" href="#__codelineno-100-3"></a>unique Triplet matching
+</code></pre></div>
+<h2 id="phase-4critic-view">Phase 4：Critic View<a class="headerlink" href="#phase-4critic-view" title="Permanent link">&para;</a></h2>
+<p>构造：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-101-1" name="__codelineno-101-1" href="#__codelineno-101-1"></a>critic_input_ids
+<a id="__codelineno-101-2" name="__codelineno-101-2" href="#__codelineno-101-2"></a>critic_attention_mask
+<a id="__codelineno-101-3" name="__codelineno-101-3" href="#__codelineno-101-3"></a>critic_position_ids
+</code></pre></div>
+<p>Actor view 保持不变。</p>
+<h2 id="phase-5trainer">Phase 5：Trainer 接入<a class="headerlink" href="#phase-5trainer" title="Permanent link">&para;</a></h2>
+<p>只改：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-102-1" name="__codelineno-102-1" href="#__codelineno-102-1"></a>compute_values
+<a id="__codelineno-102-2" name="__codelineno-102-2" href="#__codelineno-102-2"></a>update_critic
+</code></pre></div>
+<h2 id="phase-6smoke">Phase 6：Smoke<a class="headerlink" href="#phase-6smoke" title="Permanent link">&para;</a></h2>
+<p>验证：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-103-1" name="__codelineno-103-1" href="#__codelineno-103-1"></a>time alignment
+<a id="__codelineno-103-2" name="__codelineno-103-2" href="#__codelineno-103-2"></a>actor leakage
+<a id="__codelineno-103-3" name="__codelineno-103-3" href="#__codelineno-103-3"></a>response identity
+<a id="__codelineno-103-4" name="__codelineno-103-4" href="#__codelineno-103-4"></a>token GAE
+<a id="__codelineno-103-5" name="__codelineno-103-5" href="#__codelineno-103-5"></a>memory
+<a id="__codelineno-103-6" name="__codelineno-103-6" href="#__codelineno-103-6"></a>checkpoint
+</code></pre></div>
+<h2 id="phase-7-baseline-vs-pi">Phase 7：正式 Baseline vs PI<a class="headerlink" href="#phase-7-baseline-vs-pi" title="Permanent link">&para;</a></h2>
+<p>同配置。</p>
+<p>只改变：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-104-1" name="__codelineno-104-1" href="#__codelineno-104-1"></a>privileged_state.enabled
+</code></pre></div>
+<hr />
+<h1 id="44">44. 参考项目文档<a class="headerlink" href="#44" title="Permanent link">&para;</a></h1>
+<p>实施前建议阅读以下已有交接：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-105-1" name="__codelineno-105-1" href="#__codelineno-105-1"></a>PRIVILEGED_CRITIC_PROJECT_HANDOFF_2026-09-02.md
+<a id="__codelineno-105-2" name="__codelineno-105-2" href="#__codelineno-105-2"></a>TOKEN_GAE_PRIVILEGED_CRITIC_GUIDE.md
+<a id="__codelineno-105-3" name="__codelineno-105-3" href="#__codelineno-105-3"></a>CAPO_PRIVILEGED_CRITIC_RESEARCH_2026-09-06.md
+<a id="__codelineno-105-4" name="__codelineno-105-4" href="#__codelineno-105-4"></a>CAPO_P1_HANDOFF_2026-09-09.md
+<a id="__codelineno-105-5" name="__codelineno-105-5" href="#__codelineno-105-5"></a>AGENT_LIGHTNING_PRIVILEGED_CRITIC_RESEARCH_2026-09-09.md
+<a id="__codelineno-105-6" name="__codelineno-105-6" href="#__codelineno-105-6"></a>PPO_BASELINE_READINESS_2026-09-10.md
+<a id="__codelineno-105-7" name="__codelineno-105-7" href="#__codelineno-105-7"></a>SWE_PPO_BASELINE_HANDOFF_2026-09-14.md
+</code></pre></div>
+<p>其中旧运行状态只作为历史记录，实施时以当前源码和当前 resolved config 为准。</p>
+<hr />
+<h1 id="45">45. 最终交接摘要<a class="headerlink" href="#45" title="Permanent link">&para;</a></h1>
+<p>第一版不要复杂化。</p>
+<p>主方法只有：</p>
+<p>[
+\boxed{
+\text{pre-action sandbox snapshot}
+\rightarrow
+\text{cumulative sandbox delta}
+\rightarrow
+\text{budgeted textual PI}
+\rightarrow
+\text{Critic only}
+}
+]</p>
+<p>Sandbox state 第一版只有：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-106-1" name="__codelineno-106-1" href="#__codelineno-106-1"></a>/testbed filesystem state
+<a id="__codelineno-106-2" name="__codelineno-106-2" href="#__codelineno-106-2"></a>+
+<a id="__codelineno-106-3" name="__codelineno-106-3" href="#__codelineno-106-3"></a>rollout-local process/socket state
+</code></pre></div>
+<p>Critic context 第一版采用：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-107-1" name="__codelineno-107-1" href="#__codelineno-107-1"></a>动态 budget
+<a id="__codelineno-107-2" name="__codelineno-107-2" href="#__codelineno-107-2"></a>最大先按 4096 tokens
+<a id="__codelineno-107-3" name="__codelineno-107-3" href="#__codelineno-107-3"></a>优先保留 Actor H_t
+<a id="__codelineno-107-4" name="__codelineno-107-4" href="#__codelineno-107-4"></a>PI 不够空间就截 PI
+</code></pre></div>
+<p>Transport 使用：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-108-1" name="__codelineno-108-1" href="#__codelineno-108-1"></a>privileged_state event
+<a id="__codelineno-108-2" name="__codelineno-108-2" href="#__codelineno-108-2"></a>+
+<a id="__codelineno-108-3" name="__codelineno-108-3" href="#__codelineno-108-3"></a>logical_call_id
+</code></pre></div>
+<p>训练侧使用：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-109-1" name="__codelineno-109-1" href="#__codelineno-109-1"></a>same response IDs
+<a id="__codelineno-109-2" name="__codelineno-109-2" href="#__codelineno-109-2"></a>same response mask
+<a id="__codelineno-109-3" name="__codelineno-109-3" href="#__codelineno-109-3"></a>separate critic input
+<a id="__codelineno-109-4" name="__codelineno-109-4" href="#__codelineno-109-4"></a>compute_values + update_critic only
+</code></pre></div>
+<p>其余：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-110-1" name="__codelineno-110-1" href="#__codelineno-110-1"></a>reward
+<a id="__codelineno-110-2" name="__codelineno-110-2" href="#__codelineno-110-2"></a>Actor
+<a id="__codelineno-110-3" name="__codelineno-110-3" href="#__codelineno-110-3"></a>old/ref logprob
+<a id="__codelineno-110-4" name="__codelineno-110-4" href="#__codelineno-110-4"></a>token GAE
+<a id="__codelineno-110-5" name="__codelineno-110-5" href="#__codelineno-110-5"></a>PPO objective
+<a id="__codelineno-110-6" name="__codelineno-110-6" href="#__codelineno-110-6"></a>validation
+</code></pre></div>
+<p>全部保持当前 baseline 不变。</p>
+<p>如果第一版有效，再做：</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-111-1" name="__codelineno-111-1" href="#__codelineno-111-1"></a>history-derived summary
+<a id="__codelineno-111-2" name="__codelineno-111-2" href="#__codelineno-111-2"></a>shuffled state
+<a id="__codelineno-111-3" name="__codelineno-111-3" href="#__codelineno-111-3"></a>full tool feedback
+<a id="__codelineno-111-4" name="__codelineno-111-4" href="#__codelineno-111-4"></a>full current state
+<a id="__codelineno-111-5" name="__codelineno-111-5" href="#__codelineno-111-5"></a>learned state encoder
+</code></pre></div>
+<p>这些都不属于第一版实施范围。</p>
+
+<!-- Was this page helpful? -->
+
+
+
+
+<!-- Comment system -->
+
+                
+
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../..", "features": ["navigation.sections", "navigation.expand", "navigation.top", "search.suggest", "search.highlight", "content.code.copy"], "search": "../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"default": "stable", "provider": "mike"}}</script>
+    
+    
+  
+      <script src="../../assets/javascripts/bundle.d7400e89.min.js"></script>
+      
+        <script src="../../js/timeago.min.js"></script>
+      
+        <script src="../../js/timeago_mkdocs_material.js"></script>
+      
+        <script src="https://unpkg.com/mermaid@10.6.1/dist/mermaid.min.js"></script>
+      
+        <script src="https://unpkg.com/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+      
+        <script src="https://unpkg.com/katex@0/dist/katex.min.js"></script>
+      
+        <script src="https://unpkg.com/katex@0/dist/contrib/auto-render.min.js"></script>
+      
+        <script src="../../javascripts/charts.js"></script>
+      
+        <script src="../../javascripts/move-source-file.js"></script>
+      
+        <script src="../../javascripts/katex.js"></script>
+      
+    
+  <script>
+    // Show warning banner if not viewing stable documentation
+    document.addEventListener("DOMContentLoaded", function() {
+      const currentURL = window.location.href;
+      const warningDiv = document.getElementById("version-warning");
+
+      // Check if we're on the stable docs or the redirect page
+      if (currentURL.includes('agent-lightning/latest/')) {
+        // Show warning for explicitly latest docs
+        warningDiv.style.display = "block";
+      }
+    });
+  </script>
+
+  </body>
+</html>

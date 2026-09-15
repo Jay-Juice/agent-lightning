@@ -60,4 +60,36 @@
          <loc>https://microsoft.github.io/agent-lightning/latest/80-example-multimodal-qa/</loc>
          <lastmod>2026-09-15</lastmod>
     </url>
+    <url>
+         <loc>https://microsoft.github.io/agent-lightning/latest/experiments/AGENT_LIGHTNING_PRIVILEGED_CRITIC_RESEARCH_2026-09-09/</loc>
+         <lastmod>2026-09-15</lastmod>
+    </url>
+    <url>
+         <loc>https://microsoft.github.io/agent-lightning/latest/experiments/PPO_BASELINE_READINESS_2026-09-10/</loc>
+         <lastmod>2026-09-15</lastmod>
+    </url>
+    <url>
+         <loc>https://microsoft.github.io/agent-lightning/latest/experiments/SWE_BASELINE_TIMEOUT_RECOVERY_HANDOFF_2026-09-15/</loc>
+         <lastmod>2026-09-15</lastmod>
+    </url>
+    <url>
+         <loc>https://microsoft.github.io/agent-lightning/latest/experiments/SWE_PI_IMPLEMENTATION_REVIEW_2026-09-15/</loc>
+         <lastmod>2026-09-15</lastmod>
+    </url>
+    <url>
+         <loc>https://microsoft.github.io/agent-lightning/latest/experiments/SWE_PPO_BASELINE_HANDOFF_2026-09-14/</loc>
+         <lastmod>2026-09-15</lastmod>
+    </url>
+    <url>
+         <loc>https://microsoft.github.io/agent-lightning/latest/experiments/SWE_PPO_BASELINE_RUN_2026-09-10/</loc>
+         <lastmod>2026-09-15</lastmod>
+    </url>
+    <url>
+         <loc>https://microsoft.github.io/agent-lightning/latest/experiments/SWE_PPO_PROGRESS_2026-09-10/</loc>
+         <lastmod>2026-09-15</lastmod>
+    </url>
+    <url>
+         <loc>https://microsoft.github.io/agent-lightning/latest/experiments/SWE_SANDBOX_STATE_PRIVILEGED_CRITIC_DESIGN_2026-09-14/</loc>
+         <lastmod>2026-09-15</lastmod>
+    </url>
 </urlset>
