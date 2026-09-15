@@ -36,6 +36,7 @@ bash "$TOOLS/run_training.sh" \
   trainer.n_gpus_per_node=4 ray_kwargs.ray_init.num_gpus=4 ray_kwargs.ray_init.num_cpus=16 \
   trainer.total_epochs=4 trainer.total_training_steps=null \
   data.train_batch_size=32 data.val_batch_size="${AGL_VAL_BATCH_SIZE:-470}" \
+  data.max_prompt_length=61440 data.max_response_length=4096 \
   agentlightning.full_dataset=true agentlightning.audit_every_n_steps=32 \
   agentlightning.local.agent_class=full_python_agent.FullPythonAgent agentlightning.rollout_timeout_seconds=3600 \
   agentlightning.multi_turn_ppo.backend=capo agentlightning.multi_turn_ppo.capo_strict_padding=true \
@@ -56,7 +57,8 @@ bash "$TOOLS/run_training.sh" \
   actor_rollout_ref.model.use_fused_kernels=true actor_rollout_ref.model.fused_kernel_options.impl_backend=torch \
   actor_rollout_ref.rollout.temperature=1.0 actor_rollout_ref.rollout.top_p=1.0 actor_rollout_ref.rollout.top_k=-1 \
   actor_rollout_ref.rollout.val_kwargs.temperature=0.7 actor_rollout_ref.rollout.val_kwargs.top_p=0.8 actor_rollout_ref.rollout.val_kwargs.top_k=20 \
-  actor_rollout_ref.rollout.max_num_seqs=8 actor_rollout_ref.rollout.max_num_batched_tokens=16384 \
+  actor_rollout_ref.rollout.max_model_len=65536 actor_rollout_ref.rollout.max_num_seqs=8 \
+  actor_rollout_ref.rollout.max_num_batched_tokens=16384 \
   'actor_rollout_ref.actor.checkpoint.save_contents=[model,optimizer,extra]' trainer.save_freq=40 trainer.test_freq=20 \
   trainer.max_actor_ckpt_to_keep=3 trainer.max_critic_ckpt_to_keep=3 trainer.val_before_train=true trainer.resume_mode=disable \
   agentlightning.privileged_critic.enabled=true agentlightning.privileged_critic.state_schema_version=1 \
