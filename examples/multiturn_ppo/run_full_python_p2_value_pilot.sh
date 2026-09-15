@@ -7,9 +7,13 @@ export AGL_TRAIN_PORT="${AGL_TRAIN_PORT:-18701}"
 export AGL_TRAIN_TAG="${AGL_TRAIN_TAG:-capo-swe-pythonfull-v7-p2-4b-gpu03-$(date +%Y%m%d-%H%M%S)}"
 export AGL_FULL_ENV_AUDIT="${AGL_FULL_ENV_AUDIT:-/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/swe-full-python-envs-p2-20260915-01}"
 export AGL_TRAIN_MODEL="${AGL_TRAIN_MODEL:-/media/ubuntu/D1/zsj/GOPD/G-OPD-main/models/Qwen3-4B-Instruct-2507}"
-export AGL_CAPO_PROGRESS=1 AGL_MAX_LOCAL_AGENTS="${AGL_MAX_LOCAL_AGENTS:-32}" AGL_MIN_FREE_GIB="${AGL_MIN_FREE_GIB:-360}"
-export SMITH_PRIVILEGED_STATE=critic SMITH_PRIVILEGED_ENCODING=semantic_hunks_v2
-export SMITH_PRIVILEGED_MAX_TOKENS=4096 SMITH_PRIVILEGED_SAFETY_MARGIN=32
+export AGL_CAPO_PROGRESS=1
+export AGL_MAX_LOCAL_AGENTS="${AGL_MAX_LOCAL_AGENTS:-32}"
+export AGL_MIN_FREE_GIB="${AGL_MIN_FREE_GIB:-360}"
+export SMITH_PRIVILEGED_STATE=critic
+export SMITH_PRIVILEGED_ENCODING=semantic_hunks_v2
+export SMITH_PRIVILEGED_MAX_TOKENS=4096
+export SMITH_PRIVILEGED_SAFETY_MARGIN=32
 RUNTIME=/media/ubuntu/D1/zsj/agent-lightning-runtime
 DATA="${AGL_FULL_DATA:-$RUNTIME/data/swe-smith-training/python-full-v7}"
 source "$RUNTIME/admin/activate-agent-lightning-d1.sh"
@@ -38,6 +42,7 @@ bash "$TOOLS/run_training.sh" \
   agentlightning.multi_turn_ppo.distributed_padding=false agentlightning.multi_turn_ppo.whiten_advantages=true \
   algorithm.adv_estimator=token_gae algorithm.gamma=1.0 algorithm.lam=1.0 \
   actor_rollout_ref.actor.ppo_mini_batch_size=32 critic.ppo_mini_batch_size=32 \
+  actor_rollout_ref.actor.loss_agg_mode=seq-mean-token-mean critic.loss_agg_mode=seq-mean-token-mean \
   actor_rollout_ref.actor.fsdp_config.reshard_after_forward=false actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=2 \
   critic.ppo_micro_batch_size_per_gpu=2 critic.forward_micro_batch_size_per_gpu=2 \
   actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=2 actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=2 \
