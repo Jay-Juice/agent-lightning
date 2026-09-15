@@ -210,3 +210,91 @@ def test_gateway_pause_retries_same_request_and_has_bounded_wait(monkeypatch):
     responses = iter([RuntimeError("transport failure")])
     with pytest.raises(RuntimeError, match="transport failure"):
         pilot.query_completion(llm, smith)
+
+
+def test_agent_wall_timeout_stops_before_another_model_call(monkeypatch, tmp_path):
+    pytest.importorskip("docker")
+    pytest.importorskip("openai")
+    transformers = pytest.importorskip("transformers")
+    monkeypatch.syspath_prepend(str(Path(__file__).parents[2] / "examples" / "multiturn_ppo"))
+    import smith_docker_agent as pilot
+
+    clock = [0.0]
+    monkeypatch.setattr(pilot.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(pilot, "agent_task", lambda row: row)
+    monkeypatch.setattr(pilot, "test_nodes", lambda *args, **kwargs: None)
+    monkeypatch.setattr(pilot.docker, "from_env", lambda **kwargs: SimpleNamespace(close=lambda: None))
+    monkeypatch.setattr(
+        transformers.AutoTokenizer,
+        "from_pretrained",
+        lambda *args, **kwargs: SimpleNamespace(apply_chat_template=lambda *args, **kwargs: [1]),
+    )
+
+    class Box:
+        def __init__(self, *args):
+            self.excluded_patch_paths = []
+
+        def prepare(self):
+            return {}
+
+        def execute(self, action):
+            return 1, "command failed"
+
+        def export_patch(self, **kwargs):
+            return "", [], None
+
+        def close(self):
+            pass
+
+    class Client:
+        def __init__(self):
+            self.calls = 0
+            self.chat = SimpleNamespace(completions=SimpleNamespace(create=self.create))
+
+        def create(self, **kwargs):
+            self.calls += 1
+            clock[0] = 10.0
+            return SimpleNamespace(
+                choices=[SimpleNamespace(message=SimpleNamespace(content="```bash\nfalse\n```"), finish_reason="stop")]
+            )
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    client = Client()
+    monkeypatch.setattr(pilot, "SmithSandbox", Box)
+    monkeypatch.setattr(pilot, "OpenAI", lambda **kwargs: client)
+    monkeypatch.setattr(pilot, "grade", lambda *args: {"reward": 0.0})
+    events = []
+    monkeypatch.setattr(
+        pilot.httpx,
+        "post",
+        lambda *args, **kwargs: events.append(kwargs["json"]) or SimpleNamespace(raise_for_status=lambda: None),
+    )
+    env = {
+        "AGL_TASK": json.dumps({"problem_statement": "problem"}),
+        "AGL_KEY": "test-only",
+        "AGL_EVENT_URL": "http://test/rollouts/test-id/events",
+        "AGL_RUN_DIR": str(tmp_path),
+        "AGL_TRAIN_MODEL": "fake",
+        "AGL_OPENAI_BASE_URL": "http://test",
+        "SMITH_MAX_TURNS": "4",
+        "SMITH_MAX_TOKENS": "100",
+        "SMITH_CONTEXT": "1000",
+        "SMITH_AGENT_WALL_TIMEOUT": "10",
+        "SMITH_VERIFY_SUBMISSION": "0",
+        "SMITH_CHECKED_EDITOR": "0",
+    }
+    for key, value in env.items():
+        monkeypatch.setenv(key, value)
+    (tmp_path / "agent").mkdir()
+
+    pilot.SmithDockerAgent().run()
+
+    records = [json.loads(line) for line in (tmp_path / "agent/test-id/trajectory.jsonl").read_text().splitlines()]
+    assert client.calls == 1
+    assert records[-1]["stop_reason"] == "wall_time_budget"
+    assert events[-1]["data"]["reason"] == "wall_time_budget"

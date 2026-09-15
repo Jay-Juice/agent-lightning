@@ -190,6 +190,8 @@ def build_config(args):
                     "SMITH_GATEWAY_WAIT_S",
                     "SMITH_CMD_TIMEOUT",
                     "SMITH_EVAL_TIMEOUT",
+                    "SMITH_AGENT_WALL_TIMEOUT",
+                    "AGL_ROLLOUT_TIMEOUT_SECONDS",
                     "SMITH_VERIFY_SUBMISSION",
                     "SMITH_ALLOW_REPRO_FILES",
                     "SMITH_CHECK_SYNTAX",

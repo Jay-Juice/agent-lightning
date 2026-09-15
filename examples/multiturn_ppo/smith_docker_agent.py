@@ -173,6 +173,7 @@ class SmithDockerAgent:
         return smith._forbidden_action(action)
 
     def run(self):
+        rollout_started = time.monotonic()
         row = json.loads(os.environ["AGL_TASK"])
         task = agent_task(row)
         test_nodes(row, max_tests=self.max_grading_tests)
@@ -190,8 +191,10 @@ class SmithDockerAgent:
         model_timeout = int(os.environ.get("SMITH_MODEL_TIMEOUT", "240"))
         max_format_errors = int(os.environ.get("SMITH_MAX_FORMAT_ERRORS", "3"))
         gateway_wait_s = float(os.environ.get("SMITH_GATEWAY_WAIT_S", "600"))
-        if obs_cap <= 0 or model_timeout <= 0:
-            raise ValueError("Observation budget and model timeout must be positive")
+        agent_wall_timeout = float(os.environ.get("SMITH_AGENT_WALL_TIMEOUT", "0"))
+        if obs_cap <= 0 or model_timeout <= 0 or agent_wall_timeout < 0:
+            raise ValueError("Observation/model budgets must be positive and the agent wall timeout nonnegative")
+        agent_deadline = rollout_started + agent_wall_timeout if agent_wall_timeout else None
         messages = [
             {"role": "system", "content": smith.SYSTEM_PROMPT},
             {
@@ -231,6 +234,23 @@ class SmithDockerAgent:
                 (directory / "trajectory.jsonl").open("w") as trace,
             ):
                 for turn in range(int(os.environ.get("SMITH_MAX_TURNS", "8"))):
+                    # The controller owns a larger hard timeout. Stop launching
+                    # model calls at the previous 3600 s boundary so patch
+                    # export, isolated grading and reward delivery can finish
+                    # instead of leaving the rollout without a score.
+                    if agent_deadline is not None and time.monotonic() >= agent_deadline:
+                        stop_reason = "wall_time_budget"
+                        trace.write(
+                            json.dumps(
+                                {
+                                    "stop_reason": stop_reason,
+                                    "elapsed_seconds": time.monotonic() - rollout_started,
+                                }
+                            )
+                            + "\n"
+                        )
+                        trace.flush()
+                        break
                     token_count = len(
                         tokenizer.apply_chat_template(
                             messages,

@@ -786,7 +786,20 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
                 is_last_step or self.global_steps % self.config.trainer.test_freq == 0
             ):
                 with marked_timer("validate", timing_raw, color="green"):
-                    val_metrics = self._validate()
+                    try:
+                        val_metrics = self._validate()
+                    except Exception:
+                        # A complete validation score must never contain a
+                        # missing reward. Preserve the just-updated actor,
+                        # critic, optimizer, RNG and dataloader state before
+                        # surfacing the failure so recovery does not roll back
+                        # to an older periodic checkpoint.
+                        print(
+                            f"Validation failed at step {self.global_steps}; saving a recovery checkpoint before exit.",
+                            flush=True,
+                        )
+                        self._save_checkpoint()
+                        raise
                     if is_last_step:
                         last_val_metrics = val_metrics
                 metrics.update(val_metrics)

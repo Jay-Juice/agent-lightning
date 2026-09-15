@@ -12,9 +12,14 @@ export SMITH_MODEL_TIMEOUT="${SMITH_MODEL_TIMEOUT:-600}"
 export SMITH_MAX_FORMAT_ERRORS="${SMITH_MAX_FORMAT_ERRORS:-3}"
 export SMITH_GATEWAY_WAIT_S="${SMITH_GATEWAY_WAIT_S:-600}"
 export SMITH_CMD_TIMEOUT="${SMITH_CMD_TIMEOUT:-120}" SMITH_EVAL_TIMEOUT="${SMITH_EVAL_TIMEOUT:-600}"
+# Preserve the former 3600 s agent interaction boundary, but give export,
+# isolated grading, reward delivery and cleanup another 1800 s before the
+# controller's hard kill. This changes reliability, not the model/PPO recipe.
+export SMITH_AGENT_WALL_TIMEOUT="${SMITH_AGENT_WALL_TIMEOUT:-3600}"
+export AGL_ROLLOUT_TIMEOUT_SECONDS="${AGL_ROLLOUT_TIMEOUT_SECONDS:-5400}"
 export SMITH_VERIFY_SUBMISSION=1 SMITH_ALLOW_REPRO_FILES=1 SMITH_CHECK_SYNTAX=1 SMITH_CHECKED_EDITOR=1
 bash "$TOOLS/run_capo_ppo.sh" --steps 2 trainer.total_epochs=2 \
-  agentlightning.rollout_timeout_seconds=3600 \
+  agentlightning.rollout_timeout_seconds="$AGL_ROLLOUT_TIMEOUT_SECONDS" \
   actor_rollout_ref.model.use_fused_kernels=true \
   actor_rollout_ref.model.fused_kernel_options.impl_backend=torch \
   actor_rollout_ref.rollout.temperature=1.0 \
