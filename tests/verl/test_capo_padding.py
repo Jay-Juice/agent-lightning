@@ -1,4 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
+
 from typing import Any, cast
 
 import numpy as np

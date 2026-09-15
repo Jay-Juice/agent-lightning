@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 """Replay affected Paramiko controls and saved model patches without GPU work."""
 
 import argparse
@@ -39,7 +41,7 @@ def main():
         root = args.output / row["instance_id"]
         root.mkdir()
         result = {"split": split, "instance_id": row["instance_id"]}
-        for kind in (("model",) if args.model_only else ("empty", "reference", "model")):
+        for kind in ("model",) if args.model_only else ("empty", "reference", "model"):
             if kind == "model" and row["instance_id"] not in patches:
                 continue
             output = root / kind

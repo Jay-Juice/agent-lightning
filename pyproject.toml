@@ -114,12 +114,11 @@ dev = [
 # and ~2.3GB of CUDA runtime is skipped. This is not a training environment --
 # install verl against the GPU torch build of your choice for that.
 #
-# Upper bound is deliberate: verl 0.9.0 renamed main_ppo.TaskRunner to
-# TaskRunnerV1 (the old name moved to main_ppo_v0) and dropped
-# create_rl_sampler, both of which entrypoint.py imports. auto_await landed in
-# 0.7.1, so that is the floor.
+# Pin the CI-only CPU environment to the API used by the A800 training runtime.
+# verl 0.8.0 moved the legacy actor and critic modules, while this integration
+# intentionally imports verl.workers.actor and verl.workers.critic.
 verl-cpu = [
-    "verl>=0.7.1,<0.9.0",
+    "verl==0.7.1",
     "torch",
     "ray",
     "tensordict",

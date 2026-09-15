@@ -1,5 +1,6 @@
 #!/opt/miniconda3/envs/testbed/bin/python
 # Copyright (c) Microsoft. All rights reserved.
+
 """Literal, checked source replacement for a disposable SWE task container."""
 
 import argparse

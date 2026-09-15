@@ -82,7 +82,9 @@ def main():
         for result in completed:
             if result["grade"] and result["grade"].get("patch_rejection"):
                 sandbox = json.loads((args.run / "agent" / result["rid"] / "sandbox.json").read_text())
-                summary["records"].append(dict(result["grade"], rollout_id=result["rid"], changed_paths=sandbox["changed_paths"]))
+                summary["records"].append(
+                    dict(result["grade"], rollout_id=result["rid"], changed_paths=sandbox["changed_paths"])
+                )
     results = []
     for record in summary["records"]:
         if record["patch_rejection"] == "forbidden_test_or_config_change":

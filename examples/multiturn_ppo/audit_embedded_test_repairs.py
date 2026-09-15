@@ -1,4 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
+
 """Audit original inline-test mutations and their normalized patch round trip."""
 
 import argparse

@@ -1,5 +1,7 @@
 # Copyright (c) Microsoft. All rights reserved.
+
 from types import SimpleNamespace
+from typing import Any, cast
 
 import pytest
 import torch
@@ -48,7 +50,7 @@ def test_full_dataset_retains_tail_and_recomputes_optimizer_schedule(monkeypatch
     worker.train_dataset = train
 
     def original(self, *_):
-        self.train_dataloader = StatefulDataLoader(train, batch_size=32, drop_last=True)
+        self.train_dataloader = StatefulDataLoader(cast(Any, train), batch_size=32, drop_last=True)
 
     monkeypatch.setattr(AgentLightningRayPPOTrainer, "_create_dataloader", original)
     FullDatasetRayPPOTrainer._create_dataloader(worker, train, [], None, None)
@@ -103,10 +105,11 @@ def test_validation_visits_every_batch_including_tail(repeats, missing_reward):
         }
     )
     worker.val_dataset = list(range(38))
-    worker.val_dataloader = [{"input_ids": torch.zeros(n, 2, dtype=torch.long)} for n in (32, 6)]
+    dynamic_worker = cast(Any, worker)
+    dynamic_worker.val_dataloader = [{"input_ids": torch.zeros(n, 2, dtype=torch.long)} for n in (32, 6)]
     worker.tokenizer = SimpleNamespace(eos_token_id=2, pad_token_id=0)
     worker.global_steps = 0
-    worker._get_gen_batch = lambda data: data
+    dynamic_worker._get_gen_batch = lambda data: data
     visited = []
 
     def rollout(data, is_train):
@@ -118,7 +121,7 @@ def test_validation_visits_every_batch_including_tail(repeats, missing_reward):
             metrics["val/n_rollouts_w_reward"] -= 1
         return None, metrics
 
-    worker._rollout = rollout
+    dynamic_worker._rollout = rollout
     if missing_reward:
         with pytest.raises(RuntimeError, match="missing rewards"):
             worker._validate()

@@ -1,4 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
+
 """Bounded image prefetch while the independent environment audit checks tests."""
 
 import argparse

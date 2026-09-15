@@ -1,4 +1,6 @@
 # Copyright (c) Microsoft. All rights reserved.
+
+import importlib
 from pathlib import Path
 
 import pytest
@@ -18,6 +20,7 @@ def test_preserves_all_f2p_and_same_file_p2p_without_mutating_source():
         ],
     }
     result = prepare_row(row, {"repo/image": "sha256:" + "a" * 64})
+    assert result is not None
     assert result["FAIL_TO_PASS"] == row["FAIL_TO_PASS"]
     assert result["PASS_TO_PASS"] == ["tests/a.py::test_keep"]
     assert len(row["PASS_TO_PASS"]) == 3
@@ -60,6 +63,7 @@ def test_unexpected_large_suite_is_not_silently_truncated():
         "PASS_TO_PASS": [f"tests/a.py::test_{i}" for i in range(200)],
     }
     result = prepare_row(row, {"repo/image": "sha256:" + "a" * 64})
+    assert result is not None
     assert len(result["PASS_TO_PASS"]) == 200
 
 
@@ -81,6 +85,7 @@ def test_native_unittest_ids_use_files_before_p2p_filtering():
             "A descriptive test.": ["tornado/test/web_test.py::Case::test_doc"],
         },
     )
+    assert result is not None
     assert result["FAIL_TO_PASS"] == ["tornado/test/web_test.py::Case::test_fix"]
     assert result["PASS_TO_PASS"] == [
         "tornado/test/web_test.py::Case::test_keep",
@@ -93,9 +98,7 @@ def grader(monkeypatch):
     pytest.importorskip("docker")
     pytest.importorskip("openai")
     monkeypatch.syspath_prepend(str(Path(__file__).parents[2] / "examples" / "multiturn_ppo"))
-    import full_python_agent
-
-    return full_python_agent
+    return importlib.import_module("full_python_agent")
 
 
 def test_forced_color_keeps_exact_status_and_node_id(grader):

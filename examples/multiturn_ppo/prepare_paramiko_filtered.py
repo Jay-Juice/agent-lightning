@@ -1,4 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
+
 """Record the three approved empty-patch successes in a new derived dataset."""
 
 import argparse

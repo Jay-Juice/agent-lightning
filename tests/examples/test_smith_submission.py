@@ -1,4 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
+
 """Regression cases for the observed empty-edit and reproduction-file failures."""
 
 import ast
@@ -9,11 +10,13 @@ from examples.multiturn_ppo.smith_submission import submission_feedback, syntax_
 
 
 def test_empty_edit_is_not_a_submission():
-    assert "no changes" in submission_feedback("", [], None)
+    feedback = submission_feedback("", [], None)
+    assert feedback is not None and "no changes" in feedback
 
 
 def test_prohibited_patch_feedback_preserves_the_source_fix():
     feedback = submission_feedback("", ["src/foo.py", "test_repro.py"], "forbidden_test_or_config_change")
+    assert feedback is not None
     assert "test_repro.py" in feedback
     assert "Keep your source fix" in feedback
     assert "/tmp" in feedback

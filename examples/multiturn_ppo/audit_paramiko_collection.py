@@ -1,3 +1,5 @@
+# Copyright (c) Microsoft. All rights reserved.
+
 """Diagnose the pinned Paramiko image's exact-node collection on CPU."""
 
 import argparse

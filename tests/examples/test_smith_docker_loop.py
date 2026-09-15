@@ -1,6 +1,8 @@
 # Copyright (c) Microsoft. All rights reserved.
+
 """Run the Docker adapter with fake I/O and compare termination with upstream."""
 
+import importlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -46,8 +48,8 @@ def test_consecutive_format_error_termination_matches_upstream(
     pytest.importorskip("openai")
     transformers = pytest.importorskip("transformers")
     monkeypatch.syspath_prepend(str(Path(__file__).parents[2] / "examples" / "multiturn_ppo"))
-    import smith_docker_agent as pilot
-    from full_python_agent import FullPythonSandbox
+    pilot = importlib.import_module("smith_docker_agent")
+    FullPythonSandbox = importlib.import_module("full_python_agent").FullPythonSandbox
 
     smith = pilot.load_smith()
     original_responses = iter(responses)
@@ -114,8 +116,7 @@ def test_consecutive_format_error_termination_matches_upstream(
             self.calls += 1
             content = next(self.responses)
             if content == "server-overflow":
-                exc = RuntimeError("maximum context length")
-                exc.status_code = 400
+                exc = type("HTTPError", (RuntimeError,), {"status_code": 400})("maximum context length")
                 raise exc
             return SimpleNamespace(
                 choices=[SimpleNamespace(message=SimpleNamespace(content=content), finish_reason="length")]
@@ -182,14 +183,13 @@ def test_gateway_pause_retries_same_request_and_has_bounded_wait(monkeypatch):
     pytest.importorskip("docker")
     pytest.importorskip("openai")
     monkeypatch.syspath_prepend(str(Path(__file__).parents[2] / "examples" / "multiturn_ppo"))
-    import smith_docker_agent as pilot
+    pilot = importlib.import_module("smith_docker_agent")
 
     smith = pilot.load_smith()
     clock = [0.0]
     monkeypatch.setattr(pilot.time, "monotonic", lambda: clock[0])
     monkeypatch.setattr(pilot.time, "sleep", lambda seconds: clock.__setitem__(0, clock[0] + seconds))
-    paused = RuntimeError("gateway paused")
-    paused.status_code = 429
+    paused = type("HTTPError", (RuntimeError,), {"status_code": 429})("gateway paused")
     responses = iter([paused, "completion"])
     calls = []
 
@@ -217,7 +217,7 @@ def test_agent_wall_timeout_stops_before_another_model_call(monkeypatch, tmp_pat
     pytest.importorskip("openai")
     transformers = pytest.importorskip("transformers")
     monkeypatch.syspath_prepend(str(Path(__file__).parents[2] / "examples" / "multiturn_ppo"))
-    import smith_docker_agent as pilot
+    pilot = importlib.import_module("smith_docker_agent")
 
     clock = [0.0]
     monkeypatch.setattr(pilot.time, "monotonic", lambda: clock[0])

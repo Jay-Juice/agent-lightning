@@ -1,4 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
+
 """Resolve the same sampling distribution for the external gateway and PPO."""
 
 

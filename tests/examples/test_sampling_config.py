@@ -1,4 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
+
 import pytest
 
 from examples.multiturn_ppo.sampling_config import proxy_overrides

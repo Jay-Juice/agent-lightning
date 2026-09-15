@@ -1,4 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
+
 """Compare teacher-forced log probabilities of fixed SWE token sequences.
 
 Unlike repeated generation, this keeps the entire evaluated token sequence

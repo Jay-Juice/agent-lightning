@@ -1,4 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
+
 from pathlib import Path
 
 import pytest

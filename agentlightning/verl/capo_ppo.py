@@ -16,7 +16,7 @@ def verify_vendor():
     root = Path(__file__).with_name("vendor") / "capo"
     manifest = json.loads((root / "manifest.json").read_text())
     for name, entry in manifest["files"].items():
-        actual = hashlib.sha256((root / name).read_text().encode()).hexdigest()
+        actual = hashlib.sha256((root / name).read_text(encoding="utf-8").encode()).hexdigest()
         if actual != entry["copied_sha256_lf"]:
             raise RuntimeError(f"CAPO vendor source changed: {name}")
     return manifest

@@ -1,4 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
+
 """Source-only submission feedback; never inspect grading tests or reference fixes."""
 
 import json

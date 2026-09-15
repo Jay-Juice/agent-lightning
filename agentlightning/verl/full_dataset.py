@@ -1,4 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
+
 """Opt-in full-dataset batching, validation accounting and bounded tensor audits."""
 
 from collections.abc import Sized

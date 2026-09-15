@@ -1,4 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
+
 """Keep CAPO's copied update loops, but give duplicate padding zero loss weight.
 
 Loss weights normalize over real calls

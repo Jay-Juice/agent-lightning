@@ -1,4 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
+
 """Verify complete image coverage and unchanged audit inputs before full PPO."""
 
 import argparse

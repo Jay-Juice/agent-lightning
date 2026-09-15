@@ -1,4 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
+
 """Check the installed chunked output layer before using it with copied PPO."""
 
 import pytest

@@ -1,4 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
+
 """Cache pinned Python images and check their grader without using any GPU."""
 
 import argparse

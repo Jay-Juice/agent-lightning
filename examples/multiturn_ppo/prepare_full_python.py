@@ -1,4 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
+
 """Prepare every Python row in the published split, with pinned image digests."""
 
 import argparse

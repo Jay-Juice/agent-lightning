@@ -60,5 +60,9 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: |
           uv run --locked --no-sync mike deploy --push latest
-          # Always set stable to default
-          uv run --locked --no-sync mike set-default --push stable
+          # A fresh fork has no versioned release and therefore no stable alias.
+          # Tagged releases create stable; development-only repositories default
+          # to the latest documentation until that first release exists.
+          if ! uv run --locked --no-sync mike set-default --push stable; then
+            uv run --locked --no-sync mike set-default --push latest
+          fi

@@ -329,11 +329,23 @@ def _text_only_mrope_position_ids(input_ids: torch.Tensor, attention_mask: torch
 
 def _build_mm_token_type_ids(processor: Any, input_ids: torch.Tensor) -> torch.Tensor:
     """Build per-token modality ids (1=image, 2=video); only used for position ids."""
-    from verl.utils.tokenizer import get_processor_token_id
-
     mm_token_type_ids = torch.zeros_like(input_ids)
-    image_token_id = get_processor_token_id(processor, "image")
-    video_token_id = get_processor_token_id(processor, "video")
+    tokenizer = getattr(processor, "tokenizer", processor)
+
+    def token_id(modality: str) -> int | None:
+        direct_id = getattr(processor, f"{modality}_token_id", None)
+        if direct_id is not None:
+            return int(direct_id)
+        token = getattr(processor, f"{modality}_token", None)
+        if token is None:
+            token = getattr(tokenizer, f"{modality}_token", None)
+        if token is None or not hasattr(tokenizer, "convert_tokens_to_ids"):
+            return None
+        converted = tokenizer.convert_tokens_to_ids(token)
+        return None if converted is None else int(converted)
+
+    image_token_id = token_id("image")
+    video_token_id = token_id("video")
     if image_token_id is not None:
         mm_token_type_ids[input_ids == image_token_id] = 1
     if video_token_id is not None:
