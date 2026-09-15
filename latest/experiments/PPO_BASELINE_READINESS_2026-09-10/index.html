@@ -990,7 +990,7 @@
     <span class="md-icon" title="Last update">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M21 13.1c-.1 0-.3.1-.4.2l-1 1 2.1 2.1 1-1c.2-.2.2-.6 0-.8l-1.3-1.3c-.1-.1-.2-.2-.4-.2m-1.9 1.8-6.1 6V23h2.1l6.1-6.1zM12.5 7v5.2l4 2.4-1 1L11 13V7zM11 21.9c-5.1-.5-9-4.8-9-9.9C2 6.5 6.5 2 12 2c5.3 0 9.6 4.1 10 9.3-.3-.1-.6-.2-1-.2s-.7.1-1 .2C19.6 7.2 16.2 4 12 4c-4.4 0-8 3.6-8 8 0 4.1 3.1 7.5 7.1 7.9l-.1.2z"/></svg>
     </span>
-    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-timeago" title="September 15, 2026 07:51:45 UTC"><span class="timeago" datetime="2026-09-15T07:51:45+00:00" locale="en"></span></span><span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="September 15, 2026 07:51:45 UTC">2026-09-15</span>
+    <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-timeago" title="September 15, 2026 07:53:41 UTC"><span class="timeago" datetime="2026-09-15T07:53:41+00:00" locale="en"></span></span><span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-iso_date" title="September 15, 2026 07:53:41 UTC">2026-09-15</span>
   </span>
 
     
@@ -1105,7 +1105,7 @@
 </tr>
 </tbody>
 </table>
-<p>最新 <a href="A800_ENVIRONMENT_AND_USAGE.md">环境汇总</a> 已经覆盖了 09-09 老调研中的 Docker 权限、数据缺失和单机运行器缺失问题，不应继续将这些当作当前阻塞。</p>
+<p>最新的本地 A800 环境汇总已经覆盖了 09-09 老调研中的 Docker 权限、数据缺失和单机运行器缺失问题，不应继续将这些当作当前阻塞。该服务器指南包含运维信息，不随公开仓库归档。</p>
 <p>实际辅助脚本在服务器 <code>agent-lightning-runtime/tools/a800-training/</code> 和 <code>tools/swe-bench-local/</code>；本地原件仍在 <code>C:/Users/zsj/Documents/ChatGPT/agent-lightning/</code>。后续要纳入 D 盘源码维护，需按明确文件清单迁入，不能假定它们已随原仓库受版本管理。</p>
 <h2 id="3">3. 之前究竟跑通了什么<a class="headerlink" href="#3" title="Permanent link">&para;</a></h2>
 <p>本轮读取了以下三个运行目录中的 <code>resolved-config.json</code>、退出码、验证报告和检查点目录：</p>
@@ -1271,9 +1271,9 @@
 <p>后续以 D 盘内层源码作为 Git 根接入该仓库；先保留当前源码快照、确认远端 refs，再创建开发分支。C 盘辅助脚本按明确清单纳入，模型、数据、镜像、日志和检查点不进入 Git。本轮没有初始化、提交或推送。</p>
 <h2 id="8">8. 可复核产物与命令<a class="headerlink" href="#8" title="Permanent link">&para;</a></h2>
 <ul>
-<li><a href="research/ppo_readiness_probe.py">CPU 诊断脚本</a>：只读调用现有生产函数，不载入模型或更新参数。</li>
-<li><a href="research/ppo_readiness_evidence_2026-09-10.json">诊断结果 JSON</a>：人工反例、真实轨迹重建、退出码及五个源码哈希。</li>
-<li><a href="A800_ENVIRONMENT_AND_USAGE.md">已有环境使用指南</a>：GRPO 启动方式与运行资源路径。</li>
+<li>本地 CPU 诊断脚本 <code>research/ppo_readiness_probe.py</code>：只读调用现有生产函数，不载入模型或更新参数。</li>
+<li>本地诊断结果 <code>research/ppo_readiness_evidence_2026-09-10.json</code>：人工反例、真实轨迹重建、退出码及五个源码哈希。</li>
+<li>本地 A800 环境使用指南：GRPO 启动方式与运行资源路径；不随公开仓库归档。</li>
 </ul>
 <p>本轮最终诊断执行命令（PowerShell，工作目录为应用项目根）：</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">Get-Content</span> <span class="n">-LiteralPath</span> <span class="s1">&#39;research\ppo_readiness_probe.py&#39;</span> <span class="n">-Raw</span> <span class="p">|</span>
