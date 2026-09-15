@@ -114,12 +114,20 @@ def budgeted_semantic_state_text(
         runtime.extend(f"{sign} {name} {row}" for row in group)
     manifest = []
     hunk_items = []
+    total_hunks = 0
     for row in files:
         digest = f" before={str(row.get('before_sha') or '-')[:12]} after={str(row.get('after_sha') or '-')[:12]}"
         manifest.append(f"{'A' if row['change']=='added' else 'D' if row['change']=='removed' else 'M'} {row['path']} size={row.get('size','-')}{digest}")
         for hi, hunk in enumerate(row.get("hunks", []), 1):
-            lines = [hunk["header"], *hunk["lines"]]
-            hunk_items.append({"path": row["path"], "hunk": hi, "lines": lines, "changed_lines": hunk.get("changed_lines", 0)})
+            total_hunks += 1
+            lines = hunk["lines"]
+            # Keep chunks small enough for graceful degradation. The final
+            # selection still checks the real tokenizer/context fit.
+            part_size = 32
+            parts = [lines[i : i + part_size] for i in range(0, len(lines), part_size)] or [[]]
+            for pi, part_lines in enumerate(parts, 1):
+                changed = sum(line.startswith(("+", "-")) and not line.startswith(("+++", "---")) for line in part_lines)
+                hunk_items.append({"path": row["path"], "hunk": hi, "part": pi, "parts": len(parts), "header": hunk["header"], "lines": part_lines, "changed_lines": changed})
     summary = f"{MARKER}\nfiles_changed={len(files)} text_files={sum(row.get('kind')=='text' for row in files)} hunks={len(hunk_items)}"
     selected_manifest = list(manifest)
     selected_runtime: list[str] = []
@@ -141,7 +149,7 @@ def budgeted_semantic_state_text(
         return token_length(text) <= max_tokens and (fits(text) if fits else True)
 
     if not valid(summary):
-        return "", {"serialized_tokens": 0, "truncated": True, "changed_files_total": len(files), "changed_text_files_total": sum(row.get('kind') == 'text' for row in files), "files_with_semantic_content": 0, "hunks_total": len(hunk_items), "hunks_included": 0, "hunk_chunks_total": len(hunk_items), "hunk_chunks_included": 0, "changed_lines_total": sum(x['changed_lines'] for x in hunk_items), "changed_lines_included": 0, "omitted_hunks": len(hunk_items), "omitted_changed_lines": sum(x['changed_lines'] for x in hunk_items)}
+        return "", {"serialized_tokens": 0, "truncated": True, "changed_files_total": len(files), "changed_text_files_total": sum(row.get('kind') == 'text' for row in files), "files_with_semantic_content": 0, "hunks_total": total_hunks, "hunks_included": 0, "hunk_chunks_total": len(hunk_items), "hunk_chunks_included": 0, "changed_lines_total": sum(x['changed_lines'] for x in hunk_items), "changed_lines_included": 0, "omitted_hunks": total_hunks, "omitted_changed_lines": sum(x['changed_lines'] for x in hunk_items)}
     # Manifest is useful even when no hunk fits; then allocate semantic chunks round-robin.
     if not valid(render()):
         selected_manifest = []
@@ -161,7 +169,7 @@ def budgeted_semantic_state_text(
                 continue
             item = items[part]
             lines = item["lines"]
-            text = "\n".join([f"[PATCH {path} hunk={item['hunk']} part=1/1", *lines])
+            text = "\n".join([f"[PATCH {path} hunk={item['hunk']} part={item['part']}/{item['parts']}", item["header"], *lines])
             selected_chunks.append({"text": text, "changed_lines": item["changed_lines"], "path": path, "hunk": item["hunk"]})
             if not valid(render()):
                 selected_chunks.pop()
@@ -170,7 +178,8 @@ def budgeted_semantic_state_text(
     included_hunks = len({(x['path'], x['hunk']) for x in selected_chunks})
     included_lines = sum(x['changed_lines'] for x in selected_chunks)
     text = render()
-    omitted = len(hunk_items) - included_hunks
+    included_chunks = len(selected_chunks)
+    omitted = total_hunks - included_hunks
     footer = f"\n\n[OMITTED] hunks={omitted} changed_lines={sum(x['changed_lines'] for x in hunk_items)-included_lines}"
     if omitted and valid(text + footer):
         text += footer
@@ -178,8 +187,8 @@ def budgeted_semantic_state_text(
         "serialized_tokens": token_length(text), "truncated": omitted > 0,
         "changed_files_total": len(files), "changed_text_files_total": sum(row.get("kind") == "text" for row in files),
         "files_with_semantic_content": len({x["path"] for x in selected_chunks}),
-        "hunks_total": len(hunk_items), "hunks_included": included_hunks,
-        "hunk_chunks_total": len(hunk_items), "hunk_chunks_included": len(selected_chunks),
+        "hunks_total": total_hunks, "hunks_included": included_hunks,
+        "hunk_chunks_total": len(hunk_items), "hunk_chunks_included": included_chunks,
         "changed_lines_total": sum(x["changed_lines"] for x in hunk_items), "changed_lines_included": included_lines,
         "omitted_hunks": omitted, "omitted_changed_lines": sum(x["changed_lines"] for x in hunk_items) - included_lines,
     }
