@@ -323,7 +323,12 @@ class SmithDockerAgent:
                         def critic_prompt_fits(text, limit=safe_pi_ceiling):
                             return len(critic_prompt_ids(text)) <= limit
 
-                        if len(actor_prompt_ids) > safe_pi_ceiling:
+                        # The safety margin is reserved for fitting PI into the
+                        # Critic view. It must not shrink the Actor's legal
+                        # prompt domain: an Actor prompt that fits
+                        # hard_prompt_ceiling remains valid and simply falls
+                        # back to no PI when there is no room for PI.
+                        if len(actor_prompt_ids) > hard_prompt_ceiling:
                             privileged_text, serialization = "", {"serialized_tokens": 0, "truncated": True}
                             serialization["fallback_no_pi"] = True
                         elif privileged_encoding == "semantic_hunks_v2":
