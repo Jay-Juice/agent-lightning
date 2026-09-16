@@ -102,94 +102,134 @@ def budgeted_state_text(
     }
 
 
-def budgeted_semantic_state_text(
-    delta: dict[str, Any], *, token_length: Callable[[str], int], max_tokens: int, fits: Callable[[str], bool] | None = None
-) -> tuple[str, dict[str, Any]]:
-    """Serialize semantic patch hunks with deterministic round-robin coverage."""
+def budgeted_semantic_state_text(delta, *, token_length, max_tokens, fits=None):
+    """Pack cumulative diff fragments fairly; coverage counts complete changed lines.
+
+    Long diff lines are explicitly fragmented. No task-specific ranking is used.
+    Every omitted fragment, manifest or runtime record is counted as truncation.
+    """
     if max_tokens < 0:
         raise ValueError("max_tokens must be nonnegative")
-    files = list(delta.get("files", []))
-    runtime = []
-    for sign, name, group in (("+", "process", delta.get("processes", {}).get("added", [])), ("-", "process", delta.get("processes", {}).get("removed", [])), ("+", "socket", delta.get("sockets", {}).get("added", [])), ("-", "socket", delta.get("sockets", {}).get("removed", []))):
-        runtime.extend(f"{sign} {name} {row}" for row in group)
-    manifest = []
-    hunk_items = []
-    total_hunks = 0
+    files = sorted(delta.get("files", []), key=lambda row: row["path"])
+    manifests, runtime, queues, hunks, changed = [], [], {}, set(), {}
     for row in files:
-        digest = f" before={str(row.get('before_sha') or '-')[:12]} after={str(row.get('after_sha') or '-')[:12]}"
-        manifest.append(f"{'A' if row['change']=='added' else 'D' if row['change']=='removed' else 'M'} {row['path']} size={row.get('size','-')}{digest}")
+        path = row["path"]
+        prefix = {"added": "A", "removed": "D", "modified": "M"}[row["change"]]
+        before_sha = str(row.get("before_sha") or "-")[:12]
+        after_sha = str(row.get("after_sha") or "-")[:12]
+        manifests.append(f"{prefix} {path} size={row.get('size')} sha={before_sha}->{after_sha}")
+        queue = queues.setdefault(path, [])
         for hi, hunk in enumerate(row.get("hunks", []), 1):
-            total_hunks += 1
-            lines = hunk["lines"]
-            # Keep chunks small enough for graceful degradation. The final
-            # selection still checks the real tokenizer/context fit.
-            part_size = 32
-            parts = [lines[i : i + part_size] for i in range(0, len(lines), part_size)] or [[]]
-            for pi, part_lines in enumerate(parts, 1):
-                changed = sum(line.startswith(("+", "-")) and not line.startswith(("+++", "---")) for line in part_lines)
-                hunk_items.append({"path": row["path"], "hunk": hi, "part": pi, "parts": len(parts), "header": hunk["header"], "lines": part_lines, "changed_lines": changed})
-    summary = f"{MARKER}\nfiles_changed={len(files)} text_files={sum(row.get('kind')=='text' for row in files)} hunks={len(hunk_items)}"
-    selected_manifest = list(manifest)
-    selected_runtime: list[str] = []
-    selected_chunks: list[dict[str, Any]] = []
-    omitted_hunks = 0
-    omitted_changed_lines = 0
+            hk = (path, hi)
+            hunks.add(hk)
+            pending, pending_keys = [], []
 
-    def render() -> str:
-        parts = [summary]
-        if selected_manifest:
-            parts.append("[FILE MANIFEST]\n" + "\n".join(selected_manifest))
-        if selected_runtime:
-            parts.append("[RUNTIME]\n" + "\n".join(selected_runtime))
-        for chunk in selected_chunks:
-            parts.append(chunk["text"])
-        return "\n\n".join(parts)
+            def flush(pending=pending, pending_keys=pending_keys, queue=queue, path=path, hi=hi, hunk=hunk, hk=hk):
+                if pending:
+                    queue.append(
+                        {
+                            "text": f"[PATCH {path} hunk={hi}]\n{hunk['header']}\n" + "\n".join(pending),
+                            "hunk": hk,
+                            "lines": list(pending_keys),
+                        }
+                    )
+                    pending.clear()
+                    pending_keys.clear()
 
-    def valid(text: str) -> bool:
+            for li, line in enumerate(hunk["lines"]):
+                pieces = [line[i : i + 96] for i in range(0, len(line), 96)] or [""]
+                lk = (path, hi, li)
+                if line.startswith(("+", "-")):
+                    changed[lk] = len(pieces)
+                if len(pieces) > 1:
+                    flush()
+                    for part, piece in enumerate(pieces, 1):
+                        header = f"[PATCH {path} hunk={hi} line={li + 1} fragment={part}/{len(pieces)}]"
+                        queue.append({"text": f"{header}\n{hunk['header']}\n{piece}", "hunk": hk, "lines": [lk]})
+                else:
+                    if sum(len(value) + 1 for value in pending) + len(line) > 96:
+                        flush()
+                    pending.append(line)
+                    pending_keys.append(lk)
+            flush()
+    for namespace in ("processes", "sockets"):
+        for sign, change in (("+", "added"), ("-", "removed")):
+            for item in delta.get(namespace, {}).get(change, []):
+                runtime.append(f"{sign} {namespace} {item}")
+    total_chunks = sum(map(len, queues.values()))
+    summary = f"{MARKER}\nfiles_changed={len(files)} hunks={len(hunks)} changed_lines={len(changed)}"
+    # Reserve an explicit, small omission notice before filling the budget.
+    notice = "[OMITTED] Some records or diff fragments are not shown."
+    chosen_manifest, chosen_runtime, selected = [], [], []
+
+    def render(with_notice=True):
+        sections = [summary]
+        if chosen_manifest:
+            sections.append("[FILE MANIFEST]\n" + "\n".join(chosen_manifest))
+        if chosen_runtime:
+            sections.append("[RUNTIME]\n" + "\n".join(chosen_runtime))
+        sections.extend(item["text"] for item in selected)
+        if with_notice:
+            sections.append(notice)
+        return "\n\n".join(sections)
+
+    def valid(text):
         return token_length(text) <= max_tokens and (fits(text) if fits else True)
 
-    if not valid(summary):
-        return "", {"serialized_tokens": 0, "truncated": True, "changed_files_total": len(files), "changed_text_files_total": sum(row.get('kind') == 'text' for row in files), "files_with_semantic_content": 0, "hunks_total": total_hunks, "hunks_included": 0, "hunk_chunks_total": len(hunk_items), "hunk_chunks_included": 0, "changed_lines_total": sum(x['changed_lines'] for x in hunk_items), "changed_lines_included": 0, "omitted_hunks": total_hunks, "omitted_changed_lines": sum(x['changed_lines'] for x in hunk_items)}
-    # Manifest is useful even when no hunk fits; then allocate semantic chunks round-robin.
-    if not valid(render()):
-        selected_manifest = []
-    for item in runtime:
-        selected_runtime.append(item)
-        if not valid(render()):
-            selected_runtime.pop()
-    by_file: dict[str, list[dict[str, Any]]] = {}
-    for item in hunk_items:
-        by_file.setdefault(item["path"], []).append(item)
-    paths = sorted(by_file)
-    max_parts = max((len(by_file[path]) for path in paths), default=0)
-    for part in range(max_parts):
-        for path in paths:
-            items = by_file[path]
-            if part >= len(items):
-                continue
-            item = items[part]
-            lines = item["lines"]
-            text = "\n".join([f"[PATCH {path} hunk={item['hunk']} part={item['part']}/{item['parts']}", item["header"], *lines])
-            selected_chunks.append({"text": text, "changed_lines": item["changed_lines"], "path": path, "hunk": item["hunk"]})
-            if not valid(render()):
-                selected_chunks.pop()
-                omitted_hunks += 1
-                omitted_changed_lines += item["changed_lines"]
-    included_hunks = len({(x['path'], x['hunk']) for x in selected_chunks})
-    included_lines = sum(x['changed_lines'] for x in selected_chunks)
-    text = render()
-    included_chunks = len(selected_chunks)
-    omitted = total_hunks - included_hunks
-    footer = f"\n\n[OMITTED] hunks={omitted} changed_lines={sum(x['changed_lines'] for x in hunk_items)-included_lines}"
-    if omitted and valid(text + footer):
-        text += footer
+    enabled = max_tokens > 0 and valid(render())
+    if enabled:
+        for rows, kept in ((manifests, chosen_manifest), (runtime, chosen_runtime)):
+            for row in rows:
+                kept.append(row)
+                if not valid(render()):
+                    kept.pop()
+        # One fragment per file per round; long files cannot consume later rounds
+        # before the other files have had an opportunity to contribute.
+        for offset in range(max(map(len, queues.values()), default=0)):
+            for queue in queues.values():
+                if offset < len(queue):
+                    selected.append(queue[offset])
+                    if not valid(render()):
+                        selected.pop()
+    included_parts = {}
+    for item in selected:
+        for key in item["lines"]:
+            included_parts[key] = included_parts.get(key, 0) + 1
+    included_lines = sum(included_parts.get(key, 0) == parts for key, parts in changed.items())
+    included_hunks = {item["hunk"] for item in selected}
+    total_per_hunk, selected_per_hunk = {}, {}
+    for queue in queues.values():
+        for item in queue:
+            key = item["hunk"]
+            total_per_hunk[key] = total_per_hunk.get(key, 0) + 1
+    for item in selected:
+        key = item["hunk"]
+        selected_per_hunk[key] = selected_per_hunk.get(key, 0) + 1
+    full_hunks = sum(selected_per_hunk.get(key, 0) == count for key, count in total_per_hunk.items())
+    omitted_records = len(manifests) - len(chosen_manifest) + len(runtime) - len(chosen_runtime)
+    truncated = len(selected) < total_chunks or omitted_records > 0
+    text = render(truncated) if enabled else ""
+    if not enabled:
+        truncated = bool(files or runtime or total_chunks)
     stats = {
-        "serialized_tokens": token_length(text), "truncated": omitted > 0,
-        "changed_files_total": len(files), "changed_text_files_total": sum(row.get("kind") == "text" for row in files),
-        "files_with_semantic_content": len({x["path"] for x in selected_chunks}),
-        "hunks_total": total_hunks, "hunks_included": included_hunks,
-        "hunk_chunks_total": len(hunk_items), "hunk_chunks_included": included_chunks,
-        "changed_lines_total": sum(x["changed_lines"] for x in hunk_items), "changed_lines_included": included_lines,
-        "omitted_hunks": omitted, "omitted_changed_lines": sum(x["changed_lines"] for x in hunk_items) - included_lines,
+        "serialized_tokens": token_length(text),
+        "truncated": truncated,
+        "changed_files_total": len(files),
+        "changed_text_files_total": sum(row.get("kind") == "text" for row in files),
+        "files_with_semantic_content": len({key[0] for key in changed if included_parts.get(key, 0) == changed[key]}),
+        "hunks_total": len(hunks),
+        "hunks_included": len(included_hunks),
+        "hunks_fully_included": full_hunks,
+        "hunk_chunks_total": total_chunks,
+        "hunk_chunks_included": len(selected),
+        "changed_lines_total": len(changed),
+        "changed_lines_included": included_lines,
+        "omitted_hunks": len(hunks) - full_hunks,
+        "omitted_changed_lines": len(changed) - included_lines,
+        "manifest_records_total": len(manifests),
+        "manifest_records_included": len(chosen_manifest),
+        "runtime_records_total": len(runtime),
+        "runtime_records_included": len(chosen_runtime),
+        "omitted_records": omitted_records,
     }
     return text, stats

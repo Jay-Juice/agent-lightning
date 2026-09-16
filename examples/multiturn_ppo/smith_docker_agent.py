@@ -197,6 +197,7 @@ class SmithDockerAgent:
         return smith._forbidden_action(action)
 
     def run(self):
+        rollout_started = time.monotonic()
         row = json.loads(os.environ["AGL_TASK"])
         task = agent_task(row)
         test_nodes(row, max_tests=self.max_grading_tests)
@@ -214,6 +215,10 @@ class SmithDockerAgent:
         model_timeout = int(os.environ.get("SMITH_MODEL_TIMEOUT", "240"))
         max_format_errors = int(os.environ.get("SMITH_MAX_FORMAT_ERRORS", "3"))
         gateway_wait_s = float(os.environ.get("SMITH_GATEWAY_WAIT_S", "600"))
+        agent_wall_timeout = float(os.environ.get("SMITH_AGENT_WALL_TIMEOUT", "0"))
+        if agent_wall_timeout < 0:
+            raise ValueError("Agent wall timeout must be nonnegative")
+        agent_deadline = rollout_started + agent_wall_timeout if agent_wall_timeout else None
         privileged_mode = os.environ.get("SMITH_PRIVILEGED_STATE", "off")
         if privileged_mode not in {"off", "capture", "critic"}:
             raise ValueError("SMITH_PRIVILEGED_STATE must be off, capture, or critic")
@@ -286,6 +291,12 @@ class SmithDockerAgent:
                 (directory / "trajectory.jsonl").open("w") as trace,
             ):
                 for turn in range(int(os.environ.get("SMITH_MAX_TURNS", "8"))):
+                    if agent_deadline is not None and time.monotonic() >= agent_deadline:
+                        stop_reason = "wall_time_budget"
+                        trace.write(json.dumps({"stop_reason": stop_reason,
+                                                "elapsed_seconds": time.monotonic() - rollout_started}) + "\n")
+                        trace.flush()
+                        break
                     actor_prompt_ids = tokenizer.apply_chat_template(
                         messages,
                         tokenize=True,
@@ -328,7 +339,7 @@ class SmithDockerAgent:
                         # prompt domain: an Actor prompt that fits
                         # hard_prompt_ceiling remains valid and simply falls
                         # back to no PI when there is no room for PI.
-                        if len(actor_prompt_ids) > hard_prompt_ceiling:
+                        if len(actor_prompt_ids) > safe_pi_ceiling:
                             privileged_text, serialization = "", {"serialized_tokens": 0, "truncated": True}
                             serialization["fallback_no_pi"] = True
                         elif privileged_encoding == "semantic_hunks_v2":

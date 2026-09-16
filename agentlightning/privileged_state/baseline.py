@@ -15,16 +15,23 @@ _SHA40 = re.compile(r"[0-9a-f]{40}\Z")
 def _safe_path(path: str) -> str:
     if not isinstance(path, str) or "\x00" in path or path.startswith("/"):
         raise ValueError(f"invalid baseline path: {path!r}")
-    pure = PurePosixPath(path)
-    if any(part in ("", ".", "..") for part in pure.parts):
+    if any(part in ("", ".", "..") for part in path.split("/")):
         raise ValueError(f"invalid baseline path: {path!r}")
+    pure = PurePosixPath(path)
     return str(pure)
 
 
 class PreparedBaselineBlobStore:
     """Freeze the exact prepared checkout's path->blob map once per rollout."""
 
-    def __init__(self, container: Any, *, exact_commit: str, git_dir: str = "/root/agl-private-git", max_text_bytes: int = 2 << 20):
+    def __init__(
+        self,
+        container: Any,
+        *,
+        exact_commit: str,
+        git_dir: str = "/root/agl-private-git",
+        max_text_bytes: int = 2 << 20,
+    ):
         if not isinstance(exact_commit, str) or not _SHA40.fullmatch(exact_commit):
             raise ValueError("exact_commit must be a full 40-character hexadecimal SHA")
         self.container = container
@@ -41,9 +48,11 @@ class PreparedBaselineBlobStore:
         return result.output
 
     def initialize(self) -> dict[str, Any]:
-        out = self._run(["git", "--git-dir", self.git_dir, "ls-tree", "-r", "-l", self.exact_commit, "--"])
+        out = self._run(["git", "--git-dir", self.git_dir, "ls-tree", "-r", "-l", "-z", self.exact_commit, "--"])
         entries: dict[str, dict[str, Any]] = {}
-        for line in out.decode("utf-8", errors="strict").splitlines():
+        for line in out.decode("utf-8", errors="strict").split("\0"):
+            if not line:
+                continue
             meta, path = line.split("\t", 1)
             mode, kind, sha, size = meta.split()
             path = _safe_path(path)
@@ -52,7 +61,9 @@ class PreparedBaselineBlobStore:
             entries[path] = {"mode": mode, "type": kind, "blob_sha": sha, "size": int(size)}
         self.entries = entries
         manifest = {"commit": self.exact_commit, "entries": entries}
-        self.manifest_hash = hashlib.sha256(json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        self.manifest_hash = hashlib.sha256(
+            json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
         return {"commit": self.exact_commit, "count": len(entries), "manifest_hash": self.manifest_hash}
 
     def write_manifest(self, output_path) -> None:

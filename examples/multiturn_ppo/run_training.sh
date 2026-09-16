@@ -21,9 +21,11 @@ cleanup() {
 trap cleanup EXIT
 export CUDA_VISIBLE_DEVICES="${AGL_GPUS:-${AGL_GPU:-0}}"
 [[ "$CUDA_VISIBLE_DEVICES" =~ ^[0-7](,[0-7])*$ ]] || { echo 'Expected comma-separated physical GPU indices'; exit 2; }
+if [[ "${AGL_CONFIG_ONLY:-0}" != 1 ]]; then
 while read -r used; do
   (( used < 1000 )) || { echo 'A selected GPU is occupied'; exit 2; }
 done < <(nvidia-smi -i "$CUDA_VISIBLE_DEVICES" --query-gpu=memory.used --format=csv,noheader,nounits)
+fi
 export PYTHONPATH="$TOOLS:$REPO:${PYTHONPATH:-}"
 # Ray uses Unix-domain sockets; its parent path must stay short (<108 bytes
 # including Ray's session/socket suffix). This directory is still on D1.
@@ -50,17 +52,20 @@ MODEL="${AGL_TRAIN_MODEL:-/media/ubuntu/D1/zsj/GOPD/G-OPD-main/models/Qwen3-0.6B
 export AGL_TRAIN_MODEL="$MODEL"
 LOCAL_AGENTS="${AGL_MAX_LOCAL_AGENTS:-4}"
 [[ "$LOCAL_AGENTS" =~ ^[1-9][0-9]*$ ]] || { echo 'AGL_MAX_LOCAL_AGENTS must be positive'; exit 2; }
-if [[ "${AGL_GPU_MONITOR:-0}" == 1 ]]; then
+if [[ "${AGL_GPU_MONITOR:-0}" == 1 && "${AGL_CONFIG_ONLY:-0}" != 1 ]]; then
   nvidia-smi -i "$CUDA_VISIBLE_DEVICES" \
     --query-gpu=timestamp,index,utilization.gpu,memory.used,power.draw \
     --format=csv,noheader,nounits -l 2 >"$AGL_RUN_DIR/gpu.csv" 2>"$AGL_RUN_DIR/gpu-monitor.log" &
   monitor_pid=$!
 fi
+if [[ "${AGL_CONFIG_ONLY:-0}" != 1 ]]; then
 python - "$PORT" <<'PY'
 import socket, sys
 with socket.socket() as s: s.bind(('127.0.0.1', int(sys.argv[1])))
 PY
+fi
 python -u "$TOOLS/train.py" --model "$MODEL" "$@" --config-only >"$AGL_RUN_DIR/config.log" 2>&1
+[[ "${AGL_CONFIG_ONLY:-0}" != 1 ]] || exit 0
 mapfile -t PROXY_OVERRIDES < "$AGL_RUN_DIR/proxy-overrides.txt"
 agl-server host=127.0.0.1 port="$PORT" key="$AGL_KEY" default_proxy.model_name="$MODEL" "${PROXY_OVERRIDES[@]}" \
   >"$AGL_RUN_DIR/server.log" 2>&1 &

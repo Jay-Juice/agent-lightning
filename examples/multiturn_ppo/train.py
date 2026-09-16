@@ -153,6 +153,11 @@ def build_config(args):
     # The ephemeral local auth key should not be persisted in the config artifact.
     safe = OmegaConf.to_container(cfg, resolve=True)
     safe["agentlightning"]["agl_key"] = "<runtime key>"
+    if os.environ.get("AGL_MATCH_BASELINE_RUN"):
+        from matched_recipe import verify_matched_recipe
+
+        report = verify_matched_recipe(safe, os.environ, args.train_file, args.val_file)
+        (run / "recipe-verification.json").write_text(json.dumps(report, indent=2))
     (run / "resolved-config.json").write_text(json.dumps(safe, indent=2))
     from sampling_config import proxy_overrides
 
@@ -206,6 +211,8 @@ def build_config(args):
                     "SMITH_GATEWAY_WAIT_S",
                     "SMITH_CMD_TIMEOUT",
                     "SMITH_EVAL_TIMEOUT",
+                    "SMITH_AGENT_WALL_TIMEOUT",
+                    "AGL_ROLLOUT_TIMEOUT_SECONDS",
                     "SMITH_VERIFY_SUBMISSION",
                     "SMITH_ALLOW_REPRO_FILES",
                     "SMITH_CHECK_SYNTAX",
@@ -213,6 +220,7 @@ def build_config(args):
                     "SMITH_PRIVILEGED_STATE",
                     "SMITH_PRIVILEGED_MAX_TOKENS",
                     "SMITH_PRIVILEGED_SAFETY_MARGIN",
+                    "SMITH_PRIVILEGED_ENCODING",
                 )
             },
         },

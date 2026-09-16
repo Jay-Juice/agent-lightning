@@ -47,6 +47,7 @@ bash "$TOOLS/run_checked_swe_ppo.sh" \
   trainer.max_actor_ckpt_to_keep=3 trainer.max_critic_ckpt_to_keep=3 \
   trainer.val_before_train=true trainer.resume_mode=disable "$@"
 RUN="$RUNTIME/logs/training-$AGL_TRAIN_TAG"
+[[ "${AGL_SKIP_FINAL_EXPORT:-0}" != 1 && "${AGL_CONFIG_ONLY:-0}" != 1 ]] || exit 0
 CUDA_VISIBLE_DEVICES= python -m verl.model_merger merge --backend fsdp \
   --local_dir "$RUN/checkpoints/global_step_$TOTAL_STEPS/actor" --target_dir "$RUN/final-actor" \
   >"$RUN/final-export.log" 2>&1

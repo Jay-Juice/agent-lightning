@@ -49,6 +49,36 @@ def ids_startswith(full_ids: list[int], prefix_ids: list[int]) -> bool:
     return full_ids[: len(prefix_ids)] == prefix_ids
 
 
+def _privileged_coverage_metrics(counts: dict[str, list[int]]) -> dict[str, float]:
+    """Aggregate real rollout rows; zero-change states have undefined coverage.
+
+    Means weight eligible states equally; weighted coverage divides all included
+    items by all available items. Neither reports unchanged S0 as perfect PI.
+    """
+    metrics: dict[str, float] = {}
+    for stem, label in (("hunks", "hunk"), ("hunk_chunks", "hunk_chunk"), ("changed_lines", "changed_line")):
+        total = np.asarray(counts[f"{stem}_total"], dtype=np.int64)
+        included = np.asarray(counts[f"{stem}_included"], dtype=np.int64)
+        eligible = total > 0
+        mean = float(np.mean(included[eligible] / total[eligible])) if eligible.any() else float("nan")
+        metrics.update(
+            {
+                f"privilege/{stem}_total": int(total.sum()),
+                f"privilege/{stem}_included": int(included.sum()),
+                f"privilege/{label}_coverage_mean": mean,
+                f"privilege/{label}_coverage_changed_mean": mean,
+                f"privilege/{label}_coverage_weighted": (
+                    float(included.sum() / total.sum()) if total.sum() else float("nan")
+                ),
+                f"privilege/{label}_coverage_n_rows": int(eligible.sum()),
+            }
+        )
+    changed = np.asarray(counts["changed_lines_total"]) > 0
+    metrics["privilege/n_changed_rows"] = int(changed.sum())
+    metrics["privilege/n_zero_changed_line_rows"] = int((~changed).sum())
+    return metrics
+
+
 def _decode_token_ids(tokenizer: Any | None, ids: list[int]) -> str:
     if tokenizer is not None:
         try:
@@ -420,8 +450,11 @@ class RolloutAdapter:
         privileged_snapshot_time_list: list[float] = []
         privileged_serialized_tokens_list: list[int] = []
         privileged_truncated_list: list[bool] = []
-        privileged_hunk_coverage_list: list[float] = []
-        privileged_changed_line_coverage_list: list[float] = []
+        privileged_counts: dict[str, list[int]] = {
+            f"{stem}_{suffix}": []
+            for stem in ("hunks", "hunk_chunks", "changed_lines")
+            for suffix in ("total", "included")
+        }
         privileged_files_semantic_list: list[float] = []
         n_trunc_sample_because_of_response = 0
         n_skipped_empty_training_rows = 0
@@ -534,10 +567,10 @@ class RolloutAdapter:
                 privileged_snapshot_time_list.append(float(state.get("snapshot_duration_s", 0.0)))
                 privileged_serialized_tokens_list.append(int(state.get("serialized_tokens", 0)))
                 privileged_truncated_list.append(bool(state.get("truncated", False)))
-                htotal = int(state.get("hunks_total", 0))
-                ltotal = int(state.get("changed_lines_total", 0))
-                privileged_hunk_coverage_list.append(float(state.get("hunks_included", 0)) / htotal if htotal else 1.0)
-                privileged_changed_line_coverage_list.append(float(state.get("changed_lines_included", 0)) / ltotal if ltotal else 1.0)
+                for key, counts in privileged_counts.items():
+                    # A partly included hunk is not fully covered.
+                    source_key = "hunks_fully_included" if key == "hunks_included" else key
+                    counts.append(int(state.get(source_key, 0)))
                 privileged_files_semantic_list.append(float(state.get("files_with_semantic_content", 0)))
             if response_mask is not None:
                 one_response_mask, _ = get_right_padded_ids_and_attention_mask(
@@ -852,6 +885,12 @@ class RolloutAdapter:
             data_proto.non_tensor_batch["privileged_state_hash_list"] = np.array(
                 privileged_state_hash_list, dtype=object
             )
+            for key, counts in privileged_counts.items():
+                data_proto.non_tensor_batch[f"pi_{key}"] = np.asarray(counts, dtype=np.int64)
+            data_proto.non_tensor_batch["pi_semantic_content"] = (
+                data_proto.non_tensor_batch["pi_changed_lines_included"] > 0
+            )
+            data_proto.non_tensor_batch["pi_truncated"] = np.asarray(privileged_truncated_list, dtype=bool)
         if multi_modal_inputs_list is not None:
             # [multimodal-patch] Per-row dict (or None for text rows), matching
             # verl 0.8.0 extract_multi_modal_inputs expectations.
@@ -886,11 +925,15 @@ class RolloutAdapter:
                         + int(response_attention_mask.sum().item())
                     ),
                     "privilege/truncated_ratio": float(np.mean(privileged_truncated_list)),
-                    "privilege/hunk_coverage_mean": float(np.mean(privileged_hunk_coverage_list)),
-                    "privilege/changed_line_coverage_mean": float(np.mean(privileged_changed_line_coverage_list)),
                     "privilege/files_with_semantic_content_mean": float(np.mean(privileged_files_semantic_list)),
                 }
             )
+            data_metrics.update(_privileged_coverage_metrics(privileged_counts))
+            semantic = data_proto.non_tensor_batch["pi_semantic_content"]
+            changed = data_proto.non_tensor_batch["pi_changed_lines_total"] > 0
+            truncated = data_proto.non_tensor_batch["pi_truncated"]
+            data_metrics["privilege/semantic_content_ratio"] = float(np.mean(semantic))
+            data_metrics["privilege/n_full_pi_rows"] = int(np.sum(changed & semantic & ~truncated))
 
         return data_proto, data_metrics
 
