@@ -37,11 +37,13 @@
 
 ## 重启前最后验收
 
-- 新版124镜像审计：`swe-full-python-envs-reliable-v2-20260918-02`，执行中。
-- 真实生产自动分类验收：`audit-v2-grading-live-20260918-01`，CPU两并发；先运行两个600秒timeout案例，随后语法、导入、internalerror和OOM案例。每题调用未经替换的`grade_fixed_patch(full_python_agent.grade)`，固定candidate→reference→candidate，6题必须全部candidate_failed/reward0。
+- 新版124镜像审计：`swe-full-python-envs-reliable-v2-20260918-02`，124/124通过，ready=true，run.exit=0。
+- 真实生产自动分类验收：`audit-v2-grading-live-20260918-01`，已完成，summary.passed=true、run.exit=0，6/6均candidate_failed/reward0。每题调用未经替换的`grade_fixed_patch(full_python_agent.grade)`，固定candidate→reference→candidate；两个timeout均实际执行两轮600秒，OOM案例两次自身容器oom_kill增量均为1，参考通过。全部维持600秒/4GiB/2CPU。
 - `run_reliable_ab_pair.sh`已增加上述live6及470轨迹重放的启动门槛，核对证据及源码SHA；原有四卡worker恢复证据继续保留。
 
-全部通过后用新pair `20260918-02`，GPU4–7先B再A，各20步，初始及step20均完整470题验证。GPU0–3的PI保持运行。尚未启动新pair；不得将当前审计进程说成在线训练。
+所有门槛已通过，已启动新pair `20260918-02`，GPU4–7先B再A，各20步，初始及step20均完整470题验证。GPU0–3的PI保持运行。启动日志已确认 WORKER_ENVIRONMENT_GRADING_AND_470_EPISODE_GATES_PASSED，随后 FULL_PYTHON_READY 确认6248训练题、470验证题和124镜像检查通过。四卡worker、FSDP和推理服务已启动；日志确认Critic head在fresh模型、FSDP包装前置零。B组已进入完整470题初始验证，检查时至少5条rollout完成，真实trajectory与sandbox文件持续产生。这里的succeeded是rollout执行成功计数，不是修复成功数；尚无新PPO更新或最终修复率。
+
+修复代码已本地提交`8e0e473`并部署；尚未push到GitHub。
 
 ## 路径与运行方式
 
@@ -52,7 +54,7 @@ SSH：`C:\Windows\System32\OpenSSH\ssh.exe -o BatchMode=yes -l ubuntu A800`。
 
 部署使用`research/p2-grading-sync-files.txt`精确清单，WSL `rsync -anvz`先预览，再`-avz`；不使用--delete，不修改PI部署目录。
 
-计划在远端部署目录执行以下命令，须先确认最后两项验收成功：
+所有验收通过后，已在远端部署目录执行以下命令（screen启动返回0）：
 
 ```sh
 screen -dmS agl-ab-v2-gpu47-20260918-02 bash examples/multiturn_ppo/run_reliable_ab_pair.sh \
@@ -62,3 +64,12 @@ screen -dmS agl-ab-v2-gpu47-20260918-02 bash examples/multiturn_ppo/run_reliable
   /media/ubuntu/D1/zsj/agent-lightning-runtime/logs/audit-v2-grading-live-20260918-01 \
   /media/ubuntu/D1/zsj/agent-lightning-runtime/logs/audit-v2-episode-replay-all-20260918-01
 ```
+
+## 当前实验与后续判断
+
+- Pair：`ab-pair-20260918-02`；screen：`agl-ab-v2-gpu47-20260918-02`。
+- B：`training-capo-swe-v2-mini128-zero-4b-gpu47-20260918-02`，正在初始验证。
+- A：`training-capo-swe-v2-mini128-default-4b-gpu47-20260918-02`，等待B正常完成后自动启动；B失败则pair停止。
+- 两组均从Qwen3-4B-Instruct-2507新启动，仅critic_head_init不同，各20步，初始与step20全470题验证。
+- 关注完整评分交付、Actor/Critic数值与梯度、KL、修复率、提交率和输出长度；不能仅凭进程存活判定训练稳定。
+- 四卡worker checkpoint恢复已验收；完整在线trainer/dataloader/rollout恢复仍待首个完整线上checkpoint验证。
