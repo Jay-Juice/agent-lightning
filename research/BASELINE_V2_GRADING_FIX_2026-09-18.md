@@ -85,3 +85,10 @@ screen -dmS agl-ab-v2-gpu47-20260918-02 bash examples/multiturn_ppo/run_reliable
 - 前三步总耗时36.47、23.68、25.13分钟，其中首步rollout约21.12分钟、后两步约4.62/5.15分钟；Actor+Critic更新约11.31/14.16/14.91分钟。可在A/B结束后评估微批次/调度加速，当前保持对照一致，不削减600秒评分预算。暂不外推精确结束时间。
 - D1约492GiB可用；尚无global_step checkpoint（仅episode-audit）。GPU0–3的PI screen及工作进程继续运行，本轮未操作。
 - 决策：继续原20步B→A，不改超参数、不重启、不启动全量。待完整step20验证与A组对照，以及线上checkpoint恢复验收后决定配方与下一阶段。
+## 2026-09-18 06:12（北京时间）定时巡检
+
+- B已完整记录5/20步，第6步Critic更新完成、Actor更新进行到64/89 forwards；pair/B无run.exit，日志在28秒内更新，A尚未启动。上轮第4批尾部评分已结束，无卡死证据。
+- 新完成step4/5的训练奖励为13/32、10/32；Actor KL loss为0.01329、0.00985，clip fraction为0.296%、0.233%；Actor grad norm为3.85、2.50，Critic为18.56、12.65。已读取指标均有限，optimizer skipped仍0。
+- step4/5提交率90.625%、84.375%，格式终止0/32、1/32，平均输出2802、3119 tokens/题；Critic explained variance为0.0423、0.0144，仍接近零，不能提前断言Critic已有效拟合或训练带来泛化提升。
+- step4/5耗时44.60/29.71分钟。GPU4–7当前99%利用率、显存约58.8–59.5GiB；D1空闲489.39GiB。GPU0–3的PI继续运行，未操作。尚无global_step checkpoint，符合save_freq=20设置。
+- 本轮只读远端日志与资源、更新本地记录；无异常需要恢复，继续同一A/B，不改超参数、不启动新run。等待step20完整验证与checkpoint后推进下一阶段。
