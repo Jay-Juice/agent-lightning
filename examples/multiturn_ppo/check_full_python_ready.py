@@ -130,6 +130,8 @@ def main():
         ("sandbox", "sandbox.py"),
         ("checked_agent", "smith_docker_agent.py"),
         ("data_preparation", "prepare_full_python.py"),
+        ("grading_reliability", "swe_reliability.py"),
+        ("grading_evidence", "swe_grading_evidence.py"),
     ]:
         assert fingerprint(Path(__file__).with_name(name)) == signature[key], f"Changed source: {name}"
     client = docker.from_env(timeout=120)

@@ -39,7 +39,7 @@ def test_fixed_patch_retries_only_transport_errors(helpers, tmp_path):
     assert (tmp_path / "grading-attempt-0/infrastructure-error.json").exists()
 
 
-@pytest.mark.parametrize("exit_code", [3, 124, 137, -1])
+@pytest.mark.parametrize("exit_code", [-1, 125, 126, 127, 143])
 @pytest.mark.skipif(not hasattr(signal, "setitimer"), reason="Linux agent deadline")
 def test_unresolved_exit_never_resamples_or_regrades(helpers, tmp_path, exit_code):
     calls = []
@@ -51,3 +51,79 @@ def test_unresolved_exit_never_resamples_or_regrades(helpers, tmp_path, exit_cod
     result = helpers.grade_fixed_patch(grade, {}, "candidate", tmp_path,
                                       retry_errors=(ConnectionError,), deadline=time.monotonic() + 10)
     assert calls == ["candidate"] and result["grading_status"] == "requires_review"
+
+
+def report(code=4, reference=False):
+    return {"pytest_exit": code, "reward": float(code == 0), "resolved": code == 0,
+            "reference_control": reference, "patch_sha256": "ref" if reference else "candidate",
+            "task_sha256": "task", "test_spec_sha256": "tests", "baseline": {"image_id": "image"},
+            "container_memory_bytes": 4 * 2**30, "container_nano_cpus": 2 * 10**9,
+            "eval_timeout_seconds": 600, "grading_protocol": "f2p_file", "test_runner": "pytest",
+            "f2p_total": 2, "p2p_total": 3, "f2p_passed": 2 if code == 0 else 0,
+            "p2p_passed": 3 if code == 0 else 0, "host_memory_available_before": 64 * 2**30,
+            "test_elapsed_seconds": 601 if code == 124 else 2, "container_oom_kill_delta": int(code == 137)}
+
+
+@pytest.mark.parametrize("code", [2, 3, 4, 5, 124, 137])
+@pytest.mark.skipif(not hasattr(signal, "setitimer"), reason="Linux agent deadline")
+def test_control_and_fixed_replay_classify_failure(helpers, tmp_path, code):
+    calls = []
+
+    def grade(row, patch, target, *, reference=False):
+        calls.append((patch, reference))
+        return report(0 if reference else code, reference)
+
+    result = helpers.grade_fixed_patch(grade, {}, "candidate", tmp_path,
+                                      retry_errors=(ConnectionError,), deadline=time.monotonic() + 10)
+    assert calls == [("candidate", False), ("candidate", True), ("candidate", False)]
+    assert result["reward"] == 0 and result["grading_status"] == "candidate_failed"
+    assert (tmp_path / "grading-adjudication.json").exists()
+
+
+@pytest.mark.parametrize("mode", ["bad_reference", "successful_replay", "changed_failure"])
+@pytest.mark.skipif(not hasattr(signal, "setitimer"), reason="Linux agent deadline")
+def test_control_disagreement_never_selects_lucky_reward(helpers, tmp_path, mode):
+    calls = []
+
+    def grade(row, patch, target, *, reference=False):
+        calls.append(reference)
+        if reference:
+            return report(1 if mode == "bad_reference" else 0, True)
+        return report(4 if len(calls) == 1 else 0 if mode == "successful_replay" else 3)
+
+    result = helpers.grade_fixed_patch(grade, {}, "candidate", tmp_path,
+                                      retry_errors=(ConnectionError,), deadline=time.monotonic() + 10)
+    assert result["reward"] == 0 and result["grading_status"] == "requires_review"
+    assert len(calls) == (2 if mode == "bad_reference" else 3)
+
+
+@pytest.mark.parametrize("change", ["patch", "image", "task", "tests", "limits", "missing", "oom", "original_oom",
+                                   "host_memory", "short_timeout", "partial_reference"])
+def test_control_evidence_must_be_comparable(helpers, change):
+    from swe_grading_evidence import classify_controlled_failure
+
+    code = 137 if change in {"oom", "original_oom", "host_memory"} else 124 if change == "short_timeout" else 4
+    original, reference, replay = report(code), report(0, True), report(code)
+    if change == "patch":
+        replay["patch_sha256"] = "other"
+    elif change == "image":
+        reference["baseline"]["image_id"] = "other"
+    elif change == "task":
+        replay["task_sha256"] = "other"
+    elif change == "tests":
+        reference["test_spec_sha256"] = "other"
+    elif change == "limits":
+        replay["eval_timeout_seconds"] = 1200
+    elif change == "missing":
+        del original["task_sha256"]
+    elif change == "oom":
+        replay["container_oom_kill_delta"] = 0
+    elif change == "original_oom":
+        original["container_oom_kill_delta"] = 0
+    elif change == "host_memory":
+        reference["host_memory_available_before"] = 0
+    elif change == "short_timeout":
+        replay["test_elapsed_seconds"] = 2
+    else:
+        reference["p2p_passed"] = 0
+    assert classify_controlled_failure(original, reference, replay) is None

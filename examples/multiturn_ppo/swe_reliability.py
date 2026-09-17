@@ -49,6 +49,8 @@ def deadline_guard(deadline):
 def grading_status(report):
     if report.get("patch_rejection"):
         return "candidate_rejected"
+    if report.get("controlled_failure"):
+        return "candidate_failed"
     # These can be caused by a bad patch OR infrastructure; require evidence.
     if report.get("pytest_exit") not in {0, 1}:
         return "requires_review"
@@ -56,22 +58,44 @@ def grading_status(report):
 
 
 def grade_fixed_patch(grader, row, patch, directory, *, retry_errors, deadline):
-    """Retry only a transport/daemon failure, once, with identical patch bytes.
+    """Bounded grading with evidence for candidate failures.
 
-    Returned test failures (including ambiguous exit codes) are never retried.
-    Separate directories preserve both attempts. A review-required result has
-    no reward delivered to PPO until independently classified.
+    Ordinary 0/1 scores are final. Ambiguous exits get one reference control
+    and one identical candidate replay. A disagreement never becomes a lucky
+    success. Transport failures alone permit one additional grading attempt.
+    Controls run after the agent sandbox closes and never enter its context.
     """
-    for attempt in range(2):
-        target = directory / f"grading-attempt-{attempt}"
-        target.mkdir()
-        try:
-            with deadline_guard(deadline):
-                report = grader(row, patch, target)
-            report = {**report, "grading_attempts": attempt + 1, "grading_status": grading_status(report)}
-            (directory / "grade.json").write_text(json.dumps(report, indent=2))
-            return report
-        except retry_errors as exc:
-            (target / "infrastructure-error.json").write_text(json.dumps({"error_type": type(exc).__name__}))
-            if attempt or time.monotonic() >= deadline:
-                raise
+    from swe_grading_evidence import AMBIGUOUS_EXITS, classify_controlled_failure
+
+    def run(name, *, reference=False):
+        for attempt in range(2):
+            target = directory / f"{name}-{attempt}"
+            target.mkdir()
+            try:
+                with deadline_guard(deadline):
+                    if reference:
+                        report = grader(row, patch, target, reference=True)
+                    else:
+                        report = grader(row, patch, target)
+                return report, attempt + 1
+            except retry_errors as exc:
+                (target / "infrastructure-error.json").write_text(json.dumps({"error_type": type(exc).__name__}))
+                if attempt or time.monotonic() >= deadline:
+                    raise
+
+    report, attempts = run("grading-attempt")
+    report = {**report, "grading_attempts": attempts}
+    if report.get("pytest_exit") in AMBIGUOUS_EXITS:
+        reference, _ = run("grading-reference", reference=True)
+        evidence = {"reference": reference, "replay": None}
+        # An unhealthy reference cannot establish candidate failure.
+        if reference.get("resolved") is True and reference.get("pytest_exit") == 0:
+            replay, _ = run("grading-replay")
+            evidence["replay"] = replay
+            failure = classify_controlled_failure(report, reference, replay)
+            if failure:
+                report["controlled_failure"] = failure
+        (directory / "grading-adjudication.json").write_text(json.dumps(evidence, indent=2))
+    report["grading_status"] = grading_status(report)
+    (directory / "grade.json").write_text(json.dumps(report, indent=2))
+    return report

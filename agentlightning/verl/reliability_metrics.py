@@ -15,6 +15,8 @@ from typing import Any
 
 import torch
 
+from agentlightning.verl.episode_contract import TASK_REASONS
+
 
 def _finite(values: torch.Tensor, name: str) -> None:
     if not torch.isfinite(values).all():
@@ -192,7 +194,10 @@ def rollout_diagnostics(completed_rollouts: Sequence[Any], prefix: str = "val/be
     A call/action is a non-error request with nonempty output token IDs. HTTP
     retries and empty/error responses do not count. Format-stop ratio only
     means the *terminal* reason was a format error; intermediate parse errors
-    are not recoverable from reward/model_request events and are not inferred.
+    are not recoverable from terminal/model_request events and are not inferred.
+    SWE v2 outcomes identify the stop even when grading produced no reward;
+    their terminal reason must agree with any reward event. This is diagnostic
+    validation only, not acceptance of an unresolved episode for training.
     All episode ratios divide by all completed episodes, including zero-call
     failures. Length means at least one accepted completion ended in length.
     """
@@ -216,7 +221,25 @@ def rollout_diagnostics(completed_rollouts: Sequence[Any], prefix: str = "val/be
             value = _field(event, "data", {}).get("value")
             if value is not None and not math.isfinite(float(value)):
                 raise ValueError("Nonfinite reward event value")
-        reason = (_field(reward_events[-1], "data", {}).get("reason") if reward_events else None) or "unknown"
+        outcome_events = [e for e in events if _field(e, "event_type") == "rollout_outcome"]
+        if not outcome_events:
+            outcome_events = [e for e in trimmed if _field(e, "event_type") == "rollout_outcome"]
+        if len(outcome_events) > 1:
+            raise ValueError("Multiple episode outcomes; attempts must not be combined")
+        if outcome_events:
+            outcome = _field(outcome_events[0], "data", {})
+            if not isinstance(outcome, Mapping) or outcome.get("protocol_version") != "swe-v2":
+                raise ValueError("Invalid SWE v2 episode outcome protocol")
+            reason = outcome.get("reason")
+            kind = outcome.get("terminal_kind")
+            if (kind not in {"task_terminal", "infrastructure_truncation"}
+                    or not isinstance(reason, str) or not reason.strip()
+                    or (kind == "task_terminal" and reason not in TASK_REASONS)):
+                raise ValueError("Invalid SWE v2 episode terminal reason")
+            if any(_field(event, "data", {}).get("reason") != reason for event in reward_events):
+                raise ValueError("Reward and episode outcome disagree")
+        else:
+            reason = (_field(reward_events[-1], "data", {}).get("reason") if reward_events else None) or "unknown"
         stops[re.sub(r"[^a-zA-Z0-9_-]", "_", str(reason))] += 1
         model_events = [e for e in events if _field(e, "event_type") == "model_request"]
         if not model_events:

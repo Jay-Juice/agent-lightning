@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+import time
 from pathlib import Path, PurePosixPath
 
 import docker
@@ -487,6 +488,8 @@ class FullPythonSandbox(pilot.SmithSandbox):
 
 
 def grade(row, patch, output_dir, *, reference=False):
+    from swe_grading_evidence import host_memory_available, memory_events, task_digest
+
     if row.get("grading_protocol") != "f2p_file":
         raise ValueError("Full Python agent requires the prepared f2p_file dataset")
     f2p, p2p = grading_test_nodes(row)
@@ -498,7 +501,7 @@ def grade(row, patch, output_dir, *, reference=False):
         raise ValueError("Grading timeout must be positive")
     client = docker.from_env(timeout=eval_timeout + 70)
     run_id = output_dir.name
-    if run_id.startswith("grading-attempt-"):
+    if run_id.startswith(("grading-attempt-", "grading-reference-", "grading-replay-")):
         run_id = output_dir.parent.name + "-" + run_id
     box = FullPythonSandbox(client, pilot.agent_task(row), run_id + "-grade")
     try:
@@ -583,6 +586,9 @@ def grade(row, patch, output_dir, *, reference=False):
                 *coverage,
                 *nodes,
             ]
+        before_events = memory_events(box.container)
+        available_memory = host_memory_available()
+        test_started = time.monotonic()
         result = box.container.exec_run(
             [
                 "/usr/bin/timeout",
@@ -603,6 +609,8 @@ def grade(row, patch, output_dir, *, reference=False):
                 "OPENBLAS_NUM_THREADS": "2",
             },
         )
+        elapsed = time.monotonic() - test_started
+        after_events = memory_events(box.container)
         output = result.output.decode(errors="replace")
         (output_dir / "test-output.txt").write_text(output)
         statuses = parse_statuses(output, nodes)
@@ -614,6 +622,13 @@ def grade(row, patch, output_dir, *, reference=False):
             "resolved": resolved,
             "pytest_exit": result.exit_code,
             "patch_sha256": hashlib.sha256(patch.encode()).hexdigest(),
+            "task_sha256": task_digest(row),
+            "test_spec_sha256": hashlib.sha256(json.dumps(invocation).encode()).hexdigest(),
+            "test_elapsed_seconds": elapsed,
+            "host_memory_available_before": available_memory,
+            "container_memory_events_before": before_events,
+            "container_memory_events_after": after_events,
+            "container_oom_kill_delta": max(0, after_events.get("oom_kill", 0) - before_events.get("oom_kill", 0)),
             "test_statuses": statuses,
             "container_id": box.container.id,
             "container_memory_bytes": box.container.attrs.get("HostConfig", {}).get("Memory"),

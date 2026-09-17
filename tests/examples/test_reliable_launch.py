@@ -21,13 +21,13 @@ class ReliabilityLaunchTests(unittest.TestCase):
             "AGL_SWE_RELIABILITY": "1",
             "SMITH_AGENT_WALL_TIMEOUT": "3600",
             "SMITH_EVAL_TIMEOUT": "600",
-            "AGL_ROLLOUT_TIMEOUT_SECONDS": "5400",
+            "AGL_ROLLOUT_TIMEOUT_SECONDS": "8400",
         }
         self.config = {
             "agentlightning": {
                 "reliability": {"enabled": True},
                 "multi_turn_ppo": {"enabled": True, "backend": "capo", "capo_strict_padding": True},
-                "rollout_timeout_seconds": 5400,
+                "rollout_timeout_seconds": 8400,
                 "local": {"env_map": dict(self.env)},
             },
             "trainer": {
@@ -69,7 +69,7 @@ class ReliabilityLaunchTests(unittest.TestCase):
         self.env["AGL_ROLLOUT_TIMEOUT_SECONDS"] = "5200"
         self.config["agentlightning"]["rollout_timeout_seconds"] = 5200
         self.config["agentlightning"]["local"]["env_map"]["AGL_ROLLOUT_TIMEOUT_SECONDS"] = "5200"
-        with self.assertRaisesRegex(ValueError, "5340s"):
+        with self.assertRaisesRegex(ValueError, "8220s"):
             launch.validate_reliability_config(self.config, self.env)
 
     def test_retention_and_validation_required(self):

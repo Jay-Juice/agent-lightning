@@ -183,7 +183,8 @@ class SmithDockerAgent:
         hard_timeout = float(os.environ["AGL_ROLLOUT_TIMEOUT_SECONDS"])
         interaction = float(os.environ["SMITH_AGENT_WALL_TIMEOUT"])
         eval_timeout = float(os.environ.get("SMITH_EVAL_TIMEOUT", "600"))
-        if interaction <= 0 or hard_timeout < interaction + 2 * (eval_timeout + 120) + 300:
+        # Candidate, reference, fixed replay; each allows one transport retry.
+        if interaction <= 0 or hard_timeout < interaction + 6 * (eval_timeout + 120) + 300:
             raise ValueError("Controller deadline must reserve grading, export and reward delivery time")
         self._hard_deadline = started + hard_timeout - 60
         self._phase = "interaction"

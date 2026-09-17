@@ -186,3 +186,54 @@ def test_empty_rollouts_and_nonfinite_reward():
     assert all(math.isfinite(value) for value in result.values())
     with pytest.raises(ValueError, match="Nonfinite"):
         rollout_diagnostics([{"final_reward": float("nan")}])
+
+
+def _outcome(reason="submitted", **overrides):
+    return {"event_type": "rollout_outcome", "data": {
+        "protocol_version": "swe-v2", "terminal_kind": "task_terminal",
+        "reason": reason, "grading_status": "requires_review", **overrides,
+    }}
+
+
+def test_unresolved_grading_preserves_stop_reason_without_creating_reward():
+    episodes = [
+        {"events": [_model([1, 2]), _outcome()], "final_reward": None},
+        {"events": [_outcome("format_errors")]},
+        {"events": [_outcome("execution_interrupted", terminal_kind="infrastructure_truncation")]},
+        {"triplet_events": [_outcome("context_budget")]},
+        {"events": [_reward("submitted"), _outcome(grading_status="completed")], "final_reward": 0},
+    ]
+    original = copy.deepcopy(episodes)
+    result = rollout_diagnostics(episodes)
+    assert result["val/behavior/episodes"] == 5
+    assert result["val/behavior/stop_reason_known_episodes"] == 5
+    assert result["val/behavior/submitted_episode_ratio"] == 2 / 5
+    assert result["val/behavior/format_stop_episode_ratio"] == 1 / 5
+    assert result["val/behavior/stop_reason/execution_interrupted/count"] == 1
+    assert result["val/behavior/stop_reason/context_budget/count"] == 1
+    assert episodes == original
+
+
+@pytest.mark.parametrize("overrides", [
+    {"protocol_version": "unknown"}, {"terminal_kind": "unknown"},
+    {"reason": "unknown"}, {"reason": None},
+    {"terminal_kind": "infrastructure_truncation", "reason": " "},
+])
+def test_malformed_outcomes_cannot_supply_stop_reason(overrides):
+    with pytest.raises(ValueError, match="Invalid SWE v2"):
+        rollout_diagnostics([{"events": [_outcome(**overrides)]}])
+
+
+def test_duplicate_outcomes_and_reward_disagreement_are_rejected():
+    with pytest.raises(ValueError, match="Multiple episode outcomes"):
+        rollout_diagnostics([{"events": [_outcome(), _outcome()]}])
+    with pytest.raises(ValueError, match="Reward and episode outcome disagree"):
+        rollout_diagnostics([{"events": [_outcome(), _reward("format_errors")]}])
+    with pytest.raises(ValueError, match="Reward and episode outcome disagree"):
+        rollout_diagnostics([{"events": [_outcome()], "triplet_events": [_reward("turn_budget")]}])
+
+
+def test_raw_outcome_is_not_double_counted_in_trimmed_events():
+    event = _outcome()
+    result = rollout_diagnostics([{"events": [event], "triplet_events": [copy.deepcopy(event)]}])
+    assert result["val/behavior/submitted_episodes"] == 1

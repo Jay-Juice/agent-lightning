@@ -82,7 +82,7 @@ def validate_reliability_config(config: Mapping, env: Mapping[str, str] | None =
     for name in ("SMITH_AGENT_WALL_TIMEOUT", "SMITH_EVAL_TIMEOUT"):
         if env_map.get(name) != env.get(name):
             raise ValueError(f"local.env_map.{name} must match the launcher budget")
-    needed = float(env["SMITH_AGENT_WALL_TIMEOUT"]) + 2 * (float(env["SMITH_EVAL_TIMEOUT"]) + 120) + 300
+    needed = float(env["SMITH_AGENT_WALL_TIMEOUT"]) + 6 * (float(env["SMITH_EVAL_TIMEOUT"]) + 120) + 300
     if timeout < needed:
         raise ValueError(f"Hard deadline must be >= {needed:g}s to include one fixed-patch grading retry")
     if trainer["max_actor_ckpt_to_keep"] != 2 or trainer["max_critic_ckpt_to_keep"] != 2:

@@ -4,7 +4,7 @@
 import math
 
 TASK_REASONS = frozenset({"submitted", "format_errors", "turn_budget", "context_budget"})
-VALID_GRADING = frozenset({"completed", "candidate_rejected"})
+VALID_GRADING = frozenset({"completed", "candidate_rejected", "candidate_failed"})
 
 
 def outcome(rollout):
@@ -50,6 +50,8 @@ def validate_completed(rollout, expected_version=None):
         raise ValueError("Episode process did not finish successfully")
     if rollout.final_reward is None or not math.isfinite(rollout.final_reward) or rollout.final_reward not in (0, 1):
         raise ValueError("SWE requires a finite binary final reward")
+    if record.get("grading_status") in {"candidate_rejected", "candidate_failed"} and rollout.final_reward != 0:
+        raise ValueError("A rejected or failed candidate must have zero reward")
     rewards = [e for e in rollout.events if e["event_type"] == "reward"]
     if len(rewards) != 1 or rewards[0]["data"].get("value") != rollout.final_reward:
         raise ValueError("Require exactly one matching reward event")

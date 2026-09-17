@@ -146,7 +146,7 @@ def test_consecutive_format_error_termination_matches_upstream(
     env = {
         "SMITH_RELIABILITY": "1" if reliable else "0",
         "SMITH_AGENT_WALL_TIMEOUT": "3600",
-        "AGL_ROLLOUT_TIMEOUT_SECONDS": "5400",
+        "AGL_ROLLOUT_TIMEOUT_SECONDS": "8400",
         "AGL_TASK": json.dumps({"problem_statement": "problem"}),
         "AGL_KEY": "test-only",
         "AGL_EVENT_URL": "http://test/rollouts/test-id/events",

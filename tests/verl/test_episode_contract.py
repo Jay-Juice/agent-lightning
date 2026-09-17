@@ -73,3 +73,13 @@ def test_reward_zero_never_means_retry():
     assert not retryable_infrastructure(value)
     value.events[-1]["data"].update(terminal_kind="infrastructure_truncation", retryable=True)
     assert retryable_infrastructure(value)
+
+
+def test_adjudicated_candidate_failure_requires_zero_reward():
+    value = episode()
+    value.events[-1]["data"]["grading_status"] = "candidate_failed"
+    with pytest.raises(ValueError, match="zero reward"):
+        validate_completed(value, 7)
+    value.final_reward = 0
+    value.events[-2]["data"]["value"] = 0
+    assert validate_completed(value, 7).final_reward == 0
