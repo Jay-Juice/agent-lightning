@@ -51,10 +51,21 @@ P0修改了评分与agent源码，旧审计signature正确拒绝复用。没有�
 不使用离线诊断训练后的权重。两臂均从原模型开始，resume_mode=disable。
 未通过真实worker恢复与新版环境审计之前，不允许顺序启动脚本开始在线训练；这也不是全量训练授权标志。
 
-## 当前待完成
+## 当前执行状态
 
-真实worker恢复和124镜像审计已通过，正在清理本轮可再生临时验收权重、执行最后分支检查并启动在线试验。
+真实worker恢复和124镜像审计已通过；4个本轮可再生临时验收权重已清理，31份证据文件SHA256前后不变。清理后空闲494.04 GiB；共享盘空间会随其他任务变化。
 临时验收权重清理后保留全部逐rank hash、恢复证据、completed与日志；它们不是线上训练恢复点。
+
+2026-09-18 00:17（北京时间）已启动顺序A/B试验，screen为`agl-ab-v2-gpu47-20260918-01`。
+00:20再次确认正式启动的完整分支检查输出`FULL_PYTHON_READY`，train6248/val470、124镜像；真实Ray配置校验通过，确认task batch32/call minibatch128、总步数20，四卡worker开始加载4B模型。
+00:22确认`CRITIC_HEAD_INITIALIZATION mode=zero`，head为score、2561个参数；四个vLLM服务完成启动，`AglRolloutManager completed=0/470`表明已进入完整初始验证。此时尚未进行在线PPO更新。
+
+- Pair日志：`/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/ab-pair-20260918-01/run.log`
+- 先运行B：`training-capo-swe-v2-mini128-zero-4b-gpu47-20260918-01`。
+- B正常完成后运行A：`training-capo-swe-v2-mini128-default-4b-gpu47-20260918-01`。
+- 两者使用GPU4-7，PI的GPU0-3进程保持运行。
+
+尚无新在线训练效果结论；应比较完整初始/step20验证、正奖励数量、实际optimizer更新、Critic MSE/EV、KL与异常终止比例，再决定是否全量。首个线上完整checkpoint还需trainer/dataloader/rollout级恢复验收。
 
 ## 路径与命令
 
@@ -69,3 +80,14 @@ screen -dmS agl-checkpoint-roundtrip-v2-gpu47-20260918-03 bash research/run_chec
   /media/ubuntu/D1/zsj/agent-lightning-runtime/logs/audit-checkpoint-roundtrip-v2-20260918-03 \
   /media/ubuntu/D1/zsj/agent-lightning-runtime/logs/audit-checkpoint-roundtrip-v2-20260917-02/actor
 ```
+
+在线试验启动命令（在上述远端部署目录执行）：
+
+```sh
+screen -dmS agl-ab-v2-gpu47-20260918-01 bash examples/multiturn_ppo/run_reliable_ab_pair.sh \
+  20260918-01 \
+  /media/ubuntu/D1/zsj/agent-lightning-runtime/logs/audit-checkpoint-roundtrip-v2-20260918-03 \
+  /media/ubuntu/D1/zsj/agent-lightning-runtime/logs/swe-full-python-envs-reliable-v2-20260918-01
+```
+
+本地实现提交：`e602e21`，已部署，尚未push到GitHub。
