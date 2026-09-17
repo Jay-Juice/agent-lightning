@@ -1,0 +1,15 @@
+agentlightning/verl/capo_ppo.py
+agentlightning/verl/call_batch_config.py
+agentlightning/verl/config.yaml
+agentlightning/verl/critic_initialization.py
+agentlightning/verl/entrypoint.py
+examples/multiturn_ppo/run_full_python_ppo.sh
+examples/multiturn_ppo/run_reliable_ab_trial.sh
+examples/multiturn_ppo/run_reliable_ab_pair.sh
+examples/multiturn_ppo/run_training.sh
+examples/multiturn_ppo/train.py
+tests/verl/test_critic_initialization.py
+tests/verl/test_call_batch_config.py
+tests/verl/test_checkpoint_roundtrip_probe.py
+research/checkpoint_roundtrip.py
+research/run_checkpoint_roundtrip.sh

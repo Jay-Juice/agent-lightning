@@ -21,8 +21,10 @@ deletion, or training launch.
 Qwen3-4B-Instruct-2507 model, full v7 dataset, four epochs, task batch 32,
 Actor/Critic call minibatch 32, microbatch 2, Actor/Critic LR 1e-6/1e-5,
 reference KL .001, gamma=lambda=1, PPO epochs=1, default value head, and zero
-critic warmup. This P0 entrypoint does not implement the later minibatch-128,
-head-initialization, warmup, or KL-coefficient experiments.
+critic warmup. The separate `run_reliable_ab_trial.sh A|B` entrypoint now runs
+20-step minibatch-128 trials, differing only in default/zero head initialization.
+`run_reliable_ab_pair.sh` gates their sequential execution on completed worker
+recovery and environment audits. Warmup and KL changes remain unimplemented.
 
 It inherits physical GPUs 4,5,6,7 from the full-data launcher. The existing
 occupied-GPU check must pass before any launch. Default server port is 18521;

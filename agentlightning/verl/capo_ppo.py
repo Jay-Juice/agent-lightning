@@ -23,6 +23,8 @@ def verify_vendor():
 
 
 def validate_config(config):
+    if config.agentlightning.multi_turn_ppo.get("critic_head_init", "default") not in {"default", "zero"}:
+        raise ValueError("critic_head_init must be default or zero")
     if config.algorithm.adv_estimator != "token_gae" or not config.agentlightning.multi_turn_ppo.whiten_advantages:
         raise ValueError("CAPO PPO requires its original token_gae and advantage whitening")
     if config.agentlightning.multi_turn_ppo.distributed_padding:
@@ -70,10 +72,12 @@ def register_in_worker():
     import verl.workers.actor as actor_api
     import verl.workers.critic as critic_api
 
+    from .critic_initialization import register_value_head_initialization
     from .vendor.capo.dp_actor import DataParallelPPOActor
     from .vendor.capo.dp_critic import DataParallelPPOCritic
 
     verify_vendor()
+    register_value_head_initialization()
 
     class CompatibleActor(DataParallelPPOActor):
         # CAPO returns a tuple; the installed FSDP wrapper requires a dictionary.

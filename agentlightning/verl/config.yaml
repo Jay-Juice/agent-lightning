@@ -28,6 +28,7 @@ agentlightning:
   multi_turn_ppo:
     enabled: false
     backend: agl # agl | capo (vendored token PPO baseline)
+    critic_head_init: default # default | zero; applied before loading saved state
     distributed_padding: false
     whiten_advantages: true
     audit_dir: null

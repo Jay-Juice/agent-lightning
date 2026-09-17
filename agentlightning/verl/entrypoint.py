@@ -44,6 +44,9 @@ def run_ppo(
     assert train_dataset is not None and len(train_dataset) > 0, "train_dataset must be non-empty"
     assert val_dataset is not None and len(val_dataset) > 0, "val_dataset must be non-empty"
     capo_backend = config.agentlightning.get("multi_turn_ppo", {}).get("backend", "agl") == "capo"
+    head_init = config.agentlightning.get("multi_turn_ppo", {}).get("critic_head_init", "default")
+    if head_init not in {"default", "zero"} or (head_init != "default" and not capo_backend):
+        raise ValueError("critic_head_init must be default, or zero with the CAPO backend")
     reliability = os.environ.get("AGL_SWE_RELIABILITY", "0")
     if reliability not in {"0", "1"}:
         raise ValueError("AGL_SWE_RELIABILITY must be 0 or 1")
@@ -69,6 +72,7 @@ def run_ppo(
         # disable reliability in workers while the driver reports it enabled.
         env_vars = dict(runtime_env.get("env_vars", {}))
         env_vars["AGL_SWE_RELIABILITY"] = reliability
+        env_vars["AGL_CRITIC_HEAD_INIT"] = head_init
         runtime_env["env_vars"] = env_vars
         # Register the custom policy loss in each Ray actor process.
         setup_hook = "agentlightning.verl.per_rollout_loss.register_in_worker"
@@ -120,12 +124,12 @@ class _AglTaskRunner:
             create_rl_sampler,
             need_critic,
             need_reference_policy,
-            validate_config,
         )
         from verl.utils.dataset.rl_dataset import collate_fn
         from verl.utils.fs import copy_to_local
         from verl.utils.tokenizer import hf_processor, hf_tokenizer
 
+        from agentlightning.verl.call_batch_config import validate_worker_config
         from agentlightning.verl.trainer import AgentLightningRayPPOTrainer
 
         trainer_class = AgentLightningRayPPOTrainer
@@ -145,7 +149,7 @@ class _AglTaskRunner:
         d.add_reward_model_resource_pool(config)
         d.add_ref_policy_worker(config, actor_rollout_cls)
 
-        validate_config(
+        validate_worker_config(
             config=config,
             use_reference_policy=need_reference_policy(config),
             use_critic=need_critic(config),

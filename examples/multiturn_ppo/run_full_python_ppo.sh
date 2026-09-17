@@ -5,7 +5,9 @@ RUNTIME=/media/ubuntu/D1/zsj/agent-lightning-runtime
 DATA="${AGL_FULL_DATA:-$RUNTIME/data/swe-smith-training/python-full-v7}"
 source "$RUNTIME/admin/activate-agent-lightning-d1.sh"
 AUDIT="${AGL_FULL_ENV_AUDIT:-$RUNTIME/logs/swe-full-python-envs-speed-20260914-01}"
-CUDA_VISIBLE_DEVICES= python "$TOOLS/check_full_python_ready.py" --data "$DATA" --audit "$AUDIT"
+if [[ "${AGL_CONFIG_ONLY:-0}" != 1 ]]; then
+  CUDA_VISIBLE_DEVICES= python "$TOOLS/check_full_python_ready.py" --data "$DATA" --audit "$AUDIT"
+fi
 SCHEDULE=$(CUDA_VISIBLE_DEVICES= python - "$DATA" <<'PY'
 import json, sys
 from pathlib import Path
@@ -45,6 +47,8 @@ bash "$TOOLS/run_checked_swe_ppo.sh" \
   trainer.max_actor_ckpt_to_keep=3 trainer.max_critic_ckpt_to_keep=3 \
   trainer.val_before_train=true trainer.resume_mode=disable "$@"
 RUN="$RUNTIME/logs/training-$AGL_TRAIN_TAG"
-CUDA_VISIBLE_DEVICES= python -m verl.model_merger merge --backend fsdp \
-  --local_dir "$RUN/checkpoints/global_step_$TOTAL_STEPS/actor" --target_dir "$RUN/final-actor" \
-  >"$RUN/final-export.log" 2>&1
+if [[ "${AGL_EXPORT_FINAL_ACTOR:-1}" == 1 ]]; then
+  CUDA_VISIBLE_DEVICES= python -m verl.model_merger merge --backend fsdp \
+    --local_dir "$RUN/checkpoints/global_step_$TOTAL_STEPS/actor" --target_dir "$RUN/final-actor" \
+    >"$RUN/final-export.log" 2>&1
+fi

@@ -136,6 +136,11 @@ def build_config(args):
     from agentlightning.verl.multi_turn_ppo import validate_config
 
     validate_config(cfg)
+    from verl.trainer.main_ppo import need_critic, need_reference_policy
+
+    from agentlightning.verl.call_batch_config import validate_worker_config
+
+    validate_worker_config(cfg, use_reference_policy=need_reference_policy(cfg), use_critic=need_critic(cfg))
     visible = os.environ.get("CUDA_VISIBLE_DEVICES", "").split(",")
     if len(visible) != len(set(visible)) or len(visible) != cfg.trainer.n_gpus_per_node:
         raise ValueError("CUDA_VISIBLE_DEVICES must contain one unique device per configured GPU")
@@ -155,6 +160,8 @@ def build_config(args):
         repo / "agentlightning/verl/distributed_ppo.py",
         repo / "agentlightning/verl/capo_ppo.py",
         repo / "agentlightning/verl/capo_padding.py",
+        repo / "agentlightning/verl/critic_initialization.py",
+        repo / "agentlightning/verl/call_batch_config.py",
         repo / "agentlightning/verl/entrypoint.py",
         repo / "agentlightning/verl/config.yaml",
         repo / "agentlightning/verl/trainer.py",
