@@ -75,6 +75,7 @@ async def llm_proxy(rollout_id: str, attempt_id: str, mode: str, upstream_path: 
         rollout_id=rollout_id,
         attempt_id=attempt_id,
         pause_state=pause_state,
+        logical_call_id=request.headers.get("x-agl-logical-call-id"),
     )
 
 

@@ -5,11 +5,14 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import random
+import shutil
 import time
 import uuid
 from collections import defaultdict
+from pathlib import Path
 from pprint import pprint
 from typing import Any, TypeVar
 
@@ -130,6 +133,107 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
         self._agl_client: AgentLightningSyncClient | None = None
         self._carry_over_rollouts: list[EnqueuedRollout] = []
         self._train_dataloader_iter: Any | None = None
+        self._behavior_initial_tokens: float | None = None
+        self._update_phase = "complete"
+
+    def _reliability_enabled(self):
+        return bool(self.config.agentlightning.get("reliability", {}).get("enabled", False))
+
+    def _save_checkpoint(self):
+        if self._reliability_enabled():
+            if getattr(self, "_update_phase", "complete") != "complete":
+                raise RuntimeError("Cannot checkpoint a partially updated PPO batch")
+            root = Path(self.config.trainer.default_local_dir)
+            root.mkdir(parents=True, exist_ok=True)
+            reserve = float(self.config.agentlightning.reliability.checkpoint_reserve_gib)
+            if reserve <= 0 or shutil.disk_usage(root).free < reserve * 2**30:
+                raise RuntimeError(f"Checkpoint requires {reserve:g} GiB free before writing; no checkpoint deleted")
+        result = super()._save_checkpoint()
+        if self._reliability_enabled():
+            folder = Path(self.config.trainer.default_local_dir) / f"global_step_{self.global_steps}"
+            path = folder / "reliability-state.json"
+            state = {"version": 1, "step": self.global_steps, "epoch": self.epoch,
+                     "initial_output_tokens": self._behavior_initial_tokens}
+            temporary = path.with_suffix(".tmp")
+            temporary.write_text(json.dumps(state))
+            temporary.replace(path)
+        return result
+
+    def _load_checkpoint(self):
+        resolved = None
+        original_mode = self.config.trainer.resume_mode
+        original_path = self.config.trainer.get("resume_from_path")
+        if self._reliability_enabled() and original_mode == "auto":
+            # The upstream latest pointer can be written before our completion
+            # marker. Ignore an interrupted write and recover a complete pair.
+            root = Path(self.config.trainer.default_local_dir)
+            folders = [p for p in root.glob("global_step_*") if p.name.removeprefix("global_step_").isdigit()]
+            for folder in sorted(folders, key=lambda p: int(p.name.removeprefix("global_step_")), reverse=True):
+                if ((folder / "reliability-state.json").is_file() and (folder / "data.pt").is_file()
+                        and (folder / "actor").is_dir() and (not self.use_critic or (folder / "critic").is_dir())):
+                    resolved = str(folder)
+                    break
+            if folders and resolved is None:
+                raise RuntimeError("No complete reliable checkpoint; refusing an implicit restart")
+            if resolved:
+                self.config.trainer.resume_mode = "resume_path"
+                self.config.trainer.resume_from_path = resolved
+        try:
+            result = super()._load_checkpoint()
+        finally:
+            if resolved:
+                self.config.trainer.resume_mode = original_mode
+                self.config.trainer.resume_from_path = original_path
+        if self._reliability_enabled() and self.global_steps:
+            root = resolved or self.config.trainer.resume_from_path or str(
+                Path(self.config.trainer.default_local_dir) / f"global_step_{self.global_steps}")
+            state_path = Path(root) / "reliability-state.json"
+            if not state_path.exists():
+                raise RuntimeError("Reliable runs must resume a checkpoint with matching reliability state")
+            state = json.loads(state_path.read_text())
+            if state["step"] != self.global_steps:
+                raise RuntimeError("Reliability state/checkpoint step mismatch")
+            if not (Path(root) / "data.pt").is_file():
+                raise RuntimeError("Reliable checkpoint is missing dataloader state")
+            if state.get("version") != 1:
+                raise RuntimeError("Unsupported reliability checkpoint state")
+            self._behavior_initial_tokens = state["initial_output_tokens"]
+            self.epoch = int(state["epoch"])
+        return result
+
+    def _reliability_failure(self, reason, details=None):
+        if not self._reliability_enabled():
+            return
+        root = Path(self.config.trainer.default_local_dir)
+        root.mkdir(parents=True, exist_ok=True)
+        payload = {"step": self.global_steps, "phase": getattr(self, "_update_phase", "complete"),
+                   "reason": reason, "details": details}
+        (root / f"reliability-failure-step-{self.global_steps}.json").write_text(json.dumps(payload, indent=2))
+
+    def _persist_failed_rollout(self, rollout):
+        # The legacy on_failed hook saves status only; retain raw events before
+        # a failed infrastructure attempt is replaced by a new rollout.
+        if rollout.rollout_state != "succeeded":
+            root = Path(self.config.trainer.default_local_dir) / "episode-audit"
+            root.mkdir(parents=True, exist_ok=True)
+            (root / f"{rollout.rollout_id}.failed-events.json").write_text(
+                json.dumps({"rollout_id": rollout.rollout_id, "events": rollout.events})
+            )
+
+    def _check_behavior(self, metrics, *, initial=False):
+        if not self._reliability_enabled():
+            return
+        from .reliability_control import behavior_violations
+
+        if initial and self._behavior_initial_tokens is None:
+            self._behavior_initial_tokens = metrics["val/behavior/output_tokens_per_episode/mean"]
+        violations = behavior_violations(metrics, self._behavior_initial_tokens)
+        if violations:
+            self._reliability_failure("behavior_gate", violations)
+            # Initial model has no completed training update to checkpoint.
+            if not initial:
+                self._save_checkpoint()
+            raise RuntimeError(f"Validation behavior gate triggered: {violations}")
 
     def _ensure_hooks(self) -> RolloutHooks | None:
         if self._hooks is not None:
@@ -415,6 +519,59 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
             rollout_manager.register_model(server_addresses, version=self._rollout_weight_version)
             completed_rollouts = rollout_manager.enqueue_and_wait_until_completed(data_dict, is_train=is_train)
 
+        reliability_metrics = {}
+        if self._reliability_enabled():
+            from .episode_contract import retryable_infrastructure, validate_completed
+            from .reliability_metrics import rollout_diagnostics
+
+            retries = int(self.config.agentlightning.reliability.infrastructure_retries)
+            if (self.is_async or self.config.actor_rollout_ref.rollout.n != 1
+                    or self.config.actor_rollout_ref.rollout.val_kwargs.n != 1 or retries not in (0, 1)):
+                raise ValueError("SWE reliability requires synchronous n=1 and at most one infrastructure retry")
+            retry_count = 0
+            retried_rollouts = []
+            for index, rollout in enumerate(completed_rollouts):
+                self._persist_failed_rollout(rollout)
+                if retries and retryable_infrastructure(rollout):
+                    # Re-run the same task at the same registered policy version.
+                    # Never retry an ordinary score=0 or unresolved grader outcome.
+                    retried_rollouts.append(rollout.rollout_id)
+                    sample = rollout.sample_idx_in_step
+                    retry_data = {key: value[sample : sample + 1] for key, value in data_dict.items()}
+                    replacements = rollout_manager.enqueue_and_wait_until_completed(retry_data, is_train=is_train)
+                    if len(replacements) != 1 or replacements[0].input != rollout.input:
+                        raise RuntimeError("Infrastructure retry returned a different task")
+                    self._persist_failed_rollout(replacements[0])
+                    completed_rollouts[index] = replacements[0].model_copy(update={
+                        "data_id": rollout.data_id, "sample_idx_in_step": rollout.sample_idx_in_step,
+                    })
+                    retry_count += 1
+            prefix = "training" if is_train else "val"
+            reliability_metrics.update(rollout_diagnostics(completed_rollouts, prefix=f"{prefix}/behavior"))
+            reliability_metrics[f"{prefix}/infrastructure_retries"] = retry_count
+            expected = len(next(iter(data_dict.values())))
+            if len(completed_rollouts) != expected:
+                raise RuntimeError("Incomplete rollout coverage")
+            originals = completed_rollouts
+            from .episode_contract import outcome
+
+            journal = Path(self.config.trainer.default_local_dir) / "episode-audit"
+            journal.mkdir(parents=True, exist_ok=True)
+            records = [{"rollout_id": r.rollout_id, "sample_idx": r.sample_idx_in_step,
+                        "reward": r.final_reward, "state": r.rollout_state, "outcome": outcome(r)} for r in originals]
+            (journal / f"{prefix}-step-{self.global_steps}-{uuid.uuid4().hex}.json").write_text(json.dumps({
+                "policy_version": self._rollout_weight_version, "retried_rollout_ids": retried_rollouts,
+                "episodes": records,
+            }, indent=2))
+            try:
+                completed_rollouts = [validate_completed(r, self._rollout_weight_version) for r in originals]
+            except Exception as exc:
+                self._reliability_failure("episode_contract", {
+                    "error": str(exc), "metrics": reliability_metrics,
+                    "rollout_ids": [r.rollout_id for r in originals],
+                })
+                raise
+
         trace_aggregator = self.config.agentlightning.trace_aggregator
         level = trace_aggregator.get("level", "transition")
         max_prompt_length = (
@@ -462,6 +619,7 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
             print("AgentLightningRayPPOTrainer: aborting residual vLLM requests.")
             self._abort_all_rollout_requests()  # pyright: ignore[reportUnusedCoroutine]
             print("AgentLightningRayPPOTrainer: residual vLLM requests aborted.")
+        metrics.update(reliability_metrics)
         return out, metrics
 
     def _train_step(
@@ -676,7 +834,15 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
         if not self.multi_turn_ppo:
             metrics.update(_grpo_group_metrics(batch))
         metrics["critic/n_transition_after_dropping"] = len(batch)
-        metrics.update(compute_data_metrics(batch=batch, use_critic=self.use_critic))
+        if self._reliability_enabled():
+            from .reliability_metrics import batch_diagnostics
+
+            valid = ~batch.non_tensor_batch.get("is_pad", np.zeros(len(batch), dtype=bool))
+            real_batch = batch.select_idxs(np.flatnonzero(valid))
+            metrics.update(compute_data_metrics(batch=real_batch, use_critic=self.use_critic))
+            metrics.update(batch_diagnostics(batch))
+        else:
+            metrics.update(compute_data_metrics(batch=batch, use_critic=self.use_critic))
 
         loss_mode = self.config.actor_rollout_ref.actor.policy_loss.get("loss_mode", "vanilla")
         if loss_mode == PER_ROLLOUT_MEAN_LOSS_MODE:
@@ -697,6 +863,7 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
             metrics["ppo/update_physical_rows"] = len(update_batch)
 
         if self.use_critic:
+            self._update_phase = "critic_update"
             with marked_timer("update_critic", timing_raw, color="pink"):
                 critic_output = self._update_critic(update_batch)
             metrics.update(reduce_metrics(critic_output.meta_info["metrics"]))
@@ -704,15 +871,18 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
         if self.multi_turn_ppo:
             metrics["ppo/actor_updated"] = int(self.config.trainer.critic_warmup <= self.global_steps)
         if self.config.trainer.critic_warmup <= self.global_steps:
+            self._update_phase = "actor_update"
             with marked_timer("update_actor", timing_raw, color="red"):
                 actor_output = self._update_actor(update_batch)
             metrics.update(reduce_metrics(actor_output.meta_info["metrics"]))
 
+        self._update_phase = "weight_sync"
         with marked_timer("update_weights", timing_raw, color="red"):
             self.checkpoint_manager.update_weights(self.global_steps)  # pyright: ignore[reportOptionalMemberAccess, reportUnusedCoroutine]
             self._rollout_weight_version = self.global_steps
 
         batch.meta_info["global_token_num"] = torch.sum(batch.batch["attention_mask"], dim=-1).tolist()
+        self._update_phase = "complete"
         # Return the batch so fit() can compute throughput after the step timer closes.
         return metrics, batch
 
@@ -740,6 +910,7 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
             assert val_metrics, f"{val_metrics=}"
             pprint(f"Initial validation metrics: {val_metrics}")
             logger.log(data=val_metrics, step=self.global_steps)
+            self._check_behavior(val_metrics, initial=True)
             if self.config.trainer.get("val_only", False):
                 return
 
@@ -750,7 +921,8 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
         )
 
         self.global_steps += 1
-        self.epoch += 1
+        if not self._reliability_enabled() or self.epoch == 0:
+            self.epoch += 1
         last_val_metrics = None
 
         while True:
@@ -766,9 +938,18 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
                 else False
             )
 
-            with marked_timer("step", timing_raw):
-                result = self._train_step(timing_raw, curr_step_profile)
+            self._update_phase = "sampling"
+            try:
+                with marked_timer("step", timing_raw):
+                    result = self._train_step(timing_raw, curr_step_profile)
+            except Exception as exc:
+                # Critic or actor may already have taken optimizer steps. Never
+                # publish that partial state as a completed recovery point.
+                self._reliability_failure("train_step_failed", {"error_type": type(exc).__name__})
+                raise
             if result is None:
+                if self._reliability_enabled():
+                    raise RuntimeError("Reliable training cannot silently skip a task batch")
                 print("AgentLightningRayPPOTrainer: train step returned no batch; advancing step.")
                 self.global_steps += 1
                 continue
@@ -803,6 +984,8 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
                     if is_last_step:
                         last_val_metrics = val_metrics
                 metrics.update(val_metrics)
+                logger.log(data=metrics, step=self.global_steps)
+                self._check_behavior(val_metrics)
 
             if self.config.trainer.save_freq > 0 and (
                 is_last_step or self.global_steps % self.config.trainer.save_freq == 0

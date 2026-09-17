@@ -4,12 +4,14 @@
 
 import importlib
 import json
+import signal
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 
+@pytest.mark.parametrize("reliable", [False, True])
 @pytest.mark.parametrize(
     "responses,limit,expected_calls,reason,rejected_source",
     [
@@ -42,8 +44,10 @@ import pytest
     ],
 )
 def test_consecutive_format_error_termination_matches_upstream(
-    monkeypatch, tmp_path, responses, limit, expected_calls, reason, rejected_source
+    monkeypatch, tmp_path, responses, limit, expected_calls, reason, rejected_source, reliable
 ):
+    if reliable and not hasattr(signal, "setitimer"):
+        pytest.skip("Reliable agents require isolated Linux processes")
     pytest.importorskip("docker")
     pytest.importorskip("openai")
     transformers = pytest.importorskip("transformers")
@@ -132,7 +136,7 @@ def test_consecutive_format_error_termination_matches_upstream(
     monkeypatch.setattr(pilot, "SmithSandbox", Box)
     monkeypatch.setattr(pilot, "OpenAI", lambda **kwargs: client)
     graded = []
-    monkeypatch.setattr(pilot, "grade", lambda *args: graded.append(args) or {"reward": 0.0})
+    monkeypatch.setattr(pilot, "grade", lambda *args: graded.append(args) or {"reward": 0.0, "pytest_exit": 1})
     events = []
     monkeypatch.setattr(
         pilot.httpx,
@@ -140,6 +144,9 @@ def test_consecutive_format_error_termination_matches_upstream(
         lambda *args, **kwargs: events.append(kwargs["json"]) or SimpleNamespace(raise_for_status=lambda: None),
     )
     env = {
+        "SMITH_RELIABILITY": "1" if reliable else "0",
+        "SMITH_AGENT_WALL_TIMEOUT": "3600",
+        "AGL_ROLLOUT_TIMEOUT_SECONDS": "5400",
         "AGL_TASK": json.dumps({"problem_statement": "problem"}),
         "AGL_KEY": "test-only",
         "AGL_EVENT_URL": "http://test/rollouts/test-id/events",
@@ -164,7 +171,12 @@ def test_consecutive_format_error_termination_matches_upstream(
         assert records == [{"stop_reason": "server_context_limit", "prompt_tokens": 1}]
     else:
         assert len(records) == expected_calls and records[-1]["response"] == responses[expected_calls - 1]
-    assert len(graded) == int(rejected_source is None) and events[0]["data"]["reason"] == reason
+    assert len(graded) == int(rejected_source is None) and events[-1]["data"]["reason"] == reason
+    if reliable:
+        assert [e["event_type"] for e in events] == ["rollout_outcome", "reward"]
+        accepted = events[0]["data"]["accepted_call_ids"]
+        assert len(accepted) == expected_calls - int(reason == "context_budget")
+        assert len(set(accepted)) == len(accepted)
     if rejected_source is not None:
         report = json.loads((tmp_path / "agent/test-id/grade.json").read_text())
         assert report["reward"] == 0.0 and not report["resolved"]
@@ -172,7 +184,7 @@ def test_consecutive_format_error_termination_matches_upstream(
             "embedded_test_change",
             "invalid_embedded_test_source",
         }
-        assert events[0]["data"]["value"] == 0.0
+        assert events[-1]["data"]["value"] == 0.0
         assert json.loads((tmp_path / "agent/test-id/sandbox.json").read_text())["excluded_reproduction_paths"] == []
     if reason == "format_errors":
         assert records[-1]["stop_reason"] == reason

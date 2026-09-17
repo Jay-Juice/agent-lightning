@@ -44,6 +44,13 @@ def run_ppo(
     assert train_dataset is not None and len(train_dataset) > 0, "train_dataset must be non-empty"
     assert val_dataset is not None and len(val_dataset) > 0, "val_dataset must be non-empty"
     capo_backend = config.agentlightning.get("multi_turn_ppo", {}).get("backend", "agl") == "capo"
+    reliability = os.environ.get("AGL_SWE_RELIABILITY", "0")
+    if reliability not in {"0", "1"}:
+        raise ValueError("AGL_SWE_RELIABILITY must be 0 or 1")
+    if reliability == "1" and not (
+        capo_backend and config.agentlightning.multi_turn_ppo.get("capo_strict_padding", False)
+    ):
+        raise ValueError("SWE reliability requires the CAPO strict-padding worker adapter")
     if ray.is_initialized() and (
         capo_backend or config.agentlightning.get("multi_turn_ppo", {}).get("distributed_padding", False)
     ):
@@ -58,6 +65,11 @@ def run_ppo(
         runtime_env_config = ray_init_kwargs.pop("runtime_env", {})
         runtime_env_kwargs = dict(runtime_env_config) if isinstance(runtime_env_config, dict) else {}
         runtime_env = {**default_runtime_env, **runtime_env_kwargs}
+        # Ray runtime_env is explicit: a configured override must not silently
+        # disable reliability in workers while the driver reports it enabled.
+        env_vars = dict(runtime_env.get("env_vars", {}))
+        env_vars["AGL_SWE_RELIABILITY"] = reliability
+        runtime_env["env_vars"] = env_vars
         # Register the custom policy loss in each Ray actor process.
         setup_hook = "agentlightning.verl.per_rollout_loss.register_in_worker"
         if capo_backend:

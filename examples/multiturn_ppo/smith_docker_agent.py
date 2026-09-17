@@ -12,6 +12,7 @@ import os
 import re
 import tarfile
 import time
+import uuid
 from pathlib import Path, PurePosixPath
 
 import docker
@@ -173,6 +174,55 @@ class SmithDockerAgent:
         return smith._forbidden_action(action)
 
     def run(self):
+        self._reliability = os.environ.get("SMITH_RELIABILITY", "0") == "1"
+        if not self._reliability:
+            return self._run()
+        from swe_reliability import deadline_guard
+
+        started = time.monotonic()
+        hard_timeout = float(os.environ["AGL_ROLLOUT_TIMEOUT_SECONDS"])
+        interaction = float(os.environ["SMITH_AGENT_WALL_TIMEOUT"])
+        eval_timeout = float(os.environ.get("SMITH_EVAL_TIMEOUT", "600"))
+        if interaction <= 0 or hard_timeout < interaction + 2 * (eval_timeout + 120) + 300:
+            raise ValueError("Controller deadline must reserve grading, export and reward delivery time")
+        self._hard_deadline = started + hard_timeout - 60
+        self._phase = "interaction"
+        self._outcome_sent = False
+        try:
+            with deadline_guard(self._hard_deadline):
+                return self._run()
+        except Exception as exc:
+            # Keep ordinary task failure (real grade=0) separate from incomplete
+            # execution. An unresolved grader outcome is deliberately not retried
+            # by sampling a different policy trajectory.
+            import openai
+
+            retryable = self._phase == "interaction" and isinstance(
+                exc, (TimeoutError, httpx.TransportError, docker.errors.DockerException, openai.APIConnectionError)
+            )
+            retryable |= self._phase == "interaction" and isinstance(exc, openai.APIStatusError) and (
+                exc.status_code in {429, 500, 502, 503, 504}
+            )
+            if self._outcome_sent:
+                raise
+            self._post_outcome({
+                "protocol_version": "swe-v2", "terminal_kind": "infrastructure_truncation",
+                "reason": "execution_interrupted", "phase": self._phase,
+                "error_type": type(exc).__name__, "retryable": retryable,
+            })
+            raise
+
+    def _post_outcome(self, data):
+        # Do not append a contradictory outcome if delivery acknowledgement is lost.
+        self._outcome_sent = True
+        httpx.post(os.environ["AGL_EVENT_URL"], headers={"Authorization": f"Bearer {os.environ['AGL_KEY']}"},
+                   json={"event_type": "rollout_outcome", "data": data}, timeout=20).raise_for_status()
+
+    def _run(self):
+        from swe_reliability import deadline_guard, grade_fixed_patch, grading_status
+
+        reliable = getattr(self, "_reliability", False)
+        accepted_call_ids, rejected_call_ids = [], []
         rollout_started = time.monotonic()
         row = json.loads(os.environ["AGL_TASK"])
         task = agent_task(row)
@@ -229,7 +279,7 @@ class SmithDockerAgent:
                     base_url=os.environ["AGL_OPENAI_BASE_URL"],
                     api_key=key,
                     timeout=model_timeout,
-                    max_retries=2,
+                    max_retries=0 if reliable else 2,
                 ) as llm,
                 (directory / "trajectory.jsonl").open("w") as trace,
             ):
@@ -271,19 +321,24 @@ class SmithDockerAgent:
                             + "\n"
                         )
                         break
+                    call_id = uuid.uuid4().hex
                     try:
-                        response = query_completion(
-                            llm,
-                            smith,
-                            gateway_wait_s=gateway_wait_s,
-                            model="auto",
-                            messages=messages,
-                            max_tokens=int(os.environ.get("SMITH_MAX_TOKENS", "768")),
-                            temperature=1.0,
-                            extra_body={"chat_template_kwargs": {"enable_thinking": False}},
-                            **({"seed": int(row["_agl_sampling_seed"]) + turn} if "_agl_sampling_seed" in row else {}),
-                        )
+                        with deadline_guard(agent_deadline if reliable else None):
+                            response = query_completion(
+                                llm,
+                                smith,
+                                gateway_wait_s=gateway_wait_s,
+                                model="auto",
+                                messages=messages,
+                                max_tokens=int(os.environ.get("SMITH_MAX_TOKENS", "768")),
+                                temperature=1.0,
+                                extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+                                **({"extra_headers": {"X-AGL-Logical-Call-ID": call_id}} if reliable else {}),
+                                **({"seed": int(row["_agl_sampling_seed"]) + turn}
+                                   if "_agl_sampling_seed" in row else {}),
+                            )
                     except smith._ContextOverflow:
+                        rejected_call_ids.append(call_id)
                         stop_reason = "context_budget"
                         trace.write(
                             json.dumps({"stop_reason": "server_context_limit", "prompt_tokens": token_count}) + "\n"
@@ -291,6 +346,7 @@ class SmithDockerAgent:
                         trace.flush()
                         break
                     choice = response.choices[0]
+                    accepted_call_ids.append(call_id)
                     content = choice.message.content or ""
                     messages.append({"role": "assistant", "content": content})
                     record = {"turn": turn + 1, "response": content}
@@ -314,18 +370,21 @@ class SmithDockerAgent:
                     else:
                         n_format_errors = 0
                         blocked = self.action_rejection(smith, action)
-                        rc, out = (1, blocked) if blocked else box.execute(action)
+                        with deadline_guard(agent_deadline if reliable else None):
+                            rc, out = (1, blocked) if blocked else box.execute(action)
                         observation = smith.render_observation(rc, out, obs_cap)
                         submitted = not blocked and smith.is_submission(out)
                         record.update(action=action, returncode=rc, output=out)
                         if submitted and verified_submission:
                             from smith_submission import submission_feedback, syntax_check_command
 
-                            candidate = box.export_patch(allow_new_repro=allow_new_repro)
+                            with deadline_guard(agent_deadline if reliable else None):
+                                candidate = box.export_patch(allow_new_repro=allow_new_repro)
                             feedback = submission_feedback(*candidate)
                             if feedback is None and check_syntax:
                                 included = [p for p in candidate[1] if p not in box.excluded_patch_paths]
-                                syntax_rc, syntax_output = box.execute(syntax_check_command(included))
+                                with deadline_guard(agent_deadline if reliable else None):
+                                    syntax_rc, syntax_output = box.execute(syntax_check_command(included))
                                 record["syntax_check"] = {"returncode": syntax_rc, "output": syntax_output}
                                 if syntax_rc:
                                     feedback = (
@@ -345,6 +404,7 @@ class SmithDockerAgent:
                     if submitted:
                         stop_reason = "submitted"
                         break
+            self._phase = "export"
             patch, paths, rejection = box.export_patch(allow_new_repro=allow_new_repro)
             (directory / "model.patch").write_text(patch)
             (directory / "sandbox.json").write_text(
@@ -361,11 +421,40 @@ class SmithDockerAgent:
         finally:
             box.close()
             client.close()
+        self._phase = "grading"
+        if reliable and stop_reason == "wall_time_budget":
+            self._post_outcome({
+                "protocol_version": "swe-v2", "terminal_kind": "infrastructure_truncation",
+                "reason": stop_reason, "retryable": True,
+            })
+            return
         if rejection:
             report = {"reward": 0.0, "resolved": False, "patch_rejection": rejection}
             (directory / "grade.json").write_text(json.dumps(report))
+        elif reliable:
+            import requests
+            report = grade_fixed_patch(
+                grade, row, patch, directory,
+                retry_errors=(docker.errors.DockerException, requests.exceptions.RequestException,
+                              httpx.TransportError),
+                deadline=self._hard_deadline - 30,
+            )
         else:
             report = grade(row, patch, directory)
+        if reliable:
+            status = grading_status(report)
+            report["grading_status"] = status
+            (directory / "grade.json").write_text(json.dumps(report, indent=2))
+            self._post_outcome({
+                "protocol_version": "swe-v2",
+                "terminal_kind": "infrastructure_truncation" if stop_reason == "wall_time_budget" else "task_terminal",
+                "reason": stop_reason, "grading_status": status,
+                "accepted_call_ids": accepted_call_ids, "rejected_call_ids": rejected_call_ids,
+                "retryable": stop_reason == "wall_time_budget",
+            })
+            if stop_reason == "wall_time_budget" or status == "requires_review":
+                return  # No PPO reward for an incomplete or unresolved attempt.
+        self._phase = "reward_delivery"
         httpx.post(
             event_url,
             headers={"Authorization": f"Bearer {key}"},

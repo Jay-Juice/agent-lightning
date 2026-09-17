@@ -105,6 +105,7 @@ async def forward_request(
     rollout_id: str,
     attempt_id: str,
     pause_state: ProxyPauseState | None = None,
+    logical_call_id: str | None = None,
 ) -> Response:
     if pause_state is not None:
         async with pause_state.lock:
@@ -127,7 +128,12 @@ async def forward_request(
         log.debug("Proxying request", rollout_id=rollout_id, model=server.model, path=upstream_path)
 
         started_at = time.perf_counter()
-        response = await _send_upstream_with_retries(client=client, url=url, body=body)
+        # SWE v2 owns whole-episode retries. A transport failure must not hide
+        # another generated action behind this same logical call's last event.
+        response = await _send_upstream_with_retries(
+            client=client, url=url, body=body,
+            **({"max_attempts": 1} if logical_call_id else {}),
+        )
         latency_ms = (time.perf_counter() - started_at) * 1000
         response_body = (
             response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
@@ -143,6 +149,7 @@ async def forward_request(
             http_status=response.status_code,
             status=_status_from_http_status(response.status_code),
             retry_count=int(response.extensions.get("agl_retry_count", 0)),
+            logical_call_id=logical_call_id,
         )
         return JSONResponse(content=response_body, status_code=response.status_code)
     finally:
@@ -155,22 +162,23 @@ async def _send_upstream_with_retries(
     client: httpx.AsyncClient,
     url: str,
     body: dict[str, Any],
+    max_attempts: int = _UPSTREAM_MAX_ATTEMPTS,
 ) -> httpx.Response:
-    for attempt_index in range(_UPSTREAM_MAX_ATTEMPTS):
+    for attempt_index in range(max_attempts):
         try:
             response = await client.post(url, json=body, headers={"content-type": "application/json"})
         except httpx.TimeoutException as exc:
-            if attempt_index == _UPSTREAM_MAX_ATTEMPTS - 1:
+            if attempt_index == max_attempts - 1:
                 raise HTTPException(status_code=504, detail="Upstream model server timed out") from exc
             await _sleep_before_retry(url=url, attempt_index=attempt_index, reason="timeout")
             continue
         except httpx.TransportError as exc:
-            if attempt_index == _UPSTREAM_MAX_ATTEMPTS - 1:
+            if attempt_index == max_attempts - 1:
                 raise HTTPException(status_code=502, detail="Upstream model server request failed") from exc
             await _sleep_before_retry(url=url, attempt_index=attempt_index, reason="transport error")
             continue
 
-        if not _is_retryable_status(response.status_code) or attempt_index == _UPSTREAM_MAX_ATTEMPTS - 1:
+        if not _is_retryable_status(response.status_code) or attempt_index == max_attempts - 1:
             response.extensions["agl_retry_count"] = attempt_index
             return response
 
@@ -222,6 +230,7 @@ def _capture_event(
     http_status: int,
     status: str,
     retry_count: int,
+    logical_call_id: str | None = None,
 ) -> None:
     record_event(
         rollout_id,
@@ -237,6 +246,7 @@ def _capture_event(
             "http_status": http_status,
             "status": status,
             "retry_count": retry_count,
+            "logical_call_id": logical_call_id,
             "usage": _extract_usage(response_body),
             "finish_reason": _extract_finish_reason(response_body),
         },

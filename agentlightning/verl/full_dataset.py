@@ -28,6 +28,13 @@ def merge_validation_metrics(batches):
         if merged[weight] <= 0:
             raise ValueError(f"Validation has no samples for {key}")
         merged[key] = sum(batch[key] * batch[weight] for batch in batches) / merged[weight]
+    from .reliability_control import merge_behavior_metrics
+
+    behavior = merge_behavior_metrics(batches)
+    if behavior:
+        merged = {key: value for key, value in merged.items() if not key.startswith("val/behavior/")}
+        merged.update(behavior)
+        merged["val/infrastructure_retries"] = sum(b.get("val/infrastructure_retries", 0) for b in batches)
     return merged
 
 

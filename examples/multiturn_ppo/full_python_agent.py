@@ -497,7 +497,10 @@ def grade(row, patch, output_dir, *, reference=False):
     if eval_timeout <= 0:
         raise ValueError("Grading timeout must be positive")
     client = docker.from_env(timeout=eval_timeout + 70)
-    box = FullPythonSandbox(client, pilot.agent_task(row), output_dir.name + "-grade")
+    run_id = output_dir.name
+    if run_id.startswith("grading-attempt-"):
+        run_id = output_dir.parent.name + "-" + run_id
+    box = FullPythonSandbox(client, pilot.agent_task(row), run_id + "-grade")
     try:
         preparation = box.prepare()
         commits = box.git("log", "-3", "--format=%s").splitlines()
@@ -610,6 +613,11 @@ def grade(row, patch, output_dir, *, reference=False):
             "reward": float(resolved),
             "resolved": resolved,
             "pytest_exit": result.exit_code,
+            "patch_sha256": hashlib.sha256(patch.encode()).hexdigest(),
+            "test_statuses": statuses,
+            "container_id": box.container.id,
+            "container_memory_bytes": box.container.attrs.get("HostConfig", {}).get("Memory"),
+            "container_nano_cpus": box.container.attrs.get("HostConfig", {}).get("NanoCpus"),
             "f2p_passed": pass_f,
             "f2p_total": len(f2p),
             "p2p_passed": pass_p,

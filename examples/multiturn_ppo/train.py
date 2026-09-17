@@ -142,6 +142,9 @@ def build_config(args):
     # The ephemeral local auth key should not be persisted in the config artifact.
     safe = OmegaConf.to_container(cfg, resolve=True)
     safe["agentlightning"]["agl_key"] = "<runtime key>"
+    from reliable_launch import validate_reliability_config
+
+    validate_reliability_config(safe)
     (run / "resolved-config.json").write_text(json.dumps(safe, indent=2))
     from sampling_config import proxy_overrides
 
@@ -157,6 +160,11 @@ def build_config(args):
         repo / "agentlightning/verl/trainer.py",
         repo / "agentlightning/verl/full_dataset.py",
         repo / "agentlightning/verl/agl_rollout_manager.py",
+        repo / "agentlightning/verl/episode_contract.py",
+        repo / "agentlightning/verl/reliability_metrics.py",
+        repo / "agentlightning/verl/reliability_control.py",
+        repo / "agentlightning/server/proxy.py",
+        repo / "agentlightning/server/routes/proxy.py",
         repo / "agentlightning/server/routes/events.py",
         *Path(__file__).parent.glob("*.py"),
         *Path(__file__).parent.glob("*.sh"),
@@ -178,6 +186,14 @@ def build_config(args):
         "runtime_options": {
             "local_runner_maximum_size": int(os.environ.get("AGL_MAX_LOCAL_AGENTS", "4")),
             "gpu_monitor_enabled": os.environ.get("AGL_GPU_MONITOR", "0") == "1",
+            "reliability": {
+                "config": safe["agentlightning"].get("reliability", {}),
+                "trainer_env": {
+                    name: os.environ.get(name)
+                    for name in ("SMITH_RELIABILITY", "AGL_SWE_RELIABILITY", "AGL_MIN_FREE_GIB")
+                },
+                "agent_env_map": safe["agentlightning"]["local"]["env_map"],
+            },
             "smith_budgets": {
                 name: os.environ.get(name)
                 for name in (

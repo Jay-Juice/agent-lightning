@@ -20,6 +20,10 @@ agentlightning:
   k8s:
     job_template_path: null
   reward_fillna_value: 0.0
+  reliability:
+    enabled: false
+    infrastructure_retries: 1
+    checkpoint_reserve_gib: 110
   max_ppo_update_times: null
   multi_turn_ppo:
     enabled: false

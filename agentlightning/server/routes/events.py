@@ -136,7 +136,7 @@ def _trim_model_request(data: dict[str, Any]) -> dict[str, Any]:
         "response_log_probs": response_log_probs,
         "server": {"model": srv.get("model"), "version": srv.get("version")},
     }
-    for key in ("http_status", "status"):
+    for key in ("http_status", "status", "logical_call_id", "finish_reason"):
         if key in data:
             trimmed[key] = data[key]
     if isinstance(resp, dict) and "error" in resp:
