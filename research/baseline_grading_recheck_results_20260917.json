@@ -1,0 +1,669 @@
+{
+  "baseline_source": "/media/ubuntu/D1/zsj/agent-lightning-speedtrial-20260913",
+  "baseline_commit_expected": "5fa18418331e0910ea2cd19ce5fb449282810ce4",
+  "grader_sha256": "0accf7e13fb922caf6a023de7afd66cf7e17d014d0bb107525a000c912b87556",
+  "script_sha256": "fa2f190eb8f4c9965056dc24a0cf53c6627069bd13cc1f997e48f13f91d519c3",
+  "cases_sha256": "2f49fc963170157efe00abccb2749be4bc036829075650efa3f01e9ced4b687c",
+  "eval_timeout_seconds": 600,
+  "concurrency": 1,
+  "actor_calls": 0,
+  "started_at": 1789650205.7145724,
+  "resource_checks": [
+    {
+      "case_index": 0,
+      "leg": "reference",
+      "available_memory_gib": 496.48666763305664,
+      "free_disk_gib": 181.45594024658203,
+      "load1": 15.8515625,
+      "cpu_count": 64
+    },
+    {
+      "case_index": 0,
+      "leg": "candidate",
+      "available_memory_gib": 496.4651908874512,
+      "free_disk_gib": 181.45590591430664,
+      "load1": 15.8515625,
+      "cpu_count": 64
+    },
+    {
+      "case_index": 1,
+      "leg": "reference",
+      "available_memory_gib": 496.59607696533203,
+      "free_disk_gib": 181.45587921142578,
+      "load1": 15.8515625,
+      "cpu_count": 64
+    },
+    {
+      "case_index": 1,
+      "leg": "candidate",
+      "available_memory_gib": 496.72065353393555,
+      "free_disk_gib": 181.4558563232422,
+      "load1": 16.02392578125,
+      "cpu_count": 64
+    },
+    {
+      "case_index": 2,
+      "leg": "reference",
+      "available_memory_gib": 497.4971694946289,
+      "free_disk_gib": 181.45559692382812,
+      "load1": 16.6484375,
+      "cpu_count": 64
+    },
+    {
+      "case_index": 2,
+      "leg": "candidate",
+      "available_memory_gib": 497.39952087402344,
+      "free_disk_gib": 181.45551300048828,
+      "load1": 16.923828125,
+      "cpu_count": 64
+    },
+    {
+      "case_index": 3,
+      "leg": "reference",
+      "available_memory_gib": 497.0099906921387,
+      "free_disk_gib": 181.4244041442871,
+      "load1": 17.4521484375,
+      "cpu_count": 64
+    },
+    {
+      "case_index": 3,
+      "leg": "candidate",
+      "available_memory_gib": 494.3276672363281,
+      "free_disk_gib": 179.77783966064453,
+      "load1": 17.548828125,
+      "cpu_count": 64
+    },
+    {
+      "case_index": 4,
+      "leg": "reference",
+      "available_memory_gib": 497.9860038757324,
+      "free_disk_gib": 179.58330917358398,
+      "load1": 17.6953125,
+      "cpu_count": 64
+    },
+    {
+      "case_index": 4,
+      "leg": "candidate",
+      "available_memory_gib": 497.8529510498047,
+      "free_disk_gib": 179.58322525024414,
+      "load1": 17.7421875,
+      "cpu_count": 64
+    },
+    {
+      "case_index": 5,
+      "leg": "reference",
+      "available_memory_gib": 484.6071243286133,
+      "free_disk_gib": 179.76401901245117,
+      "load1": 25.13525390625,
+      "cpu_count": 64
+    },
+    {
+      "case_index": 5,
+      "leg": "candidate",
+      "available_memory_gib": 484.9912910461426,
+      "free_disk_gib": 179.73341369628906,
+      "load1": 25.13525390625,
+      "cpu_count": 64
+    },
+    {
+      "case_index": 6,
+      "leg": "reference",
+      "available_memory_gib": 484.1009635925293,
+      "free_disk_gib": 179.7245101928711,
+      "load1": 24.28271484375,
+      "cpu_count": 64
+    },
+    {
+      "case_index": 6,
+      "leg": "candidate",
+      "available_memory_gib": 485.0768241882324,
+      "free_disk_gib": 180.29420852661133,
+      "load1": 24.099609375,
+      "cpu_count": 64
+    },
+    {
+      "case_index": 7,
+      "leg": "reference",
+      "available_memory_gib": 487.3584289550781,
+      "free_disk_gib": 180.14427185058594,
+      "load1": 22.34033203125,
+      "cpu_count": 64
+    },
+    {
+      "case_index": 7,
+      "leg": "candidate",
+      "available_memory_gib": 487.4515800476074,
+      "free_disk_gib": 180.2229461669922,
+      "load1": 22.6337890625,
+      "cpu_count": 64
+    },
+    {
+      "case_index": 8,
+      "leg": "reference",
+      "available_memory_gib": 488.7088508605957,
+      "free_disk_gib": 180.3611831665039,
+      "load1": 19.4453125,
+      "cpu_count": 64
+    },
+    {
+      "case_index": 8,
+      "leg": "candidate",
+      "available_memory_gib": 489.12012481689453,
+      "free_disk_gib": 180.41809844970703,
+      "load1": 19.1689453125,
+      "cpu_count": 64
+    }
+  ],
+  "cases": [
+    {
+      "step": "0",
+      "rollout_id": "4552d17e68c5496ab2dee5d6ac11b62c",
+      "instance_id": "agronholm__exceptiongroup.0b4f4937.func_basic__4njcbj1q",
+      "original_exit": 3,
+      "run_name": "training-capo-swe-pythonfull-v7-4b-gpu47-20260914-01",
+      "candidate_patch_sha256": "a8117021405de366b3b7b11ff412d5f8b558a4d411427ab522354ef552744f51",
+      "task_sha256": "8738e05e2ca5ce4e5ae12ecfa19f6413d5be5fff60720bb0084758a9f27f33ed",
+      "legs": {
+        "reference": {
+          "reward": 1.0,
+          "resolved": true,
+          "pytest_exit": 0,
+          "f2p_passed": 72,
+          "f2p_total": 72,
+          "p2p_passed": 17,
+          "p2p_total": 17,
+          "test_runner": "pytest",
+          "reference_control": true,
+          "eval_timeout_seconds": 600,
+          "status": "graded",
+          "duration_s": 1.8314653038978577,
+          "output_directory": "/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/audit-baseline-grading-recheck-20260917-01/audit-echeck-20260917-01-00-reference"
+        },
+        "candidate": {
+          "reward": 0.0,
+          "resolved": false,
+          "pytest_exit": 3,
+          "f2p_passed": 0,
+          "f2p_total": 72,
+          "p2p_passed": 0,
+          "p2p_total": 17,
+          "test_runner": "pytest",
+          "reference_control": false,
+          "eval_timeout_seconds": 600,
+          "status": "graded",
+          "duration_s": 1.6493090987205505,
+          "output_directory": "/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/audit-baseline-grading-recheck-20260917-01/audit-echeck-20260917-01-00-candidate"
+        }
+      },
+      "outcome": "reference_pass_candidate_fail",
+      "audit_case_index": 0,
+      "candidate_oom_events": [],
+      "evidence_based_outcome": "reference_pass_candidate_pytest_internal_error"
+    },
+    {
+      "step": "0",
+      "rollout_id": "6d1c9e17d0734efb88ed3f278fc9e45b",
+      "instance_id": "agronholm__exceptiongroup.0b4f4937.combine_module__mkpnzqei",
+      "original_exit": 137,
+      "run_name": "training-capo-swe-pythonfull-v7-4b-gpu47-20260914-01",
+      "candidate_patch_sha256": "47f4a3636bb77156f9ba32063bb495c10a6ec51ee306d67613b2e32d76d68236",
+      "task_sha256": "0047ebad248c302c588f84057d102aef7ef1c08f042ca8f7d60ad8785b789cf1",
+      "legs": {
+        "reference": {
+          "reward": 1.0,
+          "resolved": true,
+          "pytest_exit": 0,
+          "f2p_passed": 83,
+          "f2p_total": 83,
+          "p2p_passed": 6,
+          "p2p_total": 6,
+          "test_runner": "pytest",
+          "reference_control": true,
+          "eval_timeout_seconds": 600,
+          "status": "graded",
+          "duration_s": 1.9154036082327366,
+          "output_directory": "/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/audit-baseline-grading-recheck-20260917-01/audit-echeck-20260917-01-01-reference"
+        },
+        "candidate": {
+          "reward": 0.0,
+          "resolved": false,
+          "pytest_exit": 137,
+          "f2p_passed": 0,
+          "f2p_total": 83,
+          "p2p_passed": 0,
+          "p2p_total": 6,
+          "test_runner": "pytest",
+          "reference_control": false,
+          "eval_timeout_seconds": 600,
+          "status": "graded",
+          "duration_s": 27.820681039243937,
+          "output_directory": "/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/audit-baseline-grading-recheck-20260917-01/audit-echeck-20260917-01-01-candidate"
+        }
+      },
+      "outcome": "reference_pass_candidate_execution_failure_cause_unresolved",
+      "audit_case_index": 1,
+      "candidate_oom_events": [
+        {
+          "time": 1789650238,
+          "container_id": "6ad51d64fa7629aa8ec0f711e0d3cb6123a8065fb0b147a1633f4a2a060e2b16",
+          "name": "hopeful_haslett",
+          "instance_id": "agronholm__exceptiongroup.0b4f4937.combine_module__mkpnzqei",
+          "run_id": "audit-echeck-20260917-01-01-candidate-grade"
+        }
+      ],
+      "evidence_based_outcome": "reference_pass_candidate_container_oom_4gib"
+    },
+    {
+      "step": "0",
+      "rollout_id": "d7593c87356d4a618dee6a3b5a400777",
+      "instance_id": "pdfminer__pdfminer.six.1a8bd2f7.func_pm_class_rm_funcs__j01xx7v7",
+      "original_exit": 137,
+      "run_name": "training-capo-swe-pythonfull-v7-4b-gpu47-20260914-01",
+      "candidate_patch_sha256": "4bb531dcd25810d310a5665d26b1191f92a222727b7d79919058ba2c14c12e73",
+      "task_sha256": "9362bdeaf4a1e57e86049bd8e194a30f0c50519a875bda18429de4b135344685",
+      "legs": {
+        "reference": {
+          "reward": 1.0,
+          "resolved": true,
+          "pytest_exit": 0,
+          "f2p_passed": 78,
+          "f2p_total": 78,
+          "p2p_passed": 16,
+          "p2p_total": 16,
+          "test_runner": "pytest",
+          "reference_control": true,
+          "eval_timeout_seconds": 600,
+          "status": "graded",
+          "duration_s": 6.636305022984743,
+          "output_directory": "/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/audit-baseline-grading-recheck-20260917-01/audit-echeck-20260917-01-02-reference"
+        },
+        "candidate": {
+          "reward": 0.0,
+          "resolved": false,
+          "pytest_exit": 137,
+          "f2p_passed": 0,
+          "f2p_total": 78,
+          "p2p_passed": 0,
+          "p2p_total": 16,
+          "test_runner": "pytest",
+          "reference_control": false,
+          "eval_timeout_seconds": 600,
+          "status": "graded",
+          "duration_s": 101.80099591985345,
+          "output_directory": "/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/audit-baseline-grading-recheck-20260917-01/audit-echeck-20260917-01-02-candidate"
+        }
+      },
+      "outcome": "reference_pass_candidate_execution_failure_cause_unresolved",
+      "audit_case_index": 2,
+      "candidate_oom_events": [
+        {
+          "time": 1789650346,
+          "container_id": "d64f17be034322b15ff8c0b47a88d44c652cb4debbe1089bc39eeb72e3fc8513",
+          "name": "beautiful_carson",
+          "instance_id": "pdfminer__pdfminer.six.1a8bd2f7.func_pm_class_rm_funcs__j01xx7v7",
+          "run_id": "audit-echeck-20260917-01-02-candidate-grade"
+        }
+      ],
+      "evidence_based_outcome": "reference_pass_candidate_container_oom_4gib"
+    },
+    {
+      "step": "0",
+      "rollout_id": "e74b1bba1dc84e8dbee3f7979ec866a6",
+      "instance_id": "pdfminer__pdfminer.six.1a8bd2f7.func_basic__2570ql4j",
+      "original_exit": 124,
+      "run_name": "training-capo-swe-pythonfull-v7-4b-gpu47-20260914-01",
+      "candidate_patch_sha256": "05ab9a60e625598efccabc4e9374b24b5ad98906d06053bb995fdb7f0e4a24af",
+      "task_sha256": "f5b9c0b134b1fba9ebbdb73f530585736b2f494c7bcd374b24f25424b11bf0aa",
+      "legs": {
+        "reference": {
+          "reward": 1.0,
+          "resolved": true,
+          "pytest_exit": 0,
+          "f2p_passed": 52,
+          "f2p_total": 52,
+          "p2p_passed": 23,
+          "p2p_total": 23,
+          "test_runner": "pytest",
+          "reference_control": true,
+          "eval_timeout_seconds": 600,
+          "status": "graded",
+          "duration_s": 7.780983179807663,
+          "output_directory": "/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/audit-baseline-grading-recheck-20260917-01/audit-echeck-20260917-01-03-reference"
+        },
+        "candidate": {
+          "reward": 0.0,
+          "resolved": false,
+          "pytest_exit": 124,
+          "f2p_passed": 0,
+          "f2p_total": 52,
+          "p2p_passed": 0,
+          "p2p_total": 23,
+          "test_runner": "pytest",
+          "reference_control": false,
+          "eval_timeout_seconds": 600,
+          "status": "graded",
+          "duration_s": 602.1044424436986,
+          "output_directory": "/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/audit-baseline-grading-recheck-20260917-01/audit-echeck-20260917-01-03-candidate"
+        }
+      },
+      "outcome": "reference_pass_candidate_execution_failure_cause_unresolved",
+      "audit_case_index": 3,
+      "candidate_oom_events": [],
+      "evidence_based_outcome": "reference_pass_candidate_timeout_600s"
+    },
+    {
+      "step": "120",
+      "rollout_id": "2e74ccd7ada3423a9394d45fb3a26909",
+      "instance_id": "pandas-dev__pandas.95280573.func_pm_remove_assign__67c08l6i",
+      "original_exit": 124,
+      "run_name": "training-capo-swe-pythonfull-v7-4b-gpu47-resume40-20260915-01",
+      "candidate_patch_sha256": "71b1dbb56efd9a1652d095a1c5b364c7a3ee4abedc1f4d93e4e2fbc195593201",
+      "task_sha256": "2ac5869d4c9a3d84eb8dc95ceb2916ee3b838dd34f66716b731bc953e44cc136",
+      "legs": {
+        "reference": {
+          "reward": 1.0,
+          "resolved": true,
+          "pytest_exit": 0,
+          "f2p_passed": 59,
+          "f2p_total": 59,
+          "p2p_passed": 3,
+          "p2p_total": 3,
+          "test_runner": "pytest",
+          "reference_control": true,
+          "eval_timeout_seconds": 600,
+          "status": "graded",
+          "duration_s": 9.689035687595606,
+          "output_directory": "/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/audit-baseline-grading-recheck-20260917-01/audit-echeck-20260917-01-04-reference"
+        },
+        "candidate": {
+          "reward": 0.0,
+          "resolved": false,
+          "pytest_exit": 124,
+          "f2p_passed": 0,
+          "f2p_total": 59,
+          "p2p_passed": 0,
+          "p2p_total": 3,
+          "test_runner": "pytest",
+          "reference_control": false,
+          "eval_timeout_seconds": 600,
+          "status": "graded",
+          "duration_s": 604.4104560352862,
+          "output_directory": "/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/audit-baseline-grading-recheck-20260917-01/audit-echeck-20260917-01-04-candidate"
+        }
+      },
+      "outcome": "reference_pass_candidate_execution_failure_cause_unresolved",
+      "audit_case_index": 4,
+      "candidate_oom_events": [],
+      "evidence_based_outcome": "reference_pass_candidate_timeout_600s"
+    },
+    {
+      "step": "120",
+      "rollout_id": "4b7ca6d9f4144704836002d7545f467b",
+      "instance_id": "agronholm__exceptiongroup.0b4f4937.combine_module__mkpnzqei",
+      "original_exit": 137,
+      "run_name": "training-capo-swe-pythonfull-v7-4b-gpu47-resume40-20260915-01",
+      "candidate_patch_sha256": "220209efdad4cfef3cf49dbc798575a27bd83a7e0dc870b5ea84d95f6cf8eedc",
+      "task_sha256": "0047ebad248c302c588f84057d102aef7ef1c08f042ca8f7d60ad8785b789cf1",
+      "legs": {
+        "reference": {
+          "reward": 1.0,
+          "resolved": true,
+          "pytest_exit": 0,
+          "f2p_passed": 83,
+          "f2p_total": 83,
+          "p2p_passed": 6,
+          "p2p_total": 6,
+          "test_runner": "pytest",
+          "reference_control": true,
+          "eval_timeout_seconds": 600,
+          "status": "graded",
+          "duration_s": 1.873759038746357,
+          "output_directory": "/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/audit-baseline-grading-recheck-20260917-01/audit-echeck-20260917-01-05-reference"
+        },
+        "candidate": {
+          "reward": 0.0,
+          "resolved": false,
+          "pytest_exit": 137,
+          "f2p_passed": 0,
+          "f2p_total": 83,
+          "p2p_passed": 0,
+          "p2p_total": 6,
+          "test_runner": "pytest",
+          "reference_control": false,
+          "eval_timeout_seconds": 600,
+          "status": "graded",
+          "duration_s": 32.68193446099758,
+          "output_directory": "/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/audit-baseline-grading-recheck-20260917-01/audit-echeck-20260917-01-05-candidate"
+        }
+      },
+      "outcome": "reference_pass_candidate_execution_failure_cause_unresolved",
+      "audit_case_index": 5,
+      "candidate_oom_events": [
+        {
+          "time": 1789651605,
+          "container_id": "208681c57603c66414f6816c585e3b46b3fa8c95f57dfaa12031eeac6969cf9c",
+          "name": "fervent_fermi",
+          "instance_id": "agronholm__exceptiongroup.0b4f4937.combine_module__mkpnzqei",
+          "run_id": "audit-echeck-20260917-01-05-candidate-grade"
+        }
+      ],
+      "evidence_based_outcome": "reference_pass_candidate_container_oom_4gib"
+    },
+    {
+      "step": "120",
+      "rollout_id": "81baa70b119949cdb9f00cab5af57c04",
+      "instance_id": "pdfminer__pdfminer.six.1a8bd2f7.func_pm_class_rm_funcs__j01xx7v7",
+      "original_exit": 137,
+      "run_name": "training-capo-swe-pythonfull-v7-4b-gpu47-resume40-20260915-01",
+      "candidate_patch_sha256": "99d721bc3ac5b0705a3b1d0f9ec91852e9b679f4b54c8a941ee0551040207c19",
+      "task_sha256": "9362bdeaf4a1e57e86049bd8e194a30f0c50519a875bda18429de4b135344685",
+      "legs": {
+        "reference": {
+          "reward": 1.0,
+          "resolved": true,
+          "pytest_exit": 0,
+          "f2p_passed": 78,
+          "f2p_total": 78,
+          "p2p_passed": 16,
+          "p2p_total": 16,
+          "test_runner": "pytest",
+          "reference_control": true,
+          "eval_timeout_seconds": 600,
+          "status": "graded",
+          "duration_s": 6.848345510661602,
+          "output_directory": "/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/audit-baseline-grading-recheck-20260917-01/audit-echeck-20260917-01-06-reference"
+        },
+        "candidate": {
+          "reward": 0.0,
+          "resolved": false,
+          "pytest_exit": 137,
+          "f2p_passed": 0,
+          "f2p_total": 78,
+          "p2p_passed": 0,
+          "p2p_total": 16,
+          "test_runner": "pytest",
+          "reference_control": false,
+          "eval_timeout_seconds": 600,
+          "status": "graded",
+          "duration_s": 135.90937846899033,
+          "output_directory": "/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/audit-baseline-grading-recheck-20260917-01/audit-echeck-20260917-01-06-candidate"
+        }
+      },
+      "outcome": "reference_pass_candidate_execution_failure_cause_unresolved",
+      "audit_case_index": 6,
+      "candidate_oom_events": [
+        {
+          "time": 1789651748,
+          "container_id": "fd64ca3f069124d0ba808813ceeaa342de3efb57d6118535731fb6739e1dcb9c",
+          "name": "upbeat_chatterjee",
+          "instance_id": "pdfminer__pdfminer.six.1a8bd2f7.func_pm_class_rm_funcs__j01xx7v7",
+          "run_id": "audit-echeck-20260917-01-06-candidate-grade"
+        }
+      ],
+      "evidence_based_outcome": "reference_pass_candidate_container_oom_4gib"
+    },
+    {
+      "step": "120",
+      "rollout_id": "e3734564f0be4761aface553417f591a",
+      "instance_id": "rsalmei__alive-progress.35853799.combine_file__rsy05m30",
+      "original_exit": 137,
+      "run_name": "training-capo-swe-pythonfull-v7-4b-gpu47-resume40-20260915-01",
+      "candidate_patch_sha256": "6df97d9008a66ee88d241dbbcb7e1a661ddadd7a2367ce2d11da99658f463d6f",
+      "task_sha256": "d5eeba808c575a8f958e47ce2b011633de60eda4668a6a38528b45e94d40ef94",
+      "legs": {
+        "reference": {
+          "reward": 1.0,
+          "resolved": true,
+          "pytest_exit": 0,
+          "f2p_passed": 53,
+          "f2p_total": 53,
+          "p2p_passed": 12,
+          "p2p_total": 12,
+          "test_runner": "pytest",
+          "reference_control": true,
+          "eval_timeout_seconds": 600,
+          "status": "graded",
+          "duration_s": 2.8502968214452267,
+          "output_directory": "/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/audit-baseline-grading-recheck-20260917-01/audit-echeck-20260917-01-07-reference"
+        },
+        "candidate": {
+          "reward": 0.0,
+          "resolved": false,
+          "pytest_exit": 137,
+          "f2p_passed": 0,
+          "f2p_total": 53,
+          "p2p_passed": 0,
+          "p2p_total": 12,
+          "test_runner": "pytest",
+          "reference_control": false,
+          "eval_timeout_seconds": 600,
+          "status": "graded",
+          "duration_s": 102.8801939599216,
+          "output_directory": "/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/audit-baseline-grading-recheck-20260917-01/audit-echeck-20260917-01-07-candidate"
+        }
+      },
+      "outcome": "reference_pass_candidate_execution_failure_cause_unresolved",
+      "audit_case_index": 7,
+      "candidate_oom_events": [
+        {
+          "time": 1789651853,
+          "container_id": "606b3e80cf2fcf8f214627c72649cfb475cefe05b22e880e419acfff75dc62c1",
+          "name": "admiring_sutherland",
+          "instance_id": "rsalmei__alive-progress.35853799.combine_file__rsy05m30",
+          "run_id": "audit-echeck-20260917-01-07-candidate-grade"
+        }
+      ],
+      "evidence_based_outcome": "reference_pass_candidate_container_oom_4gib"
+    },
+    {
+      "step": "120",
+      "rollout_id": "fe6aea00184f4b5e95ab6830cdc83aeb",
+      "instance_id": "bottlepy__bottle.a8dfef30.func_basic__qv5ien10",
+      "original_exit": 137,
+      "run_name": "training-capo-swe-pythonfull-v7-4b-gpu47-resume40-20260915-01",
+      "candidate_patch_sha256": "c1cfffdb32b251ac9848ae071fd6f7ecca2414a2e8eea21576aed7a3e91adeb7",
+      "task_sha256": "69e2ad915680c69259230aab193e6ba966b8cac7d18c1eaee6862ff18f217c67",
+      "legs": {
+        "reference": {
+          "reward": 1.0,
+          "resolved": true,
+          "pytest_exit": 0,
+          "f2p_passed": 71,
+          "f2p_total": 71,
+          "p2p_passed": 61,
+          "p2p_total": 61,
+          "test_runner": "pytest",
+          "reference_control": true,
+          "eval_timeout_seconds": 600,
+          "status": "graded",
+          "duration_s": 2.1978896781802177,
+          "output_directory": "/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/audit-baseline-grading-recheck-20260917-01/audit-echeck-20260917-01-08-reference"
+        },
+        "candidate": {
+          "reward": 0.0,
+          "resolved": false,
+          "pytest_exit": 137,
+          "f2p_passed": 0,
+          "f2p_total": 71,
+          "p2p_passed": 0,
+          "p2p_total": 61,
+          "test_runner": "pytest",
+          "reference_control": false,
+          "eval_timeout_seconds": 600,
+          "status": "graded",
+          "duration_s": 489.7344353981316,
+          "output_directory": "/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/audit-baseline-grading-recheck-20260917-01/audit-echeck-20260917-01-08-candidate"
+        }
+      },
+      "outcome": "reference_pass_candidate_execution_failure_cause_unresolved",
+      "audit_case_index": 8,
+      "candidate_oom_events": [
+        {
+          "time": 1789652345,
+          "container_id": "8bfd7ea6332ac8d64717b76b70e7d4251af53c40f9163b5177e4b3b0ea9eb911",
+          "name": "crazy_tu",
+          "instance_id": "bottlepy__bottle.a8dfef30.func_basic__qv5ien10",
+          "run_id": "audit-echeck-20260917-01-08-candidate-grade"
+        }
+      ],
+      "evidence_based_outcome": "reference_pass_candidate_container_oom_4gib"
+    }
+  ],
+  "status": "complete",
+  "finished_at": 1789652346.5885417,
+  "reference_failures": 0,
+  "postrun_verification": {
+    "captured_at": "2026-09-17T21:41:29.094781",
+    "audit_screen_present": false,
+    "baseline_screen_present": true,
+    "pi_screen_present": true,
+    "remaining_audit_containers": [],
+    "read_only_oom_watcher_exit_code": 0
+  },
+  "oom_events": [
+    {
+      "time": 1789650238,
+      "container_id": "6ad51d64fa7629aa8ec0f711e0d3cb6123a8065fb0b147a1633f4a2a060e2b16",
+      "name": "hopeful_haslett",
+      "instance_id": "agronholm__exceptiongroup.0b4f4937.combine_module__mkpnzqei",
+      "run_id": "audit-echeck-20260917-01-01-candidate-grade"
+    },
+    {
+      "time": 1789650346,
+      "container_id": "d64f17be034322b15ff8c0b47a88d44c652cb4debbe1089bc39eeb72e3fc8513",
+      "name": "beautiful_carson",
+      "instance_id": "pdfminer__pdfminer.six.1a8bd2f7.func_pm_class_rm_funcs__j01xx7v7",
+      "run_id": "audit-echeck-20260917-01-02-candidate-grade"
+    },
+    {
+      "time": 1789651605,
+      "container_id": "208681c57603c66414f6816c585e3b46b3fa8c95f57dfaa12031eeac6969cf9c",
+      "name": "fervent_fermi",
+      "instance_id": "agronholm__exceptiongroup.0b4f4937.combine_module__mkpnzqei",
+      "run_id": "audit-echeck-20260917-01-05-candidate-grade"
+    },
+    {
+      "time": 1789651748,
+      "container_id": "fd64ca3f069124d0ba808813ceeaa342de3efb57d6118535731fb6739e1dcb9c",
+      "name": "upbeat_chatterjee",
+      "instance_id": "pdfminer__pdfminer.six.1a8bd2f7.func_pm_class_rm_funcs__j01xx7v7",
+      "run_id": "audit-echeck-20260917-01-06-candidate-grade"
+    },
+    {
+      "time": 1789651853,
+      "container_id": "606b3e80cf2fcf8f214627c72649cfb475cefe05b22e880e419acfff75dc62c1",
+      "name": "admiring_sutherland",
+      "instance_id": "rsalmei__alive-progress.35853799.combine_file__rsy05m30",
+      "run_id": "audit-echeck-20260917-01-07-candidate-grade"
+    },
+    {
+      "time": 1789652345,
+      "container_id": "8bfd7ea6332ac8d64717b76b70e7d4251af53c40f9163b5177e4b3b0ea9eb911",
+      "name": "crazy_tu",
+      "instance_id": "bottlepy__bottle.a8dfef30.func_basic__qv5ien10",
+      "run_id": "audit-echeck-20260917-01-08-candidate-grade"
+    }
+  ],
+  "conclusion": "All nine frozen candidates reproduce their original exit codes, all nine references pass, and all six exit137 candidates have exact-label Docker OOM evidence. These are candidate/workspace-specific failures under the unchanged protocol, not evidence of a generally broken grader. Whether each fault was introduced or merely left unfixed by the candidate is not established.",
+  "unique_tasks": 7
+}

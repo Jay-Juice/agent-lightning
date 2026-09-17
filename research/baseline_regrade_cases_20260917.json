@@ -1,0 +1,65 @@
+[
+  {
+    "step": "0",
+    "rollout_id": "4552d17e68c5496ab2dee5d6ac11b62c",
+    "instance_id": "agronholm__exceptiongroup.0b4f4937.func_basic__4njcbj1q",
+    "original_exit": 3,
+    "run_name": "training-capo-swe-pythonfull-v7-4b-gpu47-20260914-01"
+  },
+  {
+    "step": "0",
+    "rollout_id": "6d1c9e17d0734efb88ed3f278fc9e45b",
+    "instance_id": "agronholm__exceptiongroup.0b4f4937.combine_module__mkpnzqei",
+    "original_exit": 137,
+    "run_name": "training-capo-swe-pythonfull-v7-4b-gpu47-20260914-01"
+  },
+  {
+    "step": "0",
+    "rollout_id": "d7593c87356d4a618dee6a3b5a400777",
+    "instance_id": "pdfminer__pdfminer.six.1a8bd2f7.func_pm_class_rm_funcs__j01xx7v7",
+    "original_exit": 137,
+    "run_name": "training-capo-swe-pythonfull-v7-4b-gpu47-20260914-01"
+  },
+  {
+    "step": "0",
+    "rollout_id": "e74b1bba1dc84e8dbee3f7979ec866a6",
+    "instance_id": "pdfminer__pdfminer.six.1a8bd2f7.func_basic__2570ql4j",
+    "original_exit": 124,
+    "run_name": "training-capo-swe-pythonfull-v7-4b-gpu47-20260914-01"
+  },
+  {
+    "step": "120",
+    "rollout_id": "2e74ccd7ada3423a9394d45fb3a26909",
+    "instance_id": "pandas-dev__pandas.95280573.func_pm_remove_assign__67c08l6i",
+    "original_exit": 124,
+    "run_name": "training-capo-swe-pythonfull-v7-4b-gpu47-resume40-20260915-01"
+  },
+  {
+    "step": "120",
+    "rollout_id": "4b7ca6d9f4144704836002d7545f467b",
+    "instance_id": "agronholm__exceptiongroup.0b4f4937.combine_module__mkpnzqei",
+    "original_exit": 137,
+    "run_name": "training-capo-swe-pythonfull-v7-4b-gpu47-resume40-20260915-01"
+  },
+  {
+    "step": "120",
+    "rollout_id": "81baa70b119949cdb9f00cab5af57c04",
+    "instance_id": "pdfminer__pdfminer.six.1a8bd2f7.func_pm_class_rm_funcs__j01xx7v7",
+    "original_exit": 137,
+    "run_name": "training-capo-swe-pythonfull-v7-4b-gpu47-resume40-20260915-01"
+  },
+  {
+    "step": "120",
+    "rollout_id": "e3734564f0be4761aface553417f591a",
+    "instance_id": "rsalmei__alive-progress.35853799.combine_file__rsy05m30",
+    "original_exit": 137,
+    "run_name": "training-capo-swe-pythonfull-v7-4b-gpu47-resume40-20260915-01"
+  },
+  {
+    "step": "120",
+    "rollout_id": "fe6aea00184f4b5e95ab6830cdc83aeb",
+    "instance_id": "bottlepy__bottle.a8dfef30.func_basic__qv5ien10",
+    "original_exit": 137,
+    "run_name": "training-capo-swe-pythonfull-v7-4b-gpu47-resume40-20260915-01"
+  }
+]

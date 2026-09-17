@@ -1,0 +1,48 @@
+{
+  "source": "Read-only docker events --filter event=oom, selected event timestamps/container IDs/agl labels; observed during recheck",
+  "ordinary_container_memory_limit_gib": 4,
+  "events": [
+    {
+      "time": 1789650238,
+      "container_id": "6ad51d64fa7629aa8ec0f711e0d3cb6123a8065fb0b147a1633f4a2a060e2b16",
+      "name": "hopeful_haslett",
+      "instance_id": "agronholm__exceptiongroup.0b4f4937.combine_module__mkpnzqei",
+      "run_id": "audit-echeck-20260917-01-01-candidate-grade"
+    },
+    {
+      "time": 1789650346,
+      "container_id": "d64f17be034322b15ff8c0b47a88d44c652cb4debbe1089bc39eeb72e3fc8513",
+      "name": "beautiful_carson",
+      "instance_id": "pdfminer__pdfminer.six.1a8bd2f7.func_pm_class_rm_funcs__j01xx7v7",
+      "run_id": "audit-echeck-20260917-01-02-candidate-grade"
+    },
+    {
+      "time": 1789651605,
+      "container_id": "208681c57603c66414f6816c585e3b46b3fa8c95f57dfaa12031eeac6969cf9c",
+      "name": "fervent_fermi",
+      "instance_id": "agronholm__exceptiongroup.0b4f4937.combine_module__mkpnzqei",
+      "run_id": "audit-echeck-20260917-01-05-candidate-grade"
+    },
+    {
+      "time": 1789651748,
+      "container_id": "fd64ca3f069124d0ba808813ceeaa342de3efb57d6118535731fb6739e1dcb9c",
+      "name": "upbeat_chatterjee",
+      "instance_id": "pdfminer__pdfminer.six.1a8bd2f7.func_pm_class_rm_funcs__j01xx7v7",
+      "run_id": "audit-echeck-20260917-01-06-candidate-grade"
+    },
+    {
+      "time": 1789651853,
+      "container_id": "606b3e80cf2fcf8f214627c72649cfb475cefe05b22e880e419acfff75dc62c1",
+      "name": "admiring_sutherland",
+      "instance_id": "rsalmei__alive-progress.35853799.combine_file__rsy05m30",
+      "run_id": "audit-echeck-20260917-01-07-candidate-grade"
+    },
+    {
+      "time": 1789652345,
+      "container_id": "8bfd7ea6332ac8d64717b76b70e7d4251af53c40f9163b5177e4b3b0ea9eb911",
+      "name": "crazy_tu",
+      "instance_id": "bottlepy__bottle.a8dfef30.func_basic__qv5ien10",
+      "run_id": "audit-echeck-20260917-01-08-candidate-grade"
+    }
+  ]
+}
