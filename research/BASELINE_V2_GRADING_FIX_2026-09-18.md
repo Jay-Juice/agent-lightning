@@ -115,3 +115,4 @@ screen -dmS agl-ab-v2-gpu47-20260918-02 bash examples/multiturn_ppo/run_reliable
 
 恢复入口：`research/run_v2_exit120_recovery.sh`。将先并行运行环境审计`swe-full-python-envs-reliable-v2-20260918-03`和7案例生产验收`audit-v2-grading-live-20260918-02`（原6案例+本次120）；两者均exit0后，pair再次检查源码hash及既有四卡恢复、470轨迹证据，再启动新训练。任一验收失败则不启动，禁止绕过门槛。脚本输出`recovery-v2-exit120-20260918-01/run.log`。跟踪最新恢复入口/新tag，禁止自动重启旧02。
 恢复流程已实际启动：screen `agl-recovery-v2-exit120-20260918-01`，远端执行`screen -dmS agl-recovery-v2-exit120-20260918-01 bash research/run_v2_exit120_recovery.sh`返回0，两个审计都有持续输出。新增120案例生产路径已在9.96秒完成，candidate→reference→candidate结果120→0→120，最终candidate_failed/reward0、limits_valid=true、worker_exit=0。原两条timeout等案例和124环境仍在重新验收，因此此时不能称新03训练已启动。两组config-only退出均0，均20步、save_freq5、test_freq20、Actor/Critic各保留2；除名称/输出路径外仅critic_head_init不同。后续巡检先读恢复目录及03 pair，不要再次运行恢复脚本。
+源码修复与此前本分支记录已推送至GitHub专用分支`experiment/swe-baseline-v2-reliability-20260917`，已验证修复提交`fcb224e`；未合并main，未上传数据、checkpoint或原始日志。
