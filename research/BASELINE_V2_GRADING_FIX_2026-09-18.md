@@ -140,3 +140,11 @@ screen -dmS agl-ab-v2-gpu47-20260918-02 bash examples/multiturn_ppo/run_reliable
 - 已只读核验具体清理候选：旧baseline run `training-capo-swe-pythonfull-v7-4b-gpu47-resume40-20260915-01`下global_step_80为91.390GiB，canonical路径且无symlink；保留step120有Actor/Critic各12个非空pt及data.pt。旧run目录字符串被PI进程继承环境引用，但进一步核查step80精确路径无argv/environ/open-fd引用，不能把前者误报为step80仍在使用。
 - step80在此前清理清单中曾暂时保护为历史对照，未在已删除15项中，因此已向用户请求只删除此一个历史点的授权；当前尚未获答复、没有删除。若获准，执行前必须再次核对精确路径、无符号链接、引用及保留点；若未获准，保留checkpoint并允许A空间门槛阻止启动，不能降低保护或另删PI。
 - 本轮未改参数、重启、停止或删除任何运行/产物。下一轮优先检查用户对step80的答复与新B进度；审批等待不影响B正常继续。
+## 2026-09-18 17:34（北京时间）：B进入step20完整验证
+
+- B03已进入第20步后的470题验证，当前160/470 rollout执行完成；这不是修复成功数，不报告未完成集合的修复率。trainer日志持续更新，无run.exit；A尚未启动。
+- metrics.jsonl最新完整训练记录为step19，因为正式入口在第20步更新后先验证、再记录整步metrics和保存checkpoint。不能将当前尚无step20记录误判为只更新了19步；最终20步指标/验证/保存仍待结束。
+- step18/19训练奖励8/32、5/32，Actor KL loss0.06065/0.08917，Actor grad norm3.52/5.02、Critic8.55/9.49，EV0.1407/0.0014；已记录指标均有限且optimizer skipped为0。step19有1/32格式终止，暂无凭此单批次宣布行为崩溃的依据。
+- 保留的实际权重为step10/15，各24个Actor+Critic rank文件；step5仅残留标记/dataloader，权重已正常轮换删除，不能视为完整恢复点。step20 checkpoint按代码顺序在验证后保存；评分异常会在异常分支尝试保存恢复点。
+- D1空闲211.12GiB，A启动仍会受295GiB空间门槛阻止；旧baseline step80清理申请尚未收到授权，未删除任何文件。B当前验证不受此A启动门槛影响。
+- 决策：等待完整验证后比较62/470初始结果，不能把训练未发散当成性能有效；不改超参数、不打断当前验证。下一轮若B结束且A因磁盘被拒绝，分别记录B退出与pair退出，不能称B训练崩溃。
