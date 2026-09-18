@@ -31,7 +31,9 @@ for role in ('actor', 'critic'):
 summary = json.loads((environment / 'summary.json').read_text())
 assert summary['ready'] and summary['passed'] == summary['total_images']
 live = json.loads((grading / 'summary.json').read_text())
-assert live['status'] == 'complete' and live['passed'] and len(live['cases']) == 6
+assert live['status'] == 'complete' and live['passed'] and len(live['cases']) == 7
+assert any(c['rollout_id'] == '9390865148bd4f2ebf953fe8bd4a8ccb'
+           and c['pytest_exit'] == 120 for c in live['cases'])
 assert (grading / 'run.exit').read_text().strip() == '0'
 assert all(c['passed'] and c['grading_status'] == 'candidate_failed' and c['reward'] == 0 for c in live['cases'])
 for name, expected in json.loads((grading / 'manifest.json').read_text())['source_hashes'].items():

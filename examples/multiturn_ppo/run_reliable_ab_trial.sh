@@ -15,6 +15,6 @@ export AGL_EXPORT_FINAL_ACTOR=0 AGL_GPU_MONITOR=1
 # after 20 PPO task batches, with initial and final complete validation.
 # A and B differ only in fresh value-head initialization.
 bash "$TOOLS/run_reliable_full_python_ppo.sh" \
-  trainer.total_training_steps=20 trainer.save_freq=20 \
+  trainer.total_training_steps=20 trainer.save_freq=5 \
   actor_rollout_ref.actor.ppo_mini_batch_size=128 critic.ppo_mini_batch_size=128 \
   "agentlightning.multi_turn_ppo.critic_head_init=$HEAD_INIT" "$@"

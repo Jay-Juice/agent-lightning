@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 PROJECT=/media/ubuntu/D1/zsj/agent-lightning-baseline-v2-20260917
 RUNTIME=/media/ubuntu/D1/zsj/agent-lightning-runtime
-OUT=$RUNTIME/logs/audit-v2-grading-live-20260918-01
+OUT=${1:-$RUNTIME/logs/audit-v2-grading-live-20260918-01}
 [[ ! -e "$OUT" ]] || { printf 'Refuse existing output: %s\n' "$OUT" >&2; exit 2; }
 mkdir "$OUT"
 trap 'status=$?; printf "%s\n" "$status" > "$OUT/run.exit"' EXIT
@@ -15,4 +15,4 @@ export OMP_NUM_THREADS=2 OPENBLAS_NUM_THREADS=2
 unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
 python research/verify_v2_grading_live.py --source "$PROJECT" \
   --original "$RUNTIME/logs/training-capo-swe-v2-mini128-zero-4b-gpu47-20260918-01" \
-  --output "$OUT"
+  --output "$OUT" "${@:2}"

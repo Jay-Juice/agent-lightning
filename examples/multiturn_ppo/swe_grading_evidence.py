@@ -5,7 +5,7 @@ import hashlib
 import json
 from pathlib import Path
 
-AMBIGUOUS_EXITS = frozenset({2, 3, 4, 5, 124, 137})
+AMBIGUOUS_EXITS = frozenset({2, 3, 4, 5, 120, 124, 137})
 
 
 def task_digest(row):
@@ -69,6 +69,18 @@ def classify_controlled_failure(original, reference, replay):
     if (reference.get("f2p_passed") != reference["f2p_total"]
             or reference.get("p2p_passed") != reference["p2p_total"]):
         return None
+    if code == 120:
+        # CPython can replace pytest's failure exit during interpreter cleanup.
+        # Require reproduced test failures, not merely the cleanup exit code.
+        statuses = original.get("test_statuses")
+        trusted = reference.get("test_statuses", {})
+        if (not isinstance(statuses, dict) or not statuses
+                or statuses != replay.get("test_statuses")
+                or set(statuses) != set(trusted)
+                or not any(value == "FAILED" for value in statuses.values())
+                or any(value not in {"PASSED", "XFAIL"} for value in trusted.values())):
+            return None
+        return "candidate_test_failure"
     if code in {124, 137}:
         # Resource failures need bounded-container evidence as well as a control.
         limit = original["container_memory_bytes"]

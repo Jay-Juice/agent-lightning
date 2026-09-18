@@ -87,6 +87,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--original", type=Path)
+    parser.add_argument("--extra-original", type=Path)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--case", type=Path)
     args = parser.parse_args()
@@ -107,26 +108,38 @@ def main():
     episodes = json.loads(audits[0].read_text())["episodes"]
     if len(episodes) != 470:
         raise RuntimeError("Expected 470 original validation episodes")
-    cases = []
+    selected = []
     for idx in SAMPLES:
         matches = [e for e in episodes if e["sample_idx"] == idx]
         if len(matches) != 1 or matches[0]["outcome"]["grading_status"] != "requires_review":
             raise RuntimeError(f"Unexpected original case: {idx}")
-        episode = matches[0]
+        selected.append((args.original, matches[0]))
+    if args.extra_original:
+        rid = "9390865148bd4f2ebf953fe8bd4a8ccb"
+        audit_path, = (args.extra_original / "checkpoints/episode-audit").glob("training-step-12-*.json")
+        matches = [e for e in json.loads(audit_path.read_text())["episodes"] if e["rollout_id"] == rid]
+        assert len(matches) == 1 and matches[0]["outcome"]["grading_status"] == "requires_review"
+        # Run the newly encountered fast case before the two 600s replays.
+        selected.insert(0, (args.extra_original, matches[0]))
+    cases = []
+    for original, episode in selected:
+        idx = episode["sample_idx"]
         rid = episode["rollout_id"]
-        trace_bytes = (args.original / "traces" / (rid + ".json")).read_bytes()
+        trace_bytes = (original / "traces" / (rid + ".json")).read_bytes()
         trace = json.loads(trace_bytes)
         row = trace["rollout"]["input"]
-        if trace["rollout"]["is_train"] or trace["rollout"]["rollout_id"] != rid:
+        if trace["rollout"]["rollout_id"] != rid:
             raise RuntimeError("Original task identity mismatch")
-        patch = (args.original / "agent" / rid / "model.patch").read_bytes()
-        grade_bytes = (args.original / "agent" / rid / "grade.json").read_bytes()
+        patch = (original / "agent" / rid / "model.patch").read_bytes()
+        grade_bytes = (original / "agent" / rid / "grade.json").read_bytes()
         original_grade = json.loads(grade_bytes)
         if original_grade["patch_sha256"] != sha(patch):
             raise RuntimeError("Original candidate/grade hash mismatch")
         case_dir = output / f"sample-{idx:03d}-{rid}"
         case_dir.mkdir()
-        case = dict(sample_idx=idx, rollout_id=rid, instance_id=row["instance_id"], directory=str(case_dir),
+        case = dict(sample_idx=idx, rollout_id=rid, original=str(original),
+                    is_train=trace["rollout"]["is_train"],
+                    instance_id=row["instance_id"], directory=str(case_dir),
                     patch_sha256=sha(patch), task_sha256=sha(json.dumps(row, sort_keys=True).encode()),
                     trace_sha256=sha(trace_bytes), original_grade_sha256=sha(grade_bytes),
                     original_exit=original_grade["pytest_exit"])
@@ -174,7 +187,7 @@ def main():
             except Exception as exc:
                 results.append({"sample_idx": futures[future]["sample_idx"], "passed": False, "error": repr(exc)})
             write(output / "summary.json", {"status": "running", "cases": results})
-    passed = len(results) == 6 and all(r["passed"] for r in results)
+    passed = len(results) == len(selected) and all(r["passed"] for r in results)
     write(output / "summary.json", {"status": "complete", "passed": passed,
           "finished_at": time.time(), "cases": sorted(results, key=lambda r: r["sample_idx"])})
     return 0 if passed else 2

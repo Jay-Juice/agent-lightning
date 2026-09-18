@@ -99,3 +99,19 @@ screen -dmS agl-ab-v2-gpu47-20260918-02 bash examples/multiturn_ppo/run_reliable
 - step7–10提交率90.625%、100%、90.625%、81.25%，格式终止0、0、1、0题；平均输出2993、2847、2191、3517 tokens/题，尚无持续长度塌缩证据。Critic explained variance约0.0670、0.0254、0.0106、0.0689，仍偏低，保留到A/B完成后判断是否调Critic配方。
 - step7–10耗时21.65、21.18、19.09、25.12分钟；GPU4–7正处rollout阶段，显存约24.9–25.8GiB、利用率瞬时0–61%；D1空闲490.12GiB。GPU0–3的PI仍运行，未操作。
 - 决策：继续原对照，不以不同训练批次奖励波动判定退化，不为追求较低KL立即修改正在运行的配置。等待20步同口径验证，按原计划开展A与在线恢复验收。
+## 2026-09-18 09:15后：step12退出120修复与受控重启
+
+当前权威状态：旧pair `ab-pair-20260918-02`与B均run.exit=1，约08:44退出；实际完成11次PPO更新，第12批采样结束后被episode contract拒绝。A从未启动。没有global_step checkpoint，不能恢复11步参数；旧日志、轨迹保持原状。
+
+唯一待复核样本为`9390865148bd4f2ebf953fe8bd4a8ccb`，任务`mozillazg__python-pinyin.e42dede5.lm_rewrite__zhlzdi5y`。候选将带连字符CLI子命令改成下划线，10个F2P均失败、2个P2P通过，pytest输出完整但Python退出码为120。分类器歧义列表漏掉120，未启动参考/候选重放，留下requires_review。诊断中参考12/12通过(exit0)，同一候选再次exit120且同样10失败/2通过，复现约2秒，非超时/OOM。这次中断不是已观察到的PPO数值发散。
+
+离线诊断目录：`audit-v2-exit120-diagnosis-20260918-01`。旧step11 Actor KL loss 0.04493、clip fraction0.372%、Actor/Critic grad norm6.40/11.84，EV0.06665，均有限且无跳过更新。KL上涨值得后续对照，但不是本次异常的直接原因。
+
+修复为120增加受控评分分支，保持reference全通过、两次candidate相同退出码/相同任务补丁镜像预算等证据，还额外要求两次候选测试状态逐项一致、包含真实FAILED、测试ID集合与全通过参考一致。仅返回candidate_failed/reward0；成功重放、空测试、测试状态不一致与未知基础设施退出继续待复核。没有放宽奖励或跳过样本。
+
+实际Linux回归：118 pytest passed、26 subtests passed；相关bash语法检查通过。本地源码权威；WSL rsync按`research/exit120-sync-files.txt`先dry-run、再部署7个明确文件。没有修改PI、共享环境或远端训练产物。
+
+新A/B计划tag后缀`20260918-03`，仍GPU4–7、B→A、各20步，学习参数完全保持原样；两组保存频率统一由20改为5，仍保留2份，以免再次在首个保存点前丢掉多小时更新。完整在线恢复尚待首个checkpoint验收。
+
+恢复入口：`research/run_v2_exit120_recovery.sh`。将先并行运行环境审计`swe-full-python-envs-reliable-v2-20260918-03`和7案例生产验收`audit-v2-grading-live-20260918-02`（原6案例+本次120）；两者均exit0后，pair再次检查源码hash及既有四卡恢复、470轨迹证据，再启动新训练。任一验收失败则不启动，禁止绕过门槛。脚本输出`recovery-v2-exit120-20260918-01/run.log`。跟踪最新恢复入口/新tag，禁止自动重启旧02。
+恢复流程已实际启动：screen `agl-recovery-v2-exit120-20260918-01`，远端执行`screen -dmS agl-recovery-v2-exit120-20260918-01 bash research/run_v2_exit120_recovery.sh`返回0，两个审计都有持续输出。新增120案例生产路径已在9.96秒完成，candidate→reference→candidate结果120→0→120，最终candidate_failed/reward0、limits_valid=true、worker_exit=0。原两条timeout等案例和124环境仍在重新验收，因此此时不能称新03训练已启动。两组config-only退出均0，均20步、save_freq5、test_freq20、Actor/Critic各保留2；除名称/输出路径外仅critic_head_init不同。后续巡检先读恢复目录及03 pair，不要再次运行恢复脚本。

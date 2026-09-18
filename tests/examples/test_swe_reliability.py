@@ -61,10 +61,11 @@ def report(code=4, reference=False):
             "eval_timeout_seconds": 600, "grading_protocol": "f2p_file", "test_runner": "pytest",
             "f2p_total": 2, "p2p_total": 3, "f2p_passed": 2 if code == 0 else 0,
             "p2p_passed": 3 if code == 0 else 0, "host_memory_available_before": 64 * 2**30,
-            "test_elapsed_seconds": 601 if code == 124 else 2, "container_oom_kill_delta": int(code == 137)}
+            "test_elapsed_seconds": 601 if code == 124 else 2, "container_oom_kill_delta": int(code == 137),
+            "test_statuses": {"test_case": "PASSED" if code == 0 else "FAILED"}}
 
 
-@pytest.mark.parametrize("code", [2, 3, 4, 5, 124, 137])
+@pytest.mark.parametrize("code", [2, 3, 4, 5, 120, 124, 137])
 @pytest.mark.skipif(not hasattr(signal, "setitimer"), reason="Linux agent deadline")
 def test_control_and_fixed_replay_classify_failure(helpers, tmp_path, code):
     calls = []
@@ -126,4 +127,22 @@ def test_control_evidence_must_be_comparable(helpers, change):
         replay["test_elapsed_seconds"] = 2
     else:
         reference["p2p_passed"] = 0
+    assert classify_controlled_failure(original, reference, replay) is None
+
+
+@pytest.mark.parametrize("change", ["missing", "no_failure", "different", "different_nodes", "bad_control"])
+def test_exit120_requires_matching_failed_tests(helpers, change):
+    from swe_grading_evidence import classify_controlled_failure
+
+    original, reference, replay = report(120), report(0, True), report(120)
+    if change == "missing":
+        original.pop("test_statuses")
+    elif change == "no_failure":
+        original["test_statuses"] = replay["test_statuses"] = {"test_case": "PASSED"}
+    elif change == "different":
+        replay["test_statuses"] = {"test_case": "PASSED"}
+    elif change == "different_nodes":
+        reference["test_statuses"] = {"other": "PASSED"}
+    else:
+        reference["test_statuses"] = {"test_case": "FAILED"}
     assert classify_controlled_failure(original, reference, replay) is None
