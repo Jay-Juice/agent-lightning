@@ -132,3 +132,11 @@ screen -dmS agl-ab-v2-gpu47-20260918-02 bash examples/multiturn_ppo/run_reliable
 - step2–5训练奖励3/32、7/32、11/32、9/32。step5 Actor KL loss0.01094，Actor/Critic grad norm8.46/7.87，Critic explained variance0.0590，optimizer skipped均0；提交率90.625%，格式终止0。前四步已记录数值均有限，暂未观察持续输出塌缩；仍等待step20完整验证判断性能。
 - 保存后D1空闲384.35GiB。后续B保留两份时预计约293GiB，接近或低于A启动所需295GiB，应在交接时核查；不降低空间保护、不擅删恢复点。B本身写入下一份及轮换仍有余量。PI会改变共享磁盘余量，估算不能替代实时检查。
 - GPU0–3的PI未动；本轮只读元数据和日志，未停止训练、改学习参数或运行额外GPU任务。下次继续检查B进展、checkpoint轮换与磁盘，A/B结束后再做完整在线恢复验收。
+## 2026-09-18 14:01（北京时间）：B继续运行，A空间预警
+
+- B03完成9/20步，第10批31/32完成，最后任务1b6bfbb73baf4e0d94a0717753e03aa8的trajectory在4秒内更新，仍在生成；未见卡死或新评分异常。A尚未启动。
+- step7–9训练奖励4/32、6/32、7/32；Actor KL loss0.03428、0.01876、0.02619，clip fraction约0.26%；Actor grad norm4.29/3.51/2.91，Critic11.18/8.62/7.64，无跳过更新、记录数值均有限。Critic EV为-0.0723/-0.0240/0.0007，拟合能力仍弱；尚不凭三个不同批次调整配方。格式终止均0，平均输出2875/2904/2223 tokens，提交率81.25%/93.75%/93.75%。
+- B step5仍完整91.39GiB。PI新增step80 checkpoint（13:20），当前PI40/80均保留。D1实际空闲303.05GiB，B第二份checkpoint写入后预计约211.66GiB，会低于A启动295GiB门槛；B自身后续正常轮换暂有空间。
+- 已只读核验具体清理候选：旧baseline run `training-capo-swe-pythonfull-v7-4b-gpu47-resume40-20260915-01`下global_step_80为91.390GiB，canonical路径且无symlink；保留step120有Actor/Critic各12个非空pt及data.pt。旧run目录字符串被PI进程继承环境引用，但进一步核查step80精确路径无argv/environ/open-fd引用，不能把前者误报为step80仍在使用。
+- step80在此前清理清单中曾暂时保护为历史对照，未在已删除15项中，因此已向用户请求只删除此一个历史点的授权；当前尚未获答复、没有删除。若获准，执行前必须再次核对精确路径、无符号链接、引用及保留点；若未获准，保留checkpoint并允许A空间门槛阻止启动，不能降低保护或另删PI。
+- 本轮未改参数、重启、停止或删除任何运行/产物。下一轮优先检查用户对step80的答复与新B进度；审批等待不影响B正常继续。
