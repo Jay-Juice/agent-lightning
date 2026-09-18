@@ -254,3 +254,9 @@ A启动核验已完成：全124镜像对应6718任务分支检查通过，四卡
 06:48实际状态纠正：上述02启动命令exit0仅表示screen创建成功。两组均在check_full_python_ready中被旧审计源码哈希拦截（Changed source: full_python_agent.py），训练run目录未创建、模型未加载、未占用GPU，因此不是一次新的训练内故障。不能称02已在训练。已保留原外层启动日志；没有覆写旧审计签名或跳过保护。
 
 06:51启动新的全124镜像CPU审计swe-full-python-envs-reliable-v2-20260919-01，使用原run_v2_env_audit.sh（cached-only、2 worker、600秒）。audit_full_python_envs.py与check_full_python_ready.py均新增pydicom_fixture源码签名项；续训入口支持显式指定AGL_FULL_ENV_AUDIT，待新审计全部通过才执行真实训练恢复。冻结原候选验收证据依然有效（评分源码未再次变化）。
+
+07:01完整环境审计正常exit0，ready=true，124/124镜像通过；未修改旧审计记录。随后重新核验新签名、冻结补丁验收源码hash、A/B step20各24个非空角色文件及data.pt/完成标记、两组端口、八卡均14MiB、磁盘297.91GiB，通过后各启动一次实际续训入口。明确传入AGL_FULL_ENV_AUDIT=swe-full-python-envs-reliable-v2-20260919-01（完整路径在launch-after-audit.json）。02训练tag保持，原拦截日志不覆写；新的外层日志为ab-continuation-recovery-20260919-02/launch-A-after-audit.log、launch-B-after-audit.log，启动证据launch-after-audit.json。两组screen创建exit0，后续仍需核验实际加载与运行。代码修复fd0179e已推送实验分支。
+
+07:08实际恢复核验：两组新02 run目录均已创建、run.exit不存在，screen存活；均通过FULL_PYTHON_READY（6248训练/470验证、124镜像、6718任务分支、784步）。trainer日志确认Setting global step to 20，且Actor与Critic的model/optimizer/rng/lr_scheduler均从对应原step20加载完成，两组已进入恢复后470题验证。此时completed=0/470，不提前报告修复率或新增更新；Ray日志去重，打印条数不等于rank数。两组分别占0–3与4–7卡，各卡约24GiB加载后显存。
+
+新02 resolved-config.json与各自原20步逐项比较，差异仅total_training_steps 20→784、resume路径/模式、运行名/端口/审计输出目录，以及首批数据/步数核验和跨恢复checkpoint保留锁字段。模型、数据、PPO/GAE/奖励、学习率、KL、task/call/microbatch、预算均一致。01已验过首次恢复后21/22实际更新；02仍须等待本次验证后在线首批标记及更新，不混淆两次状态。自动巡检已改为新02任务，禁止重复启动旧01或02；本轮未新增清理。
