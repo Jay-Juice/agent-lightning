@@ -222,3 +222,17 @@ A启动核验已完成：全124镜像对应6718任务分支检查通过，四卡
 - 性能优化与学习参数分开：后续可试microbatch2→4，但须保留有效task/call batch，先验长序列显存和梯度累积语义再采用；不在这次结果分析中声称已提速或已启动全量。
 
 04:00最终核验：A run.exit=0，step15/20各24个非空pt（91.36GiB），data.pt与reliability-state.json均存在，step20/epoch1标记匹配；所有已记录数值有限、optimizer skipped均0。两组现在均已正常结束20步及完整验证。D1实际空闲116.60GiB，尚未启动恢复验收或全量训练。
+
+## 2026-09-19：用户授权两组双四卡全量续训，启动与清理记录
+
+- 用户明确要求A/B都从20步续训、各占四卡，并允许清理失败旧实验的checkpoint。这覆盖此前只用4–7卡的限制；A现在使用0–3，B使用4–7。启动前八卡均仅14MiB显存，无本任务旧screen，端口均空闲；不重启已失败PI。
+- 已用research/cleanup_failed_for_ab_resume.py先dry-run、再--apply，仅删除旧失败baseline training-capo-swe-pythonfull-v7-4b-gpu47-20260914-01/global_step_40和旧失败PI training-capo-swe-pythonfull-v7-p2fixed-4b-gpu03-20260916-01/global_step_40（路径均在各自checkpoints下）。释放196259317916B=182.78GiB，空闲116.60→299.38GiB。旧baseline120、PI80、A15/20、B15/20六点文件大小/mtime均未变，全部日志保留；证据cleanup-failed-for-ab-resume-20260919-01/{plan,result}.json。不得重复执行清理。
+- 审计安装的veRL发现previous_saved_paths为内存列表，跨进程恢复后不会自动接管之前的保存点。因此新增显式retention_across_resume，仅在新的完整Actor/Critic四rank文件、data.pt及匹配完成标记都存在后保留最近两份；保留旧目录元数据/日志。共享checkpoint_lock_path串行化两组大文件保存，进入锁后检查112GiB写前余量，避免同时写入挤占空间。PPO/GAE/奖励计算未改。
+- run_full_python_ppo.sh改为尊重明确AGL_GPUS；checked入口只允许0–3或4–7完整分组；run_training.sh支持各自独立Ray目录。新源码提交017a500。本地修改后按research/ab-resume-sync-files.txt通过WSL rsync -anv预览、-av部署10个指定文件，无--delete。
+- 实际CPU回归tests/verl/test_checkpoint_retention.py、test_reliability_checkpoint.py、test_reliability_control.py共13 passed；四个相关bash脚本bash -n通过。CPU恢复预检首次因未设置PYTHONPATH在导入阶段失败，无任务或产物写入；指定本部署根PYTHONPATH后成功。
+- research/prepare_ab_continuation.py从A/B真实step20的data.pt构造StatefulDataLoader，均_num_yielded=20，重建的第21批32个data_id完全相同；预检证据ab-continuation-preflight-20260919-01/{A,B,completed}.json。训练器将在线核验第21批data_id及rollout_weight_version=20，输出RELIABILITY_RESUME_NEXT_BATCH_OK；目前预检通过不等于完整线上恢复验收。
+- 两组config-only均exit0。与原配置比对，核心学习/采样/奖励/任务预算完全不变；改变仅恢复路径、总步数20→784、运行名/端口/审计目录，以及恢复核验/保留锁字段。Actor LR1e-6、Critic LR1e-5、KL系数.001、gamma=lambda=1、无预热、task batch32、call minibatch128、microbatch2均保留。仍每20步470题验证、每5步保存、保留2份；恢复前完整验证保持开启。
+- 新日志tag：A training-capo-swe-v2-full-default-4b-gpu0123-resume20-20260919-01，B training-capo-swe-v2-full-zero-4b-gpu4567-resume20-20260919-01。新日志目录独立，checkpoint根复用各自原mini128 run的checkpoints目录，后续正常保留策略会轮换旧点，不能在新日志run/checkpoints查找。累计目标784步=4epoch，包含已有20步。
+- 04:20实际执行screen -dmS agl-full-v2-A-gpu03-20260919-01和agl-full-v2-B-gpu47-20260919-01，分别运行bash research/run_ab_continuation.sh A/B，均返回0。端口18531/18541；Ray目录ray-ab-a-0919/ray-ab-b-0919。外层日志在ab-continuation-preflight-20260919-01/launch-A.log及launch-B.log。
+- 04:22检查：两screen存活、已通过295GiB空间门槛，正在全124镜像/6718分支检查，训练run目录尚未创建，因此此时仅称续训已发起，不称模型恢复或step21更新成功。后续确认加载step20、模型/optimizer/RNG、恢复验证、首批数据及优化更新后才称完整在线恢复通过。
+- 已更新自动巡检提示为新A/B双四卡任务与已完成清理，避免旧提示重启PI/旧pair。保留工具当前保存的ACTIVE与RRULE interval120分钟（文件实际值），未将其口头称为已验证90分钟。稳定时继续当前784步任务，不另开重复全量运行；40/80等验证节点评估趋势。
