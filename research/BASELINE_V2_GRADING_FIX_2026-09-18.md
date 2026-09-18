@@ -116,3 +116,12 @@ screen -dmS agl-ab-v2-gpu47-20260918-02 bash examples/multiturn_ppo/run_reliable
 恢复入口：`research/run_v2_exit120_recovery.sh`。将先并行运行环境审计`swe-full-python-envs-reliable-v2-20260918-03`和7案例生产验收`audit-v2-grading-live-20260918-02`（原6案例+本次120）；两者均exit0后，pair再次检查源码hash及既有四卡恢复、470轨迹证据，再启动新训练。任一验收失败则不启动，禁止绕过门槛。脚本输出`recovery-v2-exit120-20260918-01/run.log`。跟踪最新恢复入口/新tag，禁止自动重启旧02。
 恢复流程已实际启动：screen `agl-recovery-v2-exit120-20260918-01`，远端执行`screen -dmS agl-recovery-v2-exit120-20260918-01 bash research/run_v2_exit120_recovery.sh`返回0，两个审计都有持续输出。新增120案例生产路径已在9.96秒完成，candidate→reference→candidate结果120→0→120，最终candidate_failed/reward0、limits_valid=true、worker_exit=0。原两条timeout等案例和124环境仍在重新验收，因此此时不能称新03训练已启动。两组config-only退出均0，均20步、save_freq5、test_freq20、Actor/Critic各保留2；除名称/输出路径外仅critic_head_init不同。后续巡检先读恢复目录及03 pair，不要再次运行恢复脚本。
 源码修复与此前本分支记录已推送至GitHub专用分支`experiment/swe-baseline-v2-reliability-20260917`，已验证修复提交`fcb224e`；未合并main，未上传数据、checkpoint或原始日志。
+
+## 2026-09-18 10:56（北京时间）：验收完成，新03已训练
+
+- 恢复流程两项前置验收均exit0：124/124环境通过；7/7真实评分案例全部candidate_failed/reward0，包含本次120和真实timeout/OOM。新pair `ab-pair-20260918-03`约09:47开始，所有启动证据门槛及6718任务分支检查通过。
+- 当前B：`training-capo-swe-v2-mini128-zero-4b-gpu47-20260918-03`。完整初始验证470/470有奖励，62/470=13.1915%；提交408/470=86.81%，格式终止3/470=0.638%。这是新采样的初始性能，不能把较旧02高4题归因于训练收益。
+- 第1步PPO已完成，训练奖励8/32，Actor KL loss0.001941，Actor/Critic grad norm3.06/15.37，优化器跳过0、已记录指标均有限。第2批32/32采样已完成，已进入训练计算，GPU4–7约99%利用率；日志末次写入235秒前与较长前向计算一致，未据此判卡死。
+- A尚未启动，B正常完成后脚本自动接续。screen为`agl-recovery-v2-exit120-20260918-01`（它承载03 pair，并不存在另一个agl-ab-v2-gpu47-20260918-03 screen）；恢复/pair/B均无run.exit，正常运行。
+- 保存周期5、保留2份的配置已生效；当前未到首个checkpoint。D1空闲489.03GiB，GPU0–3的PI仍运行，未操作。本轮没有重启、改学习参数或源码。
+- 下一步等待B第5步完整checkpoint以及后续20步验证；在整个A/B运行中不争抢4–7卡做额外恢复测试，待可用窗口验证完整在线恢复，再决定全量。
