@@ -140,6 +140,21 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
         return bool(self.config.agentlightning.get("reliability", {}).get("enabled", False))
 
     def _save_checkpoint(self):
+        lock_path = self.config.agentlightning.get("reliability", {}).get("checkpoint_lock_path")
+        if self._reliability_enabled() and lock_path:
+            # Concurrent four-GPU runs share the disk. Serialize large writes,
+            # then check free space inside the lock, before removing anything.
+            import fcntl
+
+            with Path(lock_path).open("a") as lock:
+                fcntl.flock(lock, fcntl.LOCK_EX)
+                try:
+                    return self._save_checkpoint_unlocked()
+                finally:
+                    fcntl.flock(lock, fcntl.LOCK_UN)
+        return self._save_checkpoint_unlocked()
+
+    def _save_checkpoint_unlocked(self):
         if self._reliability_enabled():
             if getattr(self, "_update_phase", "complete") != "complete":
                 raise RuntimeError("Cannot checkpoint a partially updated PPO batch")
@@ -157,6 +172,14 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
             temporary = path.with_suffix(".tmp")
             temporary.write_text(json.dumps(state))
             temporary.replace(path)
+            if self.config.agentlightning.reliability.get("retention_across_resume", False):
+                from .checkpoint_retention import retain_complete_checkpoints
+
+                report = retain_complete_checkpoints(
+                    root, self.global_steps, self.resource_pool_manager.get_n_gpus(),
+                    self.config.trainer.max_actor_ckpt_to_keep,
+                )
+                print(f"RELIABILITY_CHECKPOINT_RETENTION {json.dumps(report)}", flush=True)
         return result
 
     def _load_checkpoint(self):
@@ -633,6 +656,16 @@ class AgentLightningRayPPOTrainer(RayPPOTrainer):
         rollout_n = self.config.actor_rollout_ref.rollout.n
 
         batch_dict = self._next_train_batch_dict_for_rollout()
+
+        expected = self.config.agentlightning.get("reliability", {}).get("resume_expected_data_ids")
+        if expected is not None and self.global_steps == self.config.agentlightning.reliability.resume_expected_step:
+            actual = [str(value) for value in batch_dict["data_id"]]
+            if actual != list(expected):
+                raise RuntimeError("Resumed dataloader next batch does not match saved sampler state")
+            if self._rollout_weight_version != self.global_steps - 1:
+                raise RuntimeError("Resumed rollout weights do not match the checkpoint step")
+            print(f"RELIABILITY_RESUME_NEXT_BATCH_OK step={self.global_steps} "
+                  f"rollout_weight_version={self._rollout_weight_version} data_ids={json.dumps(actual)}", flush=True)
 
         batch: DataProto = DataProto.from_single_dict(batch_dict)
 

@@ -165,6 +165,7 @@ def build_config(args):
         repo / "agentlightning/verl/entrypoint.py",
         repo / "agentlightning/verl/config.yaml",
         repo / "agentlightning/verl/trainer.py",
+        repo / "agentlightning/verl/checkpoint_retention.py",
         repo / "agentlightning/verl/full_dataset.py",
         repo / "agentlightning/verl/agl_rollout_manager.py",
         repo / "agentlightning/verl/episode_contract.py",
