@@ -236,3 +236,5 @@ A启动核验已完成：全124镜像对应6718任务分支检查通过，四卡
 - 04:20实际执行screen -dmS agl-full-v2-A-gpu03-20260919-01和agl-full-v2-B-gpu47-20260919-01，分别运行bash research/run_ab_continuation.sh A/B，均返回0。端口18531/18541；Ray目录ray-ab-a-0919/ray-ab-b-0919。外层日志在ab-continuation-preflight-20260919-01/launch-A.log及launch-B.log。
 - 04:22检查：两screen存活、已通过295GiB空间门槛，正在全124镜像/6718分支检查，训练run目录尚未创建，因此此时仅称续训已发起，不称模型恢复或step21更新成功。后续确认加载step20、模型/optimizer/RNG、恢复验证、首批数据及优化更新后才称完整在线恢复通过。
 - 已更新自动巡检提示为新A/B双四卡任务与已完成清理，避免旧提示重启PI/旧pair。保留工具当前保存的ACTIVE与RRULE interval120分钟（文件实际值），未将其口头称为已验证90分钟。稳定时继续当前784步任务，不另开重复全量运行；40/80等验证节点评估趋势。
+
+04:27启动核验完成：A/B实际provenance分别CUDA_VISIBLE_DEVICES=0,1,2,3和4,5,6,7，均记录Setting global step to 20及对应Actor/Critic model、optimizer、rng、lr_scheduler加载日志。Ray会合并重复rank日志，打印条数不能当作实际rank数量。两组均已进入恢复后的470题验证，A执行完成22/470、B2/470，各产生49/32个真实trajectory文件，run.exit均不存在；这是执行完成数，不是修复成功数。step21数据校验和首次恢复后优化更新仍待验证结束，不提前称全链路验收完成。续训已实际运行，后续跟踪新tag。
