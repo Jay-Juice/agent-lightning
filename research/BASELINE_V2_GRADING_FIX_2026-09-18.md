@@ -168,3 +168,18 @@ screen -dmS agl-ab-v2-gpu47-20260918-02 bash examples/multiturn_ppo/run_reliable
 A启动核验已完成：全124镜像对应6718任务分支检查通过，四卡Ray/FSDP/vLLM已加载；A实际进入470题初始验证，检查时21个真实trajectory.jsonl已产生、run.exit不存在。worker1249203/1249204环境明确AGL_CRITIC_HEAD_INIT=default、CUDA_VISIBLE_DEVICES=4,5,6,7。默认head路径不会打印zero初始化专属日志，因此不能要求出现CRITIC_HEAD_INITIALIZATION零头记录。
 
 已逐项比较A实际resolved-config.json与已完成B的实际配置，差异精确仅5项：critic_head_init及4个实验名/输出路径字段；20步、batch32、save_freq5、test_freq20、resume_mode=disable等均一致。当前尚无A初始最终分数及优化更新，不宣称A有效。90分钟巡检已增加最新接续状态，跟踪A独立screen，不重跑B或再次删除step80。
+## 2026-09-18 20:47（北京时间）：A早期Critic差异与继续计划
+
+- 只读核验A独立screen及run.exit、metrics.jsonl、trainer.log和GPU状态。A已完成2/20步，第3批32/32 rollout执行结束，正在训练计算；GPU4–7利用率99–100%，A及外层均无run.exit。GPU0–3的PI未操作。当前无A checkpoint，尚未到step5；D1空闲295.08GiB，后续继续关注保存与轮换空间，不降低保护门槛。
+- A初始验证71/470=15.1064%，470/470有奖励，提交424/470、格式终止4题、平均输出2799.87 tokens/题。B初始62/470、最终73/470；验证为随机采样，初始差异不能归因于Critic，也不能直接以A初始与B最终判断训练收益。
+- A前两步训练奖励均9/32，Actor KL loss为0.003035/0.006975，Actor grad norm为4.459/3.234；已记录指标全部有限，Actor/Critic optimizer skipped均0。
+
+| 指标 | B step1 | B step2 | A step1 | A step2 |
+|---|---:|---:|---:|---:|
+| value MSE | 0.357654 | 0.042975 | 14.698040 | 6.263215 |
+| value explained variance | 0 | -0.006027 | -132.172607 | -36.676891 |
+| Critic裁剪前grad norm | 15.369 | 4.170 | 252.259 | 172.590 |
+| raw advantage std | 0.47931 | 0.20658 | 3.64126 | 2.50260 |
+
+- 默认head的早期value误差与优势噪声明显更大，符合本轮对照要检查的现象；各组rollout不同且目前仅两步，不能由此断言A最终效果更差。Critic grad norm来自clip_grad_norm_返回值，为裁剪前范数；两组critic.grad_clip=1.0，不能将252/172解释为未经裁剪更新或已经发散。A误差正在下降，继续原配置。
+- 后续顺序：完成A的20步及最终470题验证，比较各自前后修复率、提交率、输出、KL及Critic趋势；空闲窗口完成在线trainer/dataloader/rollout断点恢复验收；再按证据选择延长训练的配方。如A/B性能差异仍落在随机波动范围，应补重复评测/对照，不把单次11题净增当作显著收益。当前不改学习率、KL、gamma/lambda或microbatch，不重跑B。
