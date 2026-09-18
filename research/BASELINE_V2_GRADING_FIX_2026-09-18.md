@@ -156,3 +156,15 @@ screen -dmS agl-ab-v2-gpu47-20260918-02 bash examples/multiturn_ppo/run_reliable
 - 全部已记录指标无NaN/Inf；step20 Actor KL loss0.08355，clip fraction0.326%，Actor/Critic grad norm3.39/6.65，optimizer skipped均0。Critic EV0.0121，value拟合仍弱，应在A组对照及后续实验中评估。
 - pair尝试启动A时被reliable_launch磁盘检查拒绝：211.57GiB<295GiB，pair/recovery因此退出1；A运行目录未创建。当前磁盘211.47GiB。必须区分B正常完成与A启动前被保护拦截，不重跑已完成B。
 - 旧baseline step80清理仍未获明确答复，未删除。下一步先解决已提出的磁盘清理授权，再单独启动相同配置的A（无需重复整个pair）；完整在线恢复验收也仍未完成。尚不直接启动全量或更改学习参数。
+## 2026-09-18：用户要求继续后，清理旧step80并启动A
+
+- 用户在已明确说明step80清理方案及A启动受阻后要求“下一步是怎么做，你继续”，本轮按该方案继续。通过本地脚本`research/cleanup_old_baseline_step80.py`精确限定旧baseline step80路径，WSL rsync dry/apply部署后先执行只读dry-run，再--apply。
+- dry-run核验路径canonical、无符号链接、无具体checkpoint的活动引用；step40/120、B15/20、PI40/80六个保留点均检查4 rank的model/optim/extra_state及data.pt。apply前与dry-run清单完全一致才删除；删除后六个保留点文件大小及mtime全部不变，所有日志保留。
+- 已删除`training-capo-swe-pythonfull-v7-4b-gpu47-resume40-20260915-01/checkpoints/global_step_80`，98129658766B=91.3904GiB，磁盘从227057598464B增至325187407872B（约302.85GiB）。证据位于远端`cleanup-old-baseline-step80-20260918-01/{plan,result}.json`。不再将此清理记为待授权，也不扩大清理范围。
+- 新增`examples/multiturn_ppo/run_reliable_a_only.sh`，复用原pair全部恢复/环境/7案例/470轨迹门槛，并额外要求同pair B run.exit=0；只运行A。源码训练/评分实现及超参数未改。bash -n通过，WSL dry-run/apply部署此一个启动脚本。
+- 已实际执行screen启动，返回0；screen为`agl-ab-A-v2-gpu47-20260918-03`，外层日志`ab-arm-A-20260918-03/run.log`，A tag仍`training-capo-swe-v2-mini128-default-4b-gpu47-20260918-03`。新入口已通过WORKER_ENVIRONMENT_GRADING_AND_470_EPISODE_GATES_PASSED和空间门槛，正在全任务分支检查；尚不能仅凭screen启动称A已经更新。
+- B03已结束且保持不动，不重跑旧pair；旧pair/recovery的exit1属于历史A空间拒绝。后续巡检跟踪A独立入口及A run.exit。
+- A仍Qwen3-4B、20步、初始和最终470验证、save_freq5、保留2份、GPU4–7；完成后先比较两组各自前后验证及稳定性，完成线上恢复验收，再决定全量或有依据的单因素超参数调整。GPU0–3的PI全程未操作。
+A启动核验已完成：全124镜像对应6718任务分支检查通过，四卡Ray/FSDP/vLLM已加载；A实际进入470题初始验证，检查时21个真实trajectory.jsonl已产生、run.exit不存在。worker1249203/1249204环境明确AGL_CRITIC_HEAD_INIT=default、CUDA_VISIBLE_DEVICES=4,5,6,7。默认head路径不会打印zero初始化专属日志，因此不能要求出现CRITIC_HEAD_INITIALIZATION零头记录。
+
+已逐项比较A实际resolved-config.json与已完成B的实际配置，差异精确仅5项：critic_head_init及4个实验名/输出路径字段；20步、batch32、save_freq5、test_freq20、resume_mode=disable等均一致。当前尚无A初始最终分数及优化更新，不宣称A有效。90分钟巡检已增加最新接续状态，跟踪A独立screen，不重跑B或再次删除step80。
