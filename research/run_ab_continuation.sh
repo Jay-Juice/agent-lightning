@@ -18,7 +18,7 @@ PY
 export AGL_GPUS="${spec[1]}" AGL_TRAIN_PORT="${spec[2]}"
 export AGL_TRAIN_TAG="${AGL_RESUME_TAG_OVERRIDE:-${spec[3]}}"
 export AGL_RAY_TMPDIR="/media/ubuntu/D1/zsj/ray-ab-${ARM,,}-0919"
-export AGL_FULL_ENV_AUDIT=/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/swe-full-python-envs-reliable-v2-20260918-03
+export AGL_FULL_ENV_AUDIT="${AGL_FULL_ENV_AUDIT:-/media/ubuntu/D1/zsj/agent-lightning-runtime/logs/swe-full-python-envs-reliable-v2-20260918-03}"
 export AGL_GPU_MONITOR=1 AGL_EXPORT_FINAL_ACTOR=0 AGL_MIN_FREE_GIB=295
 unset FLASH_ATTENTION_DETERMINISTIC CUBLAS_WORKSPACE_CONFIG RAY_ADDRESS
 exec bash "$REPO/examples/multiturn_ppo/run_reliable_full_python_ppo.sh" \

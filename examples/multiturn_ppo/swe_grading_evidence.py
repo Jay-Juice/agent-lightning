@@ -66,6 +66,9 @@ def classify_controlled_failure(original, reference, replay):
     image = original.get("baseline", {}).get("image_id")
     if not image or any(r.get("baseline", {}).get("image_id") != image for r in (reference, replay)):
         return None
+    if any(r.get("recorded_pydicom_fixture") != original.get("recorded_pydicom_fixture")
+           for r in (reference, replay)):
+        return None
     if (reference.get("f2p_passed") != reference["f2p_total"]
             or reference.get("p2p_passed") != reference["p2p_total"]):
         return None

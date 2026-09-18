@@ -132,6 +132,7 @@ def main():
         ("data_preparation", "prepare_full_python.py"),
         ("grading_reliability", "swe_reliability.py"),
         ("grading_evidence", "swe_grading_evidence.py"),
+        ("pydicom_fixture", "pydicom_http_fixture.py"),
     ]:
         assert fingerprint(Path(__file__).with_name(name)) == signature[key], f"Changed source: {name}"
     client = docker.from_env(timeout=120)

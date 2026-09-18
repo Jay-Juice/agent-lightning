@@ -96,6 +96,7 @@ def main():
         "data_preparation": fingerprint(Path(__file__).with_name("prepare_full_python.py")),
         "grading_reliability": fingerprint(Path(__file__).with_name("swe_reliability.py")),
         "grading_evidence": fingerprint(Path(__file__).with_name("swe_grading_evidence.py")),
+        "pydicom_fixture": fingerprint(Path(__file__).with_name("pydicom_http_fixture.py")),
     }
     args.output.mkdir(parents=True, exist_ok=True)
     signature_path = args.output / "signature.json"

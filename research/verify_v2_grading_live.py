@@ -15,7 +15,7 @@ import traceback
 
 
 SAMPLES = (92, 248, 4, 251, 249, 331)
-MODULES = ("full_python_agent.py", "swe_reliability.py", "swe_grading_evidence.py",
+MODULES = ("full_python_agent.py", "pydicom_http_fixture.py", "swe_reliability.py", "swe_grading_evidence.py",
            "smith_docker_agent.py", "sandbox.py")
 
 

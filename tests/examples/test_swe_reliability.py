@@ -99,7 +99,7 @@ def test_control_disagreement_never_selects_lucky_reward(helpers, tmp_path, mode
 
 
 @pytest.mark.parametrize("change", ["patch", "image", "task", "tests", "limits", "missing", "oom", "original_oom",
-                                   "host_memory", "short_timeout", "partial_reference"])
+                                   "host_memory", "short_timeout", "partial_reference", "fixture"])
 def test_control_evidence_must_be_comparable(helpers, change):
     from swe_grading_evidence import classify_controlled_failure
 
@@ -125,6 +125,8 @@ def test_control_evidence_must_be_comparable(helpers, change):
         reference["host_memory_available_before"] = 0
     elif change == "short_timeout":
         replay["test_elapsed_seconds"] = 2
+    elif change == "fixture":
+        reference["recorded_pydicom_fixture"] = {"manifest_sha256": "different"}
     else:
         reference["p2p_passed"] = 0
     assert classify_controlled_failure(original, reference, replay) is None

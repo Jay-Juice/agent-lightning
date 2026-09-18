@@ -248,3 +248,6 @@ examples/**/verified_*.jsonl
 
 # SWE-smith rollout stats
 examples/swe_smith/rollout_stats.json
+
+# Public binary fixtures deployed separately, never committed as source.
+/research/pydicom-download-fixtures-v2/

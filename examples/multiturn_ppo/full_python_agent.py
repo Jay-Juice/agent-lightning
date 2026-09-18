@@ -559,6 +559,9 @@ def grade(row, patch, output_dir, *, reference=False):
             # the event loop. Preserve the exact test set and every assertion.
             nodes.sort(key=lambda node: node.split("::", 1)[0])
         http_fixture = install_http_fixture(box, nodes)
+        from pydicom_http_fixture import install_download_fixture
+
+        pydicom_fixture = install_download_fixture(box, nodes)
         native_tornado = row["instance_id"].startswith("tornadoweb__tornado.")
         if native_tornado:
             # Reuse the project's runner, including warning and logging checks.
@@ -607,6 +610,7 @@ def grade(row, patch, output_dir, *, reference=False):
                 "PATH": "/opt/miniconda3/envs/testbed/bin:/usr/bin:/bin",
                 "OMP_NUM_THREADS": "2",
                 "OPENBLAS_NUM_THREADS": "2",
+                **(pydicom_fixture["environment"] if pydicom_fixture else {}),
             },
         )
         elapsed = time.monotonic() - test_started
@@ -639,6 +643,7 @@ def grade(row, patch, output_dir, *, reference=False):
             "p2p_total": len(p2p),
             "baseline": preparation,
             "reference_control": reference,
+            "recorded_pydicom_fixture": pydicom_fixture["provenance"] if pydicom_fixture else None,
             "eval_timeout_seconds": eval_timeout,
             "grading_protocol": "f2p_file",
             "test_runner": "native_tornado" if native_tornado else "pytest",

@@ -238,3 +238,19 @@ A启动核验已完成：全124镜像对应6718任务分支检查通过，四卡
 - 已更新自动巡检提示为新A/B双四卡任务与已完成清理，避免旧提示重启PI/旧pair。保留工具当前保存的ACTIVE与RRULE interval120分钟（文件实际值），未将其口头称为已验证90分钟。稳定时继续当前784步任务，不另开重复全量运行；40/80等验证节点评估趋势。
 
 04:27启动核验完成：A/B实际provenance分别CUDA_VISIBLE_DEVICES=0,1,2,3和4,5,6,7，均记录Setting global step to 20及对应Actor/Critic model、optimizer、rng、lr_scheduler加载日志。Ray会合并重复rank日志，打印条数不能当作实际rank数量。两组均已进入恢复后的470题验证，A执行完成22/470、B2/470，各产生49/32个真实trajectory文件，run.exit均不存在；这是执行完成数，不是修复成功数。step21数据校验和首次恢复后优化更新仍待验证结束，不提前称全链路验收完成。续训已实际运行，后续跟踪新tag。
+
+## 2026-09-19 06:46（北京时间）：修复pydicom离线下载后恢复A/B
+
+- 06:29巡检确认首轮全量续训01两组均run.exit=1，screen消失，八卡空闲。两组已恢复step20模型、optimizer/RNG/scheduler，并通过在线 `RELIABILITY_RESUME_NEXT_BATCH_OK step=21 rollout_weight_version=20`；step21/22更新完成且数值有限、无跳过更新。第23批因评分requires_review被保护性中止，并非PPO数值发散。未保存21/22，所以本次从最近完整step20恢复，损失两次未落盘更新。
+- 两组同一任务 `pydicom__pydicom.7d361b3d.pr_1920` 的原候选和官方reference都真实600秒timeout124，卡在test_fetch_data_files：官方测试先删除693_J2KR.dcm缓存，再下载全部79个数据文件；容器network=none且旧缓存不完整。无OOM，不能把未知评分记0。
+- 新增pydicom_http_fixture，仅匹配固定镜像前缀和该下载测试。79份公开官方数据共59,340,134 bytes，逐一核对固定上游hashes.json的SHA256；metadata也固定哈希。容器内只对原始URL的allowlist提供回环HTTPS，临时证书信任仅给评分子进程，不启用外网、不关闭TLS验证、不改生产代码/测试/断言/原始URL及模拟网络故障分支。原始候选、参考、测试节点、600秒预算及奖励标准均保持。
+- 本地编辑，通过WSL rsync先dry-run再apply同步精确源码及fixture目录，无--delete。数据作为远端运行状态且本地已gitignore，不提交GitHub。源码可复现下载脚本research/fetch_pydicom_fixtures.py保留。
+- 验证：test_pydicom_http_fixture.py及test_full_python.py共31 passed；test_swe_reliability.py共34 passed（含新增fixture证据不一致必须拒绝归因），共65 passed。真实冻结补丁复核audit-pydicom-downloads-20260919-01/summary.json passed=true：A/B均46项测试有状态、F2P0/4、P2P42/42、pytest_exit1、reward0；官方参考46/46通过、exit0、reward1。测试本体约1.4秒；各候选含准备约5秒。原补丁SHA及任务一致性核验通过。
+- 01恢复时的同step20随机重测A66/470、B63/470，不代表新增训练的退化；原20步最终仍为A69/470、B73/470，不能将不同随机重测直接视为因果收益。01 step22两组reward均7/32；A value MSE .27968、EV -.06599、KL .07632；B .06471、.09517、.09289。
+- 06:46启动前复核验收源码哈希、端口18531/18541空闲、八卡均14MiB、磁盘297.94GiB；未新增清理、不降低295GiB门槛。第一次预检调用系统python不存在，在脚本执行前失败，无任务启动；换用已有环境绝对Python路径后预检及启动成功。
+- 本轮唯一一轮训练恢复：分别 `AGL_RESUME_TAG_OVERRIDE=capo-swe-v2-full-default-4b-gpu0123-resume20-20260919-02 bash research/run_ab_continuation.sh A` 与 `AGL_RESUME_TAG_OVERRIDE=capo-swe-v2-full-zero-4b-gpu4567-resume20-20260919-02 bash research/run_ab_continuation.sh B`。screen为agl-full-v2-A-gpu03-20260919-02和agl-full-v2-B-gpu47-20260919-02，启动命令均exit0；外层日志ab-continuation-recovery-20260919-02/launch-A.log、launch-B.log及launch.json。实际训练状态随后核验，不凭screen声称更新已完成。
+- 新日志tag为training-capo-swe-v2-full-default-4b-gpu0123-resume20-20260919-02及training-capo-swe-v2-full-zero-4b-gpu4567-resume20-20260919-02。checkpoint根仍在各自原mini128 run。目标累计784步=4epoch，数据6248/470、Actor LR1e-6、Critic LR1e-5、KL系数.001、gamma=lambda=1、无预热、task batch32/call minibatch128/microbatch2均未改；每20步验证、每5步保存、保留最近两份，串行保存及空间保护保持。继续等待新02恢复验证和首批核验，禁止重启失败01。
+
+06:48实际状态纠正：上述02启动命令exit0仅表示screen创建成功。两组均在check_full_python_ready中被旧审计源码哈希拦截（Changed source: full_python_agent.py），训练run目录未创建、模型未加载、未占用GPU，因此不是一次新的训练内故障。不能称02已在训练。已保留原外层启动日志；没有覆写旧审计签名或跳过保护。
+
+06:51启动新的全124镜像CPU审计swe-full-python-envs-reliable-v2-20260919-01，使用原run_v2_env_audit.sh（cached-only、2 worker、600秒）。audit_full_python_envs.py与check_full_python_ready.py均新增pydicom_fixture源码签名项；续训入口支持显式指定AGL_FULL_ENV_AUDIT，待新审计全部通过才执行真实训练恢复。冻结原候选验收证据依然有效（评分源码未再次变化）。
