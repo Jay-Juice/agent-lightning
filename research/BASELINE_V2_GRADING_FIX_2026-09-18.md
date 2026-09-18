@@ -125,3 +125,10 @@ screen -dmS agl-ab-v2-gpu47-20260918-02 bash examples/multiturn_ppo/run_reliable
 - A尚未启动，B正常完成后脚本自动接续。screen为`agl-recovery-v2-exit120-20260918-01`（它承载03 pair，并不存在另一个agl-ab-v2-gpu47-20260918-03 screen）；恢复/pair/B均无run.exit，正常运行。
 - 保存周期5、保留2份的配置已生效；当前未到首个checkpoint。D1空闲489.03GiB，GPU0–3的PI仍运行，未操作。本轮没有重启、改学习参数或源码。
 - 下一步等待B第5步完整checkpoint以及后续20步验证；在整个A/B运行中不争抢4–7卡做额外恢复测试，待可用窗口验证完整在线恢复，再决定全量。
+## 2026-09-18 12:29（北京时间）：首个线上checkpoint写入完成
+
+- B03已完成5/20步，进入第6批rollout，A尚未启动；pair/B持续运行，无新评分异常或退出。
+- `checkpoints/global_step_5`已写入：Actor/Critic分别12个非空pt文件，各覆盖4 rank的model、optim、extra_state。`data.pt`6868B，`reliability-state.json`标记step5/epoch1，initial_output_tokens=2941.083；latest_checkpointed_iteration.txt=5。完成标记存在且训练已进入下一批，确认写入完成；尚未加载验证，不冒称全链路恢复验收通过。
+- step2–5训练奖励3/32、7/32、11/32、9/32。step5 Actor KL loss0.01094，Actor/Critic grad norm8.46/7.87，Critic explained variance0.0590，optimizer skipped均0；提交率90.625%，格式终止0。前四步已记录数值均有限，暂未观察持续输出塌缩；仍等待step20完整验证判断性能。
+- 保存后D1空闲384.35GiB。后续B保留两份时预计约293GiB，接近或低于A启动所需295GiB，应在交接时核查；不降低空间保护、不擅删恢复点。B本身写入下一份及轮换仍有余量。PI会改变共享磁盘余量，估算不能替代实时检查。
+- GPU0–3的PI未动；本轮只读元数据和日志，未停止训练、改学习参数或运行额外GPU任务。下次继续检查B进展、checkpoint轮换与磁盘，A/B结束后再做完整在线恢复验收。
