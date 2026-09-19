@@ -260,3 +260,15 @@ A启动核验已完成：全124镜像对应6718任务分支检查通过，四卡
 07:08实际恢复核验：两组新02 run目录均已创建、run.exit不存在，screen存活；均通过FULL_PYTHON_READY（6248训练/470验证、124镜像、6718任务分支、784步）。trainer日志确认Setting global step to 20，且Actor与Critic的model/optimizer/rng/lr_scheduler均从对应原step20加载完成，两组已进入恢复后470题验证。此时completed=0/470，不提前报告修复率或新增更新；Ray日志去重，打印条数不等于rank数。两组分别占0–3与4–7卡，各卡约24GiB加载后显存。
 
 新02 resolved-config.json与各自原20步逐项比较，差异仅total_training_steps 20→784、resume路径/模式、运行名/端口/审计输出目录，以及首批数据/步数核验和跨恢复checkpoint保留锁字段。模型、数据、PPO/GAE/奖励、学习率、KL、task/call/microbatch、预算均一致。01已验过首次恢复后21/22实际更新；02仍须等待本次验证后在线首批标记及更新，不混淆两次状态。自动巡检已改为新02任务，禁止重复启动旧01或02；本轮未新增清理。
+
+## 2026-09-19 09:12（北京时间）：02双组通过旧故障点，继续原配置
+
+- 本轮Windows OpenSSH BatchMode只读检查02两组screen、trainer日志、metrics.jsonl、原mini128 checkpoint根、pydicom任务原始评分、nvidia-smi及磁盘。A/B screen均存活、run.exit均不存在，日志持续前进；八卡利用率本次快照均100%，显存约48–49GiB，D1空闲296.43GiB。未停止、重启、删checkpoint或修改源码/超参数。
+- 两组均已出现RELIABILITY_RESUME_NEXT_BATCH_OK step=21 rollout_weight_version=20，预期32个data_id校验通过，且step21及后续优化更新完成：本次02实际在线恢复验收已通过，不再仅依赖01的恢复证据。
+- 09:11–09:12快照：A完整metrics到step24，正在step25 Critic更新（48/81 forwards）；B完整metrics到step23，正在step24 Actor更新（64/80 forwards）。两组都已完成原先故障的第23步。A step21–24训练成功6/32、9/32、9/32、8/32；B step21–23为10/32、7/32、3/32。不同批次/rollout不能据此宣布优劣。
+- 恢复前同step20完整随机验证：A74/470=15.7447%，提交429、格式终止6、平均2441.36输出tokens；B81/470=17.2340%，提交434、格式终止3、平均2387.18tokens，均470题有奖励。这是在新增更新之前对step20权重的重测，不是新训练带来的收益；历史原20步A69/B73以及01重测A66/B63保持各自口径，不混算。尚无step40新验证。
+- A step24 value MSE=.309945、EV=-.076018、Actor KL=.051868、clip fraction=.002803、Actor/Critic裁剪前grad norm=3.39/26.44；B step23对应.032676、.026852、.098973、.004028、3.50/2.61。所有已记录数值有限、Actor/Critic optimizer skipped均0。A value拟合仍弱，B近期更小的误差不能独立证明最终修复能力更好。新增各步格式终止均0；A最近提交31/32、B28/32，输出未见持续塌缩。
+- 此前阻塞任务pydicom__pydicom.7d361b3d.pr_1920在02真实训练中：A rollout 8295850f15674f3bb8536a285a4ed694、B 63504d57f6174a1983bec271ea5ac923，均grading_status=completed、pytest_exit=1、reward=0、46项测试有状态，原官方79文件fixture provenance一致；实际测试1.818秒/2.027秒。证明修复已在生产训练生效，而非只通过单独验收；没有把未知评分记0。
+- 单步已记录耗时A约17.0–23.7分钟、B17.0–28.2分钟，Actor和Critic更新各约5–7分钟，另有rollout与logprob/value计算；当前GPU满负载，并非screen空转。保持本轮A/B可比口径，暂不混入吞吐优化或学习参数调整；step40/80再评估效果和预算。
+- 本次完整checkpoint仍为两组各step15/20（每点24个非空Actor/Critic pt、91.36GiB、data.pt和完成标记存在）；step25尚未完成保存。原根reliability-failure-step-23.json来自01旧失败，不能只凭该文件判定02失败。后续重点核验新25完整落盘后轮换15、共享锁和112GiB写前保护生效；不得把残留step5/10元数据误认完整点。
+- 决策：原参数继续累计784步，不新增任务、不重采样补题、不改KL/gamma/lambda或学习率。下轮检查新完整checkpoint、运行前进及step40验证。
