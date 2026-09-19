@@ -117,12 +117,21 @@ def batch_diagnostics(batch: Any) -> dict[str, float]:
             metrics["reliability/value/explained_variance"] = float(1 - error.var(unbiased=False) / return_var)
 
     scores = selected("token_level_scores")
-    metrics["reliability/reward_groups_available"] = int(scores is not None)
+    metrics["reliability/reward_groups_available"] = int(scores is not None and rollout_ids is not None)
     success = None
-    if scores is not None:
+    if scores is not None and rollout_ids is not None:
         per_call_scores = torch.zeros(n_rows, dtype=torch.float32)
         per_call_scores.scatter_add_(0, row_ids, scores)
-        success = per_call_scores > 0
+        # Terminal rewards label the whole episode, including earlier calls.
+        # Exclude dummy rows even when they repeat a real rollout ID.
+        episode_scores: dict[str, float] = {}
+        live_indices = live.nonzero().flatten().tolist()
+        for i in live_indices:
+            rid = str(rollout_ids[i])
+            episode_scores[rid] = episode_scores.get(rid, 0.0) + float(per_call_scores[i])
+        success = torch.zeros(n_rows, dtype=torch.bool)
+        for i in live_indices:
+            success[i] = episode_scores[str(rollout_ids[i])] > 0
         for group, rows in (("success", live & success), ("failure", live & ~success)):
             metrics[f"reliability/{group}/calls"] = int(rows.sum())
             metrics[f"reliability/{group}/action_tokens"] = int(counts[rows].sum())

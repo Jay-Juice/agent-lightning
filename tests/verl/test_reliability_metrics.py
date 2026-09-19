@@ -90,6 +90,28 @@ def test_empty_success_and_constant_returns_omit_undefined_metrics():
     assert all(math.isfinite(value) for value in result.values())
 
 
+def test_terminal_reward_labels_earlier_calls_without_padding_leakage():
+    batch = _batch()
+    batch.batch["token_level_scores"][0].zero_()
+    # The dummy row must not turn a failed real episode into a success.
+    batch.non_tensor_batch["rollout_id_list"][3] = "episode-b"
+    result = batch_diagnostics(batch)
+    assert result["reliability/success/calls"] == 2
+    assert result["reliability/success/action_tokens"] == 3
+    assert result["reliability/failure/calls"] == 1
+    assert result["reliability/advantages/success/call_mean"] == 6
+    assert result["reliability/advantages/failure/call_mean"] == -2
+
+
+def test_reward_groups_unavailable_without_episode_identity():
+    batch = _batch()
+    del batch.non_tensor_batch["rollout_id_list"]
+    result = batch_diagnostics(batch)
+    assert result["reliability/reward_groups_available"] == 0
+    assert "reliability/success/calls" not in result
+    assert "reliability/advantages/success/token_mean" not in result
+
+
 def test_all_padding_and_missing_optional_inputs_are_explicit():
     batch = _batch()
     batch.non_tensor_batch["is_pad"] = [True] * 4
