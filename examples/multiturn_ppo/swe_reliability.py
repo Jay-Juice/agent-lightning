@@ -65,7 +65,11 @@ def grade_fixed_patch(grader, row, patch, directory, *, retry_errors, deadline):
     success. Transport failures alone permit one additional grading attempt.
     Controls run after the agent sandbox closes and never enter its context.
     """
-    from swe_grading_evidence import AMBIGUOUS_EXITS, classify_controlled_failure
+    from swe_grading_evidence import (
+        AMBIGUOUS_EXITS,
+        classify_controlled_failure,
+        classify_replayed_candidate_syntax_error,
+    )
 
     def run(name, *, reference=False):
         for attempt in range(2):
@@ -87,14 +91,22 @@ def grade_fixed_patch(grader, row, patch, directory, *, retry_errors, deadline):
     report = {**report, "grading_attempts": attempts}
     if report.get("pytest_exit") in AMBIGUOUS_EXITS:
         reference, _ = run("grading-reference", reference=True)
-        evidence = {"reference": reference, "replay": None}
+        replay, _ = run("grading-replay")
+        evidence = {"reference": reference, "replay": replay}
+        failure = None
         # An unhealthy reference cannot establish candidate failure.
         if reference.get("resolved") is True and reference.get("pytest_exit") == 0:
-            replay, _ = run("grading-replay")
-            evidence["replay"] = replay
             failure = classify_controlled_failure(report, reference, replay)
-            if failure:
-                report["controlled_failure"] = failure
+        if not failure:
+            first_output = (directory / "grading-attempt-0" / "test-output.txt")
+            replay_output = (directory / "grading-replay-0" / "test-output.txt")
+            if first_output.is_file() and replay_output.is_file():
+                failure = classify_replayed_candidate_syntax_error(
+                    report, replay, patch, first_output.read_text(errors="replace"),
+                    replay_output.read_text(errors="replace"),
+                )
+        if failure:
+            report["controlled_failure"] = failure
         (directory / "grading-adjudication.json").write_text(json.dumps(evidence, indent=2))
     report["grading_status"] = grading_status(report)
     (directory / "grade.json").write_text(json.dumps(report, indent=2))

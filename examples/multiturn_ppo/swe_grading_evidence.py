@@ -3,9 +3,73 @@
 
 import hashlib
 import json
+import re
+from pathlib import PurePosixPath
 from pathlib import Path
 
 AMBIGUOUS_EXITS = frozenset({2, 3, 4, 5, 120, 124, 137})
+
+
+def _safe_relative_path(value):
+    path = PurePosixPath(value)
+    if path.is_absolute() or not path.parts or any(part in {"", ".", ".."} for part in path.parts):
+        return None
+    return str(path)
+
+
+def _changed_paths(patch):
+    paths = set()
+    for line in patch.splitlines():
+        if not line.startswith("+++ "):
+            continue
+        value = line[4:].split("\t", 1)[0]
+        if value == "/dev/null":
+            continue
+        if value.startswith("b/"):
+            value = value[2:]
+        path = _safe_relative_path(value)
+        if path:
+            paths.add(path)
+    return paths
+
+
+def _syntax_error_paths(output):
+    paths = set()
+    pattern = re.compile(r'^\s*(?:E\s+)?File "/testbed/([^"\r\n]+)", line \d+', re.MULTILINE)
+    if "SyntaxError:" not in output:
+        return paths
+    for value in pattern.findall(output):
+        path = _safe_relative_path(value)
+        if path:
+            paths.add(path)
+    return paths
+
+
+def classify_replayed_candidate_syntax_error(original, replay, patch, original_output, replay_output):
+    """Classify a deterministic syntax error in a candidate-modified source file.
+
+    This evidence is independent of the reference patch.  It is useful when a
+    task's reference control is itself unhealthy, while still requiring the
+    exact candidate, task, test selection, image and limits to reproduce.
+    """
+    if any(r.get("pytest_exit") != 4 or r.get("reward") != 0 or r.get("resolved") is not False
+           or r.get("reference_control") is not False for r in (original, replay)):
+        return None
+    fields = ("patch_sha256", "task_sha256", "test_spec_sha256", "container_memory_bytes",
+              "container_nano_cpus", "eval_timeout_seconds", "grading_protocol", "test_runner")
+    if any(original.get(key) is None or replay.get(key) != original[key] for key in fields):
+        return None
+    if original["patch_sha256"] != hashlib.sha256(patch.encode()).hexdigest():
+        return None
+    image = original.get("baseline", {}).get("image_id")
+    if not image or replay.get("baseline", {}).get("image_id") != image:
+        return None
+    changed = _changed_paths(patch)
+    first = _syntax_error_paths(original_output)
+    second = _syntax_error_paths(replay_output)
+    if not first or first != second or not first.issubset(changed):
+        return None
+    return "candidate_source_syntax_error"
 
 
 def task_digest(row):

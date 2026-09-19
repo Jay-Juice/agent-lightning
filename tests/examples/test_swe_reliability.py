@@ -1,4 +1,5 @@
 # Copyright (c) Microsoft. All rights reserved.
+import hashlib
 import importlib
 import signal
 import time
@@ -95,7 +96,35 @@ def test_control_disagreement_never_selects_lucky_reward(helpers, tmp_path, mode
     result = helpers.grade_fixed_patch(grade, {}, "candidate", tmp_path,
                                       retry_errors=(ConnectionError,), deadline=time.monotonic() + 10)
     assert result["reward"] == 0 and result["grading_status"] == "requires_review"
-    assert len(calls) == (2 if mode == "bad_reference" else 3)
+    assert len(calls) == 3
+
+
+@pytest.mark.skipif(not hasattr(signal, "setitimer"), reason="Linux agent deadline")
+def test_replayed_candidate_syntax_error_is_failure_with_bad_reference(helpers, tmp_path):
+    calls = []
+    patch = """diff --git a/src/pkg.py b/src/pkg.py
+--- a/src/pkg.py
++++ b/src/pkg.py
+@@ -1 +1 @@
+-value = 1
++value = (
+"""
+
+    def grade(row, candidate, target, *, reference=False):
+        calls.append(reference)
+        if reference:
+            return report(1, True)
+        (target / "test-output.txt").write_text(
+            'E     File "/testbed/src/pkg.py", line 1\nE       value = (\nE               ^\nE   SyntaxError: invalid syntax\n'
+        )
+        return {**report(4), "patch_sha256": hashlib.sha256(candidate.encode()).hexdigest()}
+
+    result = helpers.grade_fixed_patch(grade, {}, patch, tmp_path,
+                                      retry_errors=(ConnectionError,), deadline=time.monotonic() + 10)
+    assert calls == [False, True, False]
+    assert result["reward"] == 0
+    assert result["grading_status"] == "candidate_failed"
+    assert result["controlled_failure"] == "candidate_source_syntax_error"
 
 
 @pytest.mark.parametrize("change", ["patch", "image", "task", "tests", "limits", "missing", "oom", "original_oom",
