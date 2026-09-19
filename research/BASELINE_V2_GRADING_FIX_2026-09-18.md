@@ -314,3 +314,11 @@ actor/kl_loss 为跨 minibatch 累加量，不能跨 minibatch 配方直接比�
 - A行为同步变差：step40→60提交422→406，格式终止7→15，length题14→24，平均输出2758.69→3150.65 tokens。B对应448→416、3→9、5→14、1863.22→2415.03。两组仍未触发预设停止阈值（提交率<80%、格式>5%、length>10%、输出超过初始2倍），但A的修复率和行为共同恶化，不能称健康学习收益。
 - step60训练batch的规范化old-vs-reference sampled-k3 token均值A=.06764、B=.07433，接近；不能用累加actor/kl_loss解释组间差异。value EV A=.10326、B=-.01186，单batch不能证明A Critic整体更好。Actor/Critic optimizer skipped均0，未见NaN/Inf或基础设施失败。
 - 当前不热改或自动停止。A的趋势已成为明确警报，下一判断应结合逐题配对结果与用户正在准备的新仓库；若继续当前实验，step80不应只凭未崩溃继续到784。此前提出的固定轨迹Critic minibatch128/32诊断仍是更可归因的下一试验。
+
+## 2026-09-20 05:05（北京时间）：B在step76评分闭锁，隔离修复并启动环境审计
+
+- B已完整保存step75，随后第76批32/32 rollout执行结束，但任务 `pydicom__pydicom.7d361b3d.func_pm_class_rm_funcs__dor4eblx` 返回 `requires_review`，训练按可靠性合约退出1；没有保存或应用step76更新。A继续在原源码、GPU0–3运行，未受修改。
+- 候选补丁在同一生产文件重复插入多个 `read()`，导致 `/testbed/src/pydicom/encaps.py` 明确 `SyntaxError`、pytest exit4。reference control本身17项失败，旧裁定逻辑因reference不健康而没有运行候选replay，因而无法把即使明显由候选引起的语法错误裁为普通失败。
+- 本地修复仅对严格证据成立：同一候选、任务、测试选择、镜像和资源限制必须replay；两次均exit4/reward0，Python traceback中的SyntaxError路径必须完全一致并属于候选patch实际修改路径，且patch内容hash必须匹配。否则仍保持requires_review。Linux定向35项通过，真实失败artifact回放得到`candidate_source_syntax_error`。
+- 没有热同步A的活跃源码。修复部署到独立目录 `/media/ubuntu/D1/zsj/agent-lightning-baseline-v2-recovery-20260920`；step75完整点和第76批精确data_id预检通过。首次恢复启动被旧环境审计源码hash正确拒绝，没有启动训练。
+- 已启动无GPU的新完整124镜像审计：screen `agl-v2-syntaxfix-audit-20260920-01`，输出 `swe-full-python-envs-reliable-v2-syntaxfix-20260920-01`。审计通过后才允许从step75单次恢复B；不修改或伪造旧signature，不绕过门槛。GPU4–7当前空闲。
