@@ -272,3 +272,12 @@ A启动核验已完成：全124镜像对应6718任务分支检查通过，四卡
 - 单步已记录耗时A约17.0–23.7分钟、B17.0–28.2分钟，Actor和Critic更新各约5–7分钟，另有rollout与logprob/value计算；当前GPU满负载，并非screen空转。保持本轮A/B可比口径，暂不混入吞吐优化或学习参数调整；step40/80再评估效果和预算。
 - 本次完整checkpoint仍为两组各step15/20（每点24个非空Actor/Critic pt、91.36GiB、data.pt和完成标记存在）；step25尚未完成保存。原根reliability-failure-step-23.json来自01旧失败，不能只凭该文件判定02失败。后续重点核验新25完整落盘后轮换15、共享锁和112GiB写前保护生效；不得把残留step5/10元数据误认完整点。
 - 决策：原参数继续累计784步，不新增任务、不重采样补题、不改KL/gamma/lambda或学习率。下轮检查新完整checkpoint、运行前进及step40验证。
+
+## 2026-09-19 11:15（北京时间）：新checkpoint落盘及跨恢复轮换通过
+
+- 本轮通过Windows OpenSSH BatchMode仅只读检查02双组screen、trainer/metrics、原checkpoint根及GPU/磁盘。A完整记录step30并进入31采样（1/32完成），B完整记录29并进入30 Actor更新（48/82 forwards）；两screen存活、run.exit均不存在，日志持续前进。未重启、停止、手动清理或改参数。
+- 关键验收完成：A保存25时轮换15、保存30时轮换20；B保存25时轮换15，均有RELIABILITY_CHECKPOINT_RETENTION日志。当前完整A25/30、B20/25，每点24个非空角色pt、约91.36GiB，data.pt及匹配step的reliability-state.json存在。旧目录保留metadata，不含完整权重。只核对落盘与标记，本轮未重新加载新点。
+- 注意A20已被正常保留策略轮换，不可再调用硬编码step20的旧research/run_ab_continuation.sh做未来恢复！若之后真实故障，必须重新核对每组最新完整点、dataloader和预期下一批后准备新的恢复入口；当前运行正常，不需要恢复。B20也将在完整30落盘后轮换。
+- A step28/29/30训练奖励4/32、8/32、4/32，提交29/31/29，格式终止0/0/1，平均输出2811/1988/3455 tokens。A30 value MSE=.131202、EV=-.014221、KL=.094672、clip fraction=.002581、Actor/Critic裁剪前grad norm=2.04/8.49。B27/28/29奖励5/32、3/32、8/32，提交29/30/27，格式终止均0，输出2530/1979/2471；B29 MSE=.109329、EV=.011953、KL=.136762、clip fraction=.003193、grad norm=2.96/12.69。所有已记录数值有限、optimizer skipped全为0，暂无持续行为塌缩；value EV仍接近0，不能称Critic充分拟合。B近期KL约.137–.158，继续观察，尚无根据单独调参破坏A/B口径。
+- 尚无step40完整验证，最近验证仍是恢复前step20的随机重测A74/B81，不解释为新增训练收益。维持原参数至step40/80节点，不能用不同训练batch的奖励波动判定优劣。
+- D1空闲294.46GiB。虽低于295GiB新启动门槛，但当前任务已在运行，明显高于112GiB单次保存保护线；不因此删除额外checkpoint或降低保护。GPU0–3处于rollout，利用率56–74%、显存约25GiB；4–7处于Actor更新，利用率92–100%、约40–41GiB。正常按不同阶段变化，不误报空转。下轮核验B30及两组后续35保存与40验证。
